@@ -1,0 +1,11 @@
+#!/bin/sh
+# Optional Widevine CDM integration; keep PySide6's matching WebEngine helper.
+if [ -r /opt/WidevineCdm/gmp-widevinecdm/latest/libwidevinecdm.so ]; then
+    case " ${QTWEBENGINE_CHROMIUM_FLAGS:-} " in
+        *" --widevine-path="*) ;;
+        *) export QTWEBENGINE_CHROMIUM_FLAGS="${QTWEBENGINE_CHROMIUM_FLAGS:+$QTWEBENGINE_CHROMIUM_FLAGS }--widevine-path=/opt/WidevineCdm/gmp-widevinecdm/latest/libwidevinecdm.so" ;;
+    esac
+fi
+# -s disables the per-user site directory (~/.local/lib/pythonX.Y/site-packages).
+# This prevents a pip PySide6 installation from overriding Debian's Qt packages.
+exec /usr/bin/python3 -s /usr/share/lunasurfer/lunasurfer.py "$@"

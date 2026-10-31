@@ -1,0 +1,6 @@
+lunasurfer usr/bin/
+lunasurfer.py usr/share/lunasurfer/
+VERSION usr/share/lunasurfer/
+README.md usr/share/doc/lunasurfer/
+CHANGELOG.md usr/share/doc/lunasurfer/
+debian/lunasurfer.desktop usr/share/applications/

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=LunaSurfer
+Comment=QtWebEngine web browser
+Exec=lunasurfer %U
+Icon=web-browser
+Terminal=false
+Type=Application
+Categories=Network;WebBrowser;
+StartupNotify=true
+MimeType=text/html;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
