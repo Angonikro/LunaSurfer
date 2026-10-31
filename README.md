@@ -1,4 +1,4 @@
-# LunaSurfer 0.3.20
+# LunaSurfer 0.3.21
 
 Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 
@@ -46,7 +46,7 @@ sudo apt install python3-pyside6.qtwidgets python3-pyside6.qtwebenginewidgets xd
 ## Installation
 
 ```bash
-sudo apt install ./lunasurfer_0.3.20_all.deb
+sudo apt install ./lunasurfer_0.3.21_all.deb
 ```
 
 ## Start aus dem Quellcode

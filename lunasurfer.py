@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.20 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.21 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -199,7 +199,7 @@ class BrowserView(QWebEngineView):
 class LunaSurfer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LunaSurfer 0.3.20")
+        self.setWindowTitle("LunaSurfer 0.3.21")
         self.resize(1250, 820)
         self.settings_data = read_json(CONFIG_FILE, {
             "home": "https://duckduckgo.com",
@@ -224,7 +224,8 @@ class LunaSurfer(QMainWindow):
             "remember_window_size": True,
             "window_geometry": None,
             "font_size": "Mittel",
-            "language": "de"
+            "language": "de",
+            "default_browser": False
         })
         if self.settings_data.get("remember_window_size", True):
             geometry = self.settings_data.get("window_geometry")
@@ -754,20 +755,39 @@ class LunaSurfer(QMainWindow):
         clear_cache_exit=QCheckBox(self.tr("Cache beim Beenden automatisch löschen", "Automatically clear cache on exit")); clear_cache_exit.setChecked(self.settings_data.get("clear_cache_on_exit",False))
         clear_cookies_exit=QCheckBox(self.tr("Cookies beim Beenden automatisch löschen", "Automatically clear cookies on exit")); clear_cookies_exit.setChecked(self.settings_data.get("clear_cookies_on_exit",False))
         remember_window_size=QCheckBox(self.tr("Fenstergröße und Position beim Beenden merken", "Remember window size and position on exit")); remember_window_size.setChecked(self.settings_data.get("remember_window_size",True))
+        default_browser=QCheckBox(self.tr("LunaSurfer als Standardbrowser verwenden", "Use LunaSurfer as default browser")); default_browser.setChecked(self.settings_data.get("default_browser",False))
         form.addRow(self.tr("Sprache:", "Language:"), language); form.addRow(self.tr("Beim Start:", "On startup:"),startup); form.addRow(self.tr("Startseite:", "Homepage:"),home); form.addRow(self.tr("Suchmaschine:", "Search engine:"),engine); form.addRow(self.tr("Webseiten-Design:", "Website appearance:"),theme); form.addRow("",show_bookmarks_bar); form.addRow(self.tr("Download-Ordner:", "Download folder:"),row); form.addRow("",ask_download); form.addRow(self.tr("Standard-Zoom:", "Default zoom:"),zoom); form.addRow(self.tr("Standard-Schriftgröße:", "Default font size:"),font_size); form.addRow(self.tr("Sicherheit:", "Security:"),block); form.addRow("",dnt); form.addRow(self.tr("Browser-Verhalten:", "Browser behavior:"),confirm_tabs)
-        privacy=QHBoxLayout(); a=QPushButton(self.tr("Verlauf löschen", "Clear history")); b=QPushButton(self.tr("Cache löschen", "Clear cache")); c=QPushButton(self.tr("Cookies löschen", "Clear cookies")); [privacy.addWidget(x) for x in (a,b,c)]; form.addRow(self.tr("Browserdaten:", "Browser data:"),privacy); form.addRow("",clear_history_exit); form.addRow("",clear_cache_exit); form.addRow("",clear_cookies_exit); form.addRow("",remember_window_size); a.clicked.connect(self.clear_history); b.clicked.connect(self.clear_cache); c.clicked.connect(self.clear_cookies)
+        privacy=QHBoxLayout(); a=QPushButton(self.tr("Verlauf löschen", "Clear history")); b=QPushButton(self.tr("Cache löschen", "Clear cache")); c=QPushButton(self.tr("Cookies löschen", "Clear cookies")); [privacy.addWidget(x) for x in (a,b,c)]; form.addRow(self.tr("Browserdaten:", "Browser data:"),privacy); form.addRow("",clear_history_exit); form.addRow("",clear_cache_exit); form.addRow("",clear_cookies_exit); form.addRow("",remember_window_size); form.addRow("",default_browser); a.clicked.connect(self.clear_history); b.clicked.connect(self.clear_cache); c.clicked.connect(self.clear_cookies)
         buttons=QHBoxLayout(); save=QPushButton(self.tr("Speichern", "Save")); cancel=QPushButton(self.tr("Abbrechen", "Cancel")); buttons.addWidget(save); buttons.addWidget(cancel); form.addRow(buttons)
-        save.clicked.connect(lambda:self.save_settings_v39(dialog,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData()))
+        save.clicked.connect(lambda:self.save_settings_v39(dialog,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData(),default_browser.isChecked()))
         cancel.clicked.connect(dialog.reject); dialog.exec()
 
-    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de"):
+    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de", default_browser=False):
         chosen=pathlib.Path(download_dir.strip() or str(DOWNLOAD_DIR)).expanduser()
-        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"remember_window_size":bool(remember_window_size),"language":language or "de",**permissions})
+        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"remember_window_size":bool(remember_window_size),"language":language or "de","default_browser":bool(default_browser),**permissions})
         old_language = self.settings_data.get("language", "de")
-        self.download_dir=chosen; write_json(CONFIG_FILE,self.settings_data); self.apply_language_live()
+        self.download_dir=chosen; write_json(CONFIG_FILE,self.settings_data); self.set_default_browser(bool(default_browser)); self.apply_language_live()
         self.bookmarks_bar.setVisible(self.settings_data["show_bookmarks_bar"]); self.apply_theme_to_all_tabs()
         for i in range(self.tabs.count()): self.tabs.widget(i).setZoomFactor(self.settings_data["default_zoom"]/100.0)
         dialog.accept()
+
+    def set_default_browser(self, enabled):
+        """Register or unregister LunaSurfer as the preferred browser for this user."""
+        import subprocess
+        try:
+            if enabled:
+                subprocess.run(["xdg-settings", "set", "default-web-browser", "lunasurfer.desktop"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                for mime in ("x-scheme-handler/http", "x-scheme-handler/https", "text/html", "application/xhtml+xml"):
+                    subprocess.run(["xdg-mime", "default", "lunasurfer.desktop", mime], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                # Remove LunaSurfer's per-user MIME associations without choosing another browser.
+                mimeapps = pathlib.Path.home() / ".config" / "mimeapps.list"
+                if mimeapps.exists():
+                    text = mimeapps.read_text(errors="ignore")
+                    lines = [line for line in text.splitlines() if "lunasurfer.desktop" not in line]
+                    mimeapps.write_text("\n".join(lines) + ("\n" if lines else ""))
+        except Exception:
+            pass
 
     def choose_download_dir(self, field):
         selected = QFileDialog.getExistingDirectory(self, "Download-Ordner auswählen", field.text() or str(DOWNLOAD_DIR))
@@ -813,13 +833,24 @@ class LunaSurfer(QMainWindow):
         dialog.accept()
 
     def about(self):
-        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.20\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
+        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.21\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
 
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("Goldisoft")
     window = LunaSurfer()
+    # Desktop launchers pass the requested URL via %U.  Load it after the
+    # startup tab has been created so the requested page replaces the homepage.
+    requested = next((arg for arg in sys.argv[1:] if arg and not arg.startswith("-")), "")
+    if requested:
+        url = QUrl.fromUserInput(requested)
+        if url.isValid() and not url.isEmpty():
+            view = window.current_view()
+            if view:
+                view.load(url)
+            else:
+                window.add_tab(url.toString())
     window.show()
     sys.exit(app.exec())
 

@@ -1,6 +1,10 @@
 # Changelog
-## 0.3.20 – 2026-10-31
+## 0.3.21 – 2026-10-31
+-  Start-URLs korrigiert: Wenn LunaSurfer als Standardbrowser verwendet wird und ein Link von einem anderen Programm geöffnet wird, soll jetzt direkt die übergebene URL geöffnet werden – nicht nur die Startseite.
+- Neue Einstellung: Unter Einstellungen gibt es jetzt die Option „LunaSurfer als Standardbrowser verwenden“ mit Ja/Nein.
+- Dabei sollte der restliche Stand der funktionierenden Version erhalten bleiben.
 
+## 0.3.20 – 2026-10-31
 - Korrektur: Das Rechtsklick-Kontextmenü direkt im URL-/Adressfeld wird jetzt von LunaSurfer selbst bereitgestellt und folgt zuverlässig der ausgewählten Sprache.
 - Deutsch: Rückgängig, Wiederholen, Ausschneiden, Kopieren, Einfügen, Löschen, Alles auswählen.
 - Englisch: Undo, Redo, Cut, Copy, Paste, Delete, Select All.
