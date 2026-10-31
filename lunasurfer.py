@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.8 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.16 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -74,8 +74,12 @@ class BrowserView(QWebEngineView):
     def contextMenuEvent(self, event):
         """Show QtWebEngine's full context menu with German labels."""
         menu = self.createStandardContextMenu()
+        if self.window_ref.settings_data.get("language", "de") == "en":
+            menu.exec(event.globalPos())
+            event.accept()
+            return
         translations = {
-            "back": "Zurück", "forward": "Vorwärts", "reload": "Neu laden",
+            "back": self.tr("Zurück", "Back"), "forward": self.tr("Vorwärts", "Forward"), "reload": self.tr("Neu laden", "Reload"),
             "save page": "Seite speichern unter…", "view page source": "Seitenquelltext anzeigen",
             "undo": "Rückgängig", "redo": "Wiederholen", "cut": "Ausschneiden",
             "copy": "Kopieren", "paste": "Einfügen", "delete": "Löschen",
@@ -152,7 +156,7 @@ class BrowserView(QWebEngineView):
 class LunaSurfer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LunaSurfer 0.3.9")
+        self.setWindowTitle("LunaSurfer 0.3.16")
         self.resize(1250, 820)
         self.settings_data = read_json(CONFIG_FILE, {
             "home": "https://duckduckgo.com",
@@ -174,8 +178,18 @@ class LunaSurfer(QMainWindow):
             "ask_download_location": False,
             "send_dnt": False,
             "confirm_close_multiple_tabs": True,
-            "font_size": "Mittel"
+            "remember_window_size": True,
+            "window_geometry": None,
+            "font_size": "Mittel",
+            "language": "de"
         })
+        if self.settings_data.get("remember_window_size", True):
+            geometry = self.settings_data.get("window_geometry")
+            if isinstance(geometry, (list, tuple)) and len(geometry) == 4:
+                try:
+                    self.setGeometry(*[int(v) for v in geometry])
+                except (TypeError, ValueError):
+                    pass
         self.profile = QWebEngineProfile("LunaSurfer", self)
         self.profile.setPersistentStoragePath(str(DATA_DIR / "webengine"))
         self.profile.setCachePath(str(pathlib.Path.home() / ".cache" / "lunasurfer" / "webengine"))
@@ -189,8 +203,18 @@ class LunaSurfer(QMainWindow):
         self.tabs.setDocumentMode(True)
         self.tabs.setMovable(True)
         self.tabs.setTabsClosable(True)
+        self.tabs.tabBar().setExpanding(False)
+        self.tabs.tabBar().setUsesScrollButtons(True)
         self.tabs.tabCloseRequested.connect(self.close_tab)
         self.tabs.currentChanged.connect(self.on_tab_changed)
+        # Chromium-style + button directly at the end of the tab bar.
+        self.new_tab_button = QToolButton(self.tabs)
+        self.new_tab_button.setText("+")
+        self.new_tab_button.setToolTip("Neuer Tab / New tab")
+        self.new_tab_button.setFixedSize(42, 34)
+        self.new_tab_button.setStyleSheet("font-size: 24px; font-weight: bold; color: #ffffff; background: #1769aa; border: 1px solid #5fa8e8; border-radius: 6px; margin: 2px;")
+        self.new_tab_button.clicked.connect(lambda: self.add_tab(self.settings_data.get("home", "https://duckduckgo.com")))
+        self.tabs.setCornerWidget(self.new_tab_button, Qt.Corner.TopRightCorner)
         self.setCentralWidget(self.tabs)
 
         bar = QToolBar("Navigation")
@@ -200,21 +224,21 @@ class LunaSurfer(QMainWindow):
         self.addToolBar(bar)
 
         style = QApplication.style()
-        self.back_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowBack), "", self); self.back_action.setToolTip("Zurück")
+        self.back_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowBack), "", self); self.back_action.setToolTip(self.tr("Zurück", "Back"))
         self.back_action.triggered.connect(lambda: self.current_view() and self.current_view().back())
         bar.addAction(self.back_action)
-        self.forward_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowForward), "", self); self.forward_action.setToolTip("Vorwärts")
+        self.forward_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowForward), "", self); self.forward_action.setToolTip(self.tr("Vorwärts", "Forward"))
         self.forward_action.triggered.connect(lambda: self.current_view() and self.current_view().forward())
         bar.addAction(self.forward_action)
-        reload_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload), "", self); reload_action.setToolTip("Neu laden")
-        reload_action.triggered.connect(lambda: self.current_view() and self.current_view().reload())
-        bar.addAction(reload_action)
-        home_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon), "", self); home_action.setToolTip("Startseite")
-        home_action.triggered.connect(self.go_home)
-        bar.addAction(home_action)
+        self.reload_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload), "", self); self.reload_action.setToolTip(self.tr("Neu laden", "Reload"))
+        self.reload_action.triggered.connect(lambda: self.current_view() and self.current_view().reload())
+        bar.addAction(self.reload_action)
+        self.home_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon), "", self); self.home_action.setToolTip(self.tr("Startseite", "Home"))
+        self.home_action.triggered.connect(self.go_home)
+        bar.addAction(self.home_action)
 
         self.address = QLineEdit()
-        self.address.setPlaceholderText("Adresse oder Suchbegriff eingeben")
+        self.address.setPlaceholderText(self.tr("Adresse oder Suchbegriff eingeben", "Enter address or search"))
         self.address.returnPressed.connect(self.navigate)
         self.address.setClearButtonEnabled(True)
         # Give the address field substantially more room, similar to Chromium.
@@ -222,29 +246,29 @@ class LunaSurfer(QMainWindow):
         self.address.setSizePolicy(self.address.sizePolicy().horizontalPolicy(), self.address.sizePolicy().verticalPolicy())
         bar.addWidget(self.address)
 
-        star = QAction("★", self)
-        star.setToolTip("Aktuelle Seite als Lesezeichen hinzufügen")
-        star.triggered.connect(self.add_bookmark)
-        bar.addAction(star)
-        newtab = QAction(style.standardIcon(QStyle.StandardPixmap.SP_FileDialogNewFolder), "", self); newtab.setToolTip("Neuer Tab")
-        newtab.triggered.connect(lambda: self.add_tab(self.settings_data["home"]))
-        bar.addAction(newtab)
+        self.star_action = QAction("★", self)
+        self.star_action.setToolTip(self.tr("Aktuelle Seite als Lesezeichen hinzufügen", "Add current page to bookmarks"))
+        self.star_action.triggered.connect(self.add_bookmark)
+        bar.addAction(self.star_action)
+        self.newtab_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_FileDialogNewFolder), "", self); self.newtab_action.setToolTip(self.tr("Neuer Tab", "New tab"))
+        self.newtab_action.triggered.connect(lambda: self.add_tab(self.settings_data["home"]))
+        bar.addAction(self.newtab_action)
 
-        menu = QMenu("Menü", self)
-        menu.addAction("Neuer Tab", lambda: self.add_tab(self.settings_data["home"]))
-        menu.addAction("Lesezeichen", self.show_bookmarks)
-        menu.addAction("Verlauf", self.show_history)
+        menu = QMenu(self.tr("Menü", "Menu"), self)
+        menu.addAction(self.tr("Neuer Tab", "New tab"), lambda: self.add_tab(self.settings_data["home"]))
+        menu.addAction(self.tr("Lesezeichen", "Bookmarks"), self.show_bookmarks)
+        menu.addAction(self.tr("Verlauf", "History"), self.show_history)
         menu.addAction("Downloads-Ordner öffnen", self.open_downloads)
         menu.addSeparator()
-        menu.addAction("Einstellungen", self.show_settings)
-        menu.addAction("Über LunaSurfer", self.about)
-        menu_button = QToolButton()
-        menu_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_TitleBarMenuButton))
-        menu_button.setIconSize(QSize(28, 28))
-        menu_button.setToolTip("Menü")
-        menu_button.setMenu(menu)
-        menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        bar.addWidget(menu_button)
+        menu.addAction(self.tr("Einstellungen", "Settings"), self.show_settings)
+        menu.addAction(self.tr("Über LunaSurfer", "About LunaSurfer"), self.about)
+        self.menu_button = QToolButton()
+        self.menu_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_TitleBarMenuButton))
+        self.menu_button.setIconSize(QSize(28, 28))
+        self.menu_button.setToolTip(self.tr("Menü", "Menu"))
+        self.menu_button.setMenu(menu)
+        self.menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        bar.addWidget(self.menu_button)
 
         # Force a separate toolbar row so the bookmarks bar is always directly
         # below the URL/navigation bar, like Chromium.
@@ -260,7 +284,7 @@ class LunaSurfer(QMainWindow):
         self.refresh_bookmarks_bar()
         self.bookmarks_bar.setVisible(self.settings_data.get("show_bookmarks_bar", True))
 
-        self.statusBar().showMessage("Bereit")
+        self.statusBar().showMessage("Bereit / Ready")
         self.setStyleSheet("""
             QMainWindow { background: #101827; }
             QToolBar { background: #17263b; border: 0; spacing: 8px; padding: 8px 10px; }
@@ -272,6 +296,7 @@ class LunaSurfer(QMainWindow):
             QTabWidget::pane { border: 0; background: #101827; }
             QTabBar::tab { background: #1c2c42; color: #dce8f8; padding: 9px 16px; margin-right: 2px; }
             QTabBar::tab:selected { background: #1769aa; color: white; }
+            QTabWidget QToolButton { min-width: 42px; min-height: 34px; }
             QStatusBar { background: #142238; color: #dce8f8; }
         """)
         self.restore_or_open_start_page()
@@ -289,6 +314,38 @@ class LunaSurfer(QMainWindow):
             action = QAction(self); action.setShortcut(QKeySequence(seq)); action.triggered.connect(callback)
             self.addAction(action)
 
+    def tr(self, de, en):
+        """Return the selected application language."""
+        return en if self.settings_data.get("language", "de") == "en" else de
+
+
+    def apply_language_live(self):
+        """Update visible application texts immediately after a language change."""
+        self.back_action.setToolTip(self.tr("Zurück", "Back"))
+        self.forward_action.setToolTip(self.tr("Vorwärts", "Forward"))
+        self.reload_action.setToolTip(self.tr("Neu laden", "Reload"))
+        self.home_action.setToolTip(self.tr("Startseite", "Home"))
+        self.star_action.setToolTip(self.tr("Aktuelle Seite als Lesezeichen hinzufügen", "Add current page to bookmarks"))
+        self.newtab_action.setToolTip(self.tr("Neuer Tab", "New tab"))
+        self.new_tab_button.setToolTip(self.tr("Neuer Tab", "New tab"))
+        self.address.setPlaceholderText(self.tr("Adresse oder Suchbegriff eingeben", "Enter address or search"))
+        self.bookmarks_bar.setWindowTitle(self.tr("Lesezeichenleiste", "Bookmarks bar"))
+        self.statusBar().showMessage(self.tr("Bereit", "Ready"), 3000)
+        for i in range(self.tabs.count()):
+            if self.tabs.tabText(i) in ("Neuer Tab", "New tab"):
+                self.tabs.setTabText(i, self.tr("Neuer Tab", "New tab"))
+        # Rebuild the popup menu so all menu entries are translated as well.
+        menu = QMenu(self.tr("Menü", "Menu"), self)
+        menu.addAction(self.tr("Neuer Tab", "New tab"), lambda: self.add_tab(self.settings_data["home"]))
+        menu.addAction(self.tr("Lesezeichen", "Bookmarks"), self.show_bookmarks)
+        menu.addAction(self.tr("Verlauf", "History"), self.show_history)
+        menu.addAction(self.tr("Downloads-Ordner öffnen", "Open downloads folder"), self.open_downloads)
+        menu.addSeparator()
+        menu.addAction(self.tr("Einstellungen", "Settings"), self.show_settings)
+        menu.addAction(self.tr("Über LunaSurfer", "About LunaSurfer"), self.about)
+        self.menu_button.setMenu(menu)
+        self.menu_button.setToolTip(self.tr("Menü", "Menu"))
+
     def current_view(self):
         w = self.tabs.currentWidget()
         return w if isinstance(w, BrowserView) else None
@@ -300,7 +357,7 @@ class LunaSurfer(QMainWindow):
         self.apply_page_theme(view)
         self.apply_font_size(view)
         view.setZoomFactor(int(self.settings_data.get("default_zoom", 100)) / 100.0)
-        index = self.tabs.addTab(view, "Neuer Tab")
+        index = self.tabs.addTab(view, self.tr("Neuer Tab", "New tab"))
         if switch: self.tabs.setCurrentIndex(index)
         view.load(QUrl(url or self.settings_data.get("home", "https://duckduckgo.com")))
         return view
@@ -338,7 +395,7 @@ class LunaSurfer(QMainWindow):
 
     def update_tab_title(self, view, title):
         index = self.tabs.indexOf(view)
-        if index >= 0: self.tabs.setTabText(index, (title or "Neuer Tab")[:24])
+        if index >= 0: self.tabs.setTabText(index, (title or self.tr("Neuer Tab", "New tab"))[:24])
 
     def on_tab_changed(self, index):
         view = self.current_view()
@@ -533,7 +590,7 @@ class LunaSurfer(QMainWindow):
         populate()
         dialog.exec()
 
-    def show_history(self): self.show_list_dialog("Verlauf", HISTORY_FILE, "url")
+    def show_history(self): self.show_list_dialog(self.tr("Verlauf", "History"), HISTORY_FILE, "url")
 
     def on_download(self, download):
         suggested = download.suggestedFileName() or "download"
@@ -547,6 +604,7 @@ class LunaSurfer(QMainWindow):
             download.setDownloadDirectory(str(target.parent))
             download.setDownloadFileName(target.name)
             download.accept()
+            self.watch_download_finished(download, target)
             self.statusBar().showMessage(f"Download gestartet: {target.name}", 5000)
             return
         self.download_dir.mkdir(parents=True, exist_ok=True)
@@ -559,7 +617,20 @@ class LunaSurfer(QMainWindow):
         download.setDownloadDirectory(str(target.parent))
         download.setDownloadFileName(target.name)
         download.accept()
+        self.watch_download_finished(download, target)
         self.statusBar().showMessage(f"Download gestartet: {target.name}", 5000)
+
+    def watch_download_finished(self, download, target):
+        """Show a small notification when a WebEngine download has finished."""
+        def check_finished():
+            if download.isFinished():
+                self.statusBar().showMessage(f"Download fertig: {target.name}", 8000)
+                QMessageBox.information(
+                    self,
+                    "Download fertig",
+                    f"Der Download wurde abgeschlossen:\n{target.name}\n\nGespeichert in:\n{target.parent}"
+                )
+        download.isFinishedChanged.connect(check_finished)
 
     def open_downloads(self):
         import subprocess
@@ -579,6 +650,12 @@ class LunaSurfer(QMainWindow):
         self.add_tab("about:blank" if mode == "blank" else self.settings_data.get("home", "https://duckduckgo.com"))
 
     def closeEvent(self, event):
+        if self.settings_data.get("remember_window_size", True):
+            g = self.geometry()
+            self.settings_data["window_geometry"] = [g.x(), g.y(), g.width(), g.height()]
+        else:
+            self.settings_data["window_geometry"] = None
+        write_json(CONFIG_FILE, self.settings_data)
         urls = []
         for i in range(self.tabs.count()):
             view = self.tabs.widget(i)
@@ -603,43 +680,49 @@ class LunaSurfer(QMainWindow):
             QMessageBox.information(self, "Verlauf gelöscht", "Der Browserverlauf wurde gelöscht.")
 
     def show_settings(self):
-        dialog = QDialog(self); dialog.setWindowTitle("LunaSurfer – Einstellungen")
+        dialog = QDialog(self); dialog.setWindowTitle(self.tr("LunaSurfer – Einstellungen", "LunaSurfer – Settings"))
+        language = QComboBox(); language.addItem("Deutsch", "de"); language.addItem("English", "en"); language.setCurrentIndex(max(0, language.findData(self.settings_data.get("language", "de"))))
         form = QFormLayout(dialog)
-        startup = QComboBox(); startup.addItem("Startseite öffnen", "home"); startup.addItem("Letzte Sitzung wiederherstellen", "restore"); startup.addItem("Leere Seite öffnen", "blank")
+        startup = QComboBox(); startup.addItem(self.tr("Startseite öffnen", "Open homepage"), "home"); startup.addItem(self.tr("Letzte Sitzung wiederherstellen", "Restore last session"), "restore"); startup.addItem(self.tr("Leere Seite öffnen", "Open blank page"), "blank")
         startup.setCurrentIndex(max(0, startup.findData(self.settings_data.get("startup_mode", "home"))))
         home = QLineEdit(self.settings_data.get("home", "https://duckduckgo.com"))
         engine = QComboBox(); engines={"Google":"https://www.google.com/search?q={}","DuckDuckGo":"https://duckduckgo.com/?q={}","Bing":"https://www.bing.com/search?q={}"}
         for name,url in engines.items(): engine.addItem(name,url)
         saved_engine=self.settings_data.get("search_engine", "DuckDuckGo"); engine.setCurrentIndex(max(0,engine.findText(saved_engine)))
-        theme = QComboBox(); theme.addItem("Dunkel", "dark"); theme.addItem("Hell", "light"); theme.setCurrentIndex(0 if self.settings_data.get("theme", "dark") == "dark" else 1)
-        show_bookmarks_bar = QCheckBox("Lesezeichenleiste unter der Adressleiste anzeigen"); show_bookmarks_bar.setChecked(self.settings_data.get("show_bookmarks_bar", True))
-        download_dir = QLineEdit(str(self.download_dir)); choose_download = QPushButton("Ordner auswählen…"); row=QHBoxLayout(); row.addWidget(download_dir); row.addWidget(choose_download); choose_download.clicked.connect(lambda:self.choose_download_dir(download_dir))
+        theme = QComboBox(); theme.addItem(self.tr("Dunkel", "Dark"), "dark"); theme.addItem(self.tr("Hell", "Light"), "light"); theme.setCurrentIndex(0 if self.settings_data.get("theme", "dark") == "dark" else 1)
+        show_bookmarks_bar = QCheckBox(self.tr("Lesezeichenleiste unter der Adressleiste anzeigen", "Show bookmarks bar below the address bar")); show_bookmarks_bar.setChecked(self.settings_data.get("show_bookmarks_bar", True))
+        download_dir = QLineEdit(str(self.download_dir)); choose_download = QPushButton(self.tr("Ordner auswählen…", "Choose folder…")); row=QHBoxLayout(); row.addWidget(download_dir); row.addWidget(choose_download); choose_download.clicked.connect(lambda:self.choose_download_dir(download_dir))
         zoom=QComboBox()
         for value in (50,67,75,80,90,100,110,125,150,175,200): zoom.addItem(f"{value} %",value)
         zoom.setCurrentIndex(max(0,zoom.findData(int(self.settings_data.get("default_zoom",100)))))
-        ask_download=QCheckBox("Bei jedem Download nach dem Speicherort fragen"); ask_download.setChecked(self.settings_data.get("ask_download_location",False))
+        ask_download=QCheckBox(self.tr("Bei jedem Download nach dem Speicherort fragen", "Ask where to save each download")); ask_download.setChecked(self.settings_data.get("ask_download_location",False))
         font_size=QComboBox()
-        for value in ("Klein", "Mittel", "Groß", "Sehr groß"): font_size.addItem(value)
-        font_size.setCurrentText(self.settings_data.get("font_size", "Mittel"))
-        block=QCheckBox("Pop-ups blockieren"); block.setChecked(self.settings_data.get("block_popups",True))
+        font_sizes=[("Klein","Small"),("Mittel","Medium"),("Groß","Large"),("Sehr groß","Very large")]
+        saved_font=self.settings_data.get("font_size", "Mittel")
+        for de,en in font_sizes: font_size.addItem(self.tr(de,en),de)
+        font_size.setCurrentIndex(max(0,font_size.findData(saved_font)))
+        block=QCheckBox(self.tr("Pop-ups blockieren", "Block pop-ups")); block.setChecked(self.settings_data.get("block_popups",True))
         permission_boxes={}
-        for key,label in [("permission_camera","Kamera"),("permission_microphone","Mikrofon"),("permission_location","Standort"),("permission_notifications","Benachrichtigungen")]:
-            box=QComboBox(); box.addItem("Beim Fragen", "ask"); box.addItem("Erlauben", "allow"); box.addItem("Blockieren", "block"); box.setCurrentIndex(max(0,box.findData(self.settings_data.get(key,"ask")))); permission_boxes[key]=box; form.addRow(label+":",box)
-        dnt=QCheckBox("Do Not Track-Anfrage senden"); dnt.setChecked(self.settings_data.get("send_dnt",False))
-        confirm_tabs=QCheckBox("Beim Schließen eines Tabs nachfragen"); confirm_tabs.setChecked(self.settings_data.get("confirm_close_multiple_tabs",True))
-        clear_history_exit=QCheckBox("Verlauf beim Beenden automatisch löschen"); clear_history_exit.setChecked(self.settings_data.get("clear_history_on_exit",False))
-        clear_cache_exit=QCheckBox("Cache beim Beenden automatisch löschen"); clear_cache_exit.setChecked(self.settings_data.get("clear_cache_on_exit",False))
-        clear_cookies_exit=QCheckBox("Cookies beim Beenden automatisch löschen"); clear_cookies_exit.setChecked(self.settings_data.get("clear_cookies_on_exit",False))
-        form.addRow("Beim Start:",startup); form.addRow("Startseite:",home); form.addRow("Suchmaschine:",engine); form.addRow("Webseiten-Design:",theme); form.addRow("",show_bookmarks_bar); form.addRow("Download-Ordner:",row); form.addRow("",ask_download); form.addRow("Standard-Zoom:",zoom); form.addRow("Standard-Schriftgröße:",font_size); form.addRow("Sicherheit:",block); form.addRow("",dnt); form.addRow("Browser-Verhalten:",confirm_tabs)
-        privacy=QHBoxLayout(); a=QPushButton("Verlauf löschen"); b=QPushButton("Cache löschen"); c=QPushButton("Cookies löschen"); [privacy.addWidget(x) for x in (a,b,c)]; form.addRow("Browserdaten:",privacy); form.addRow("",clear_history_exit); form.addRow("",clear_cache_exit); form.addRow("",clear_cookies_exit); a.clicked.connect(self.clear_history); b.clicked.connect(self.clear_cache); c.clicked.connect(self.clear_cookies)
-        buttons=QHBoxLayout(); save=QPushButton("Speichern"); cancel=QPushButton("Abbrechen"); buttons.addWidget(save); buttons.addWidget(cancel); form.addRow(buttons)
-        save.clicked.connect(lambda:self.save_settings_v39(dialog,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentText(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked()))
+        for key,de_label,en_label in [("permission_camera","Kamera","Camera"),("permission_microphone","Mikrofon","Microphone"),("permission_location","Standort","Location"),("permission_notifications","Benachrichtigungen","Notifications")]:
+            box=QComboBox(); box.addItem(self.tr("Beim Fragen", "Ask"), "ask"); box.addItem(self.tr("Erlauben", "Allow"), "allow"); box.addItem(self.tr("Blockieren", "Block"), "block"); box.setCurrentIndex(max(0,box.findData(self.settings_data.get(key,"ask")))); permission_boxes[key]=box; form.addRow(self.tr(de_label,en_label)+":",box)
+        dnt=QCheckBox(self.tr("Do Not Track-Anfrage senden", "Send Do Not Track request")); dnt.setChecked(self.settings_data.get("send_dnt",False))
+        confirm_tabs=QCheckBox(self.tr("Beim Schließen eines Tabs nachfragen", "Ask when closing a tab")); confirm_tabs.setChecked(self.settings_data.get("confirm_close_multiple_tabs",True))
+        clear_history_exit=QCheckBox(self.tr("Verlauf beim Beenden automatisch löschen", "Automatically clear history on exit")); clear_history_exit.setChecked(self.settings_data.get("clear_history_on_exit",False))
+        clear_cache_exit=QCheckBox(self.tr("Cache beim Beenden automatisch löschen", "Automatically clear cache on exit")); clear_cache_exit.setChecked(self.settings_data.get("clear_cache_on_exit",False))
+        clear_cookies_exit=QCheckBox(self.tr("Cookies beim Beenden automatisch löschen", "Automatically clear cookies on exit")); clear_cookies_exit.setChecked(self.settings_data.get("clear_cookies_on_exit",False))
+        remember_window_size=QCheckBox(self.tr("Fenstergröße und Position beim Beenden merken", "Remember window size and position on exit")); remember_window_size.setChecked(self.settings_data.get("remember_window_size",True))
+        form.addRow(self.tr("Sprache:", "Language:"), language); form.addRow(self.tr("Beim Start:", "On startup:"),startup); form.addRow(self.tr("Startseite:", "Homepage:"),home); form.addRow(self.tr("Suchmaschine:", "Search engine:"),engine); form.addRow(self.tr("Webseiten-Design:", "Website appearance:"),theme); form.addRow("",show_bookmarks_bar); form.addRow(self.tr("Download-Ordner:", "Download folder:"),row); form.addRow("",ask_download); form.addRow(self.tr("Standard-Zoom:", "Default zoom:"),zoom); form.addRow(self.tr("Standard-Schriftgröße:", "Default font size:"),font_size); form.addRow(self.tr("Sicherheit:", "Security:"),block); form.addRow("",dnt); form.addRow(self.tr("Browser-Verhalten:", "Browser behavior:"),confirm_tabs)
+        privacy=QHBoxLayout(); a=QPushButton(self.tr("Verlauf löschen", "Clear history")); b=QPushButton(self.tr("Cache löschen", "Clear cache")); c=QPushButton(self.tr("Cookies löschen", "Clear cookies")); [privacy.addWidget(x) for x in (a,b,c)]; form.addRow(self.tr("Browserdaten:", "Browser data:"),privacy); form.addRow("",clear_history_exit); form.addRow("",clear_cache_exit); form.addRow("",clear_cookies_exit); form.addRow("",remember_window_size); a.clicked.connect(self.clear_history); b.clicked.connect(self.clear_cache); c.clicked.connect(self.clear_cookies)
+        buttons=QHBoxLayout(); save=QPushButton(self.tr("Speichern", "Save")); cancel=QPushButton(self.tr("Abbrechen", "Cancel")); buttons.addWidget(save); buttons.addWidget(cancel); form.addRow(buttons)
+        save.clicked.connect(lambda:self.save_settings_v39(dialog,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData()))
         cancel.clicked.connect(dialog.reject); dialog.exec()
 
-    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck):
+    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de"):
         chosen=pathlib.Path(download_dir.strip() or str(DOWNLOAD_DIR)).expanduser()
-        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),**permissions})
-        self.download_dir=chosen; write_json(CONFIG_FILE,self.settings_data); self.bookmarks_bar.setVisible(self.settings_data["show_bookmarks_bar"]); self.apply_theme_to_all_tabs()
+        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"remember_window_size":bool(remember_window_size),"language":language or "de",**permissions})
+        old_language = self.settings_data.get("language", "de")
+        self.download_dir=chosen; write_json(CONFIG_FILE,self.settings_data); self.apply_language_live()
+        self.bookmarks_bar.setVisible(self.settings_data["show_bookmarks_bar"]); self.apply_theme_to_all_tabs()
         for i in range(self.tabs.count()): self.tabs.widget(i).setZoomFactor(self.settings_data["default_zoom"]/100.0)
         dialog.accept()
 
@@ -687,7 +770,7 @@ class LunaSurfer(QMainWindow):
         dialog.accept()
 
     def about(self):
-        QMessageBox.about(self, "Über LunaSurfer", "LunaSurfer 0.3.9\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
+        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.16\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
 
 def main():
     app = QApplication(sys.argv)

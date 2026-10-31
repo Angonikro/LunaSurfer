@@ -1,4 +1,40 @@
+# Changelog
+
+## 0.3.16 – 2026-10-31
+
+- Korrektur: Alle sichtbaren Versionsangaben wurden geprüft und auf 0.3.16 aktualisiert.
+- Der Über-Dialog zeigt jetzt die korrekte aktuelle Version.
+- README und Installationsbeispiel wurden auf die aktuelle Version aktualisiert.
+
+## 0.3.15
+- Neue Einstellung: Fenstergröße und Position beim Beenden merken (Ja/Nein).
+- Bei aktivierter Einstellung wird die letzte Fensterposition und -größe beim nächsten Start wiederhergestellt.
+
 # LunaSurfer Changelog
+
+## 0.3.14 – 2026-10-31
+- Fixed the incomplete English translation in the Settings window.
+- All Settings labels, permission choices, buttons, startup options, theme names and privacy options now follow the selected language.
+- Font-size values are stored internally while displayed in the selected application language.
+
+## 0.3.13 – 2026-10-31
+- Language changes between German and English now take effect immediately without restarting LunaSurfer.
+- Updated all visible version information to 0.3.13, including the About dialog and source metadata.
+- README and changelog wording updated to match the immediate language switching behavior.
+
+## 0.3.12 – 2026-10-31
+- Plus button in the tab bar enlarged and styled for better visibility.
+- Added selectable application language: Deutsch or English.
+- Core browser controls and new tab labels now follow the selected language.
+- English mode keeps the native English web context menu.
+
+## 0.3.11
+- Kleines Hinweisfenster ergänzt, das nach einem erfolgreich abgeschlossenen Download angezeigt wird.
+- Statusleiste meldet zusätzlich den fertigen Download.
+- Versionsangaben in App, VERSION-Datei, README und Debian-Paket auf 0.3.11 aktualisiert.
+
+## 0.3.10
+- **+ Schaltfläche in der Tab-Leiste** ergänzt. Ein Klick öffnet einen neuen Browser-Tab mit der eingestellten Startseite.
 
 ## 0.3.9
 - Lesezeichenverwaltung erweitert: Lesezeichen können im Fenster „Lesezeichen verwalten“ geöffnet, bearbeitet und gelöscht werden.
