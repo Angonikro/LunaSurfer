@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.4 - Qt 6 / QtWebEngine browser with editable bookmarks."""
+"""LunaSurfer 0.3.8 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget, QMenu, QFileDialog, QMessageBox, QDialog,
     QFormLayout, QPushButton, QHBoxLayout, QLabel, QCheckBox, QComboBox, QStyle, QInputDialog
 )
-from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEngineSettings
+from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEngineSettings, QWebEngineUrlRequestInterceptor
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
 APP_NAME = "LunaSurfer"
@@ -32,6 +32,7 @@ DATA_DIR = pathlib.Path.home() / ".local" / "share" / "lunasurfer"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 BOOKMARKS_FILE = DATA_DIR / "bookmarks.json"
 HISTORY_FILE = DATA_DIR / "history.json"
+SESSION_FILE = DATA_DIR / "session.json"
 DOWNLOAD_DIR = pathlib.Path.home() / "Downloads"
 
 def read_json(path, default):
@@ -45,6 +46,16 @@ def write_json(path, data):
     temp = path.with_suffix(path.suffix + ".tmp")
     temp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     temp.replace(path)
+
+class PrivacyInterceptor(QWebEngineUrlRequestInterceptor):
+    def __init__(self, window):
+        super().__init__()
+        self.window_ref = window
+
+    def interceptRequest(self, info):
+        if self.window_ref.settings_data.get("send_dnt", False):
+            info.setHttpHeader(b"DNT", b"1")
+
 
 class BrowserView(QWebEngineView):
     def __init__(self, window):
@@ -100,6 +111,9 @@ class BrowserView(QWebEngineView):
         event.accept()
 
     def createWindow(self, window_type):
+        if self.window_ref.settings_data.get("block_popups", True):
+            self.window_ref.statusBar().showMessage("Pop-up wurde blockiert.", 4000)
+            return None
         self.window_ref.add_tab("about:blank", switch=True)
         return self.window_ref.current_view()
 
@@ -138,20 +152,38 @@ class BrowserView(QWebEngineView):
 class LunaSurfer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LunaSurfer 0.3.4")
+        self.setWindowTitle("LunaSurfer 0.3.9")
         self.resize(1250, 820)
         self.settings_data = read_json(CONFIG_FILE, {
             "home": "https://duckduckgo.com",
             "search": "https://duckduckgo.com/?q={}",
             "dark": True,
             "theme": "dark",
-            "show_bookmarks_bar": True
+            "show_bookmarks_bar": True,
+            "restore_session": False,
+            "startup_mode": "home",
+            "search_engine": "DuckDuckGo",
+            "block_popups": True,
+            "permission_camera": "ask", "permission_microphone": "ask",
+            "permission_location": "ask", "permission_notifications": "ask",
+            "download_dir": str(DOWNLOAD_DIR),
+            "default_zoom": 100,
+            "clear_history_on_exit": False,
+            "clear_cache_on_exit": False,
+            "clear_cookies_on_exit": False,
+            "ask_download_location": False,
+            "send_dnt": False,
+            "confirm_close_multiple_tabs": True,
+            "font_size": "Mittel"
         })
         self.profile = QWebEngineProfile("LunaSurfer", self)
         self.profile.setPersistentStoragePath(str(DATA_DIR / "webengine"))
         self.profile.setCachePath(str(pathlib.Path.home() / ".cache" / "lunasurfer" / "webengine"))
         self.profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies)
+        self.privacy_interceptor = PrivacyInterceptor(self)
+        self.profile.setUrlRequestInterceptor(self.privacy_interceptor)
         self.profile.downloadRequested.connect(self.on_download)
+        self.download_dir = pathlib.Path(self.settings_data.get("download_dir", str(DOWNLOAD_DIR))).expanduser()
 
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(True)
@@ -214,6 +246,10 @@ class LunaSurfer(QMainWindow):
         menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         bar.addWidget(menu_button)
 
+        # Force a separate toolbar row so the bookmarks bar is always directly
+        # below the URL/navigation bar, like Chromium.
+        self.addToolBarBreak(Qt.ToolBarArea.TopToolBarArea)
+
         # Chromium-style bookmarks bar directly below the navigation bar.
         self.bookmarks_bar = QToolBar("Lesezeichenleiste")
         self.bookmarks_bar.setMovable(False)
@@ -238,7 +274,7 @@ class LunaSurfer(QMainWindow):
             QTabBar::tab:selected { background: #1769aa; color: white; }
             QStatusBar { background: #142238; color: #dce8f8; }
         """)
-        self.add_tab(self.settings_data.get("home", "https://duckduckgo.com"))
+        self.restore_or_open_start_page()
         self.set_shortcuts()
 
     def set_shortcuts(self):
@@ -262,6 +298,8 @@ class LunaSurfer(QMainWindow):
         page = QWebEnginePage(self.profile, view)
         view.setPage(page)
         self.apply_page_theme(view)
+        self.apply_font_size(view)
+        view.setZoomFactor(int(self.settings_data.get("default_zoom", 100)) / 100.0)
         index = self.tabs.addTab(view, "Neuer Tab")
         if switch: self.tabs.setCurrentIndex(index)
         view.load(QUrl(url or self.settings_data.get("home", "https://duckduckgo.com")))
@@ -274,15 +312,24 @@ class LunaSurfer(QMainWindow):
         if force_dark is not None:
             settings.setAttribute(force_dark, self.settings_data.get("theme", "dark") == "dark")
 
+    def apply_font_size(self, view):
+        sizes = {"Klein": 13, "Mittel": 16, "Groß": 19, "Sehr groß": 22}
+        size = sizes.get(self.settings_data.get("font_size", "Mittel"), 16)
+        view.page().settings().setFontSize(QWebEngineSettings.FontSize.DefaultFontSize, size)
+
     def apply_theme_to_all_tabs(self):
         for index in range(self.tabs.count()):
             view = self.tabs.widget(index)
             if isinstance(view, BrowserView):
                 self.apply_page_theme(view)
-                # Reload so the rendering engine applies the new scheme immediately.
+                self.apply_font_size(view)
                 view.reload()
 
     def close_tab(self, index):
+        if self.tabs.count() > 1 and self.settings_data.get("confirm_close_multiple_tabs", True):
+            answer = QMessageBox.question(self, "Tab schließen", "Möchtest du diesen Tab wirklich schließen?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+            if answer != QMessageBox.StandardButton.Yes:
+                return
         if self.tabs.count() <= 1:
             self.add_tab(self.settings_data.get("home"))
         widget = self.tabs.widget(index)
@@ -490,13 +537,25 @@ class LunaSurfer(QMainWindow):
 
     def on_download(self, download):
         suggested = download.suggestedFileName() or "download"
-        DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
-        target = DOWNLOAD_DIR / suggested
+        if self.settings_data.get("ask_download_location", False):
+            selected, _ = QFileDialog.getSaveFileName(self, "Download speichern unter", str(self.download_dir / suggested))
+            if not selected:
+                download.cancel()
+                return
+            target = pathlib.Path(selected)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            download.setDownloadDirectory(str(target.parent))
+            download.setDownloadFileName(target.name)
+            download.accept()
+            self.statusBar().showMessage(f"Download gestartet: {target.name}", 5000)
+            return
+        self.download_dir.mkdir(parents=True, exist_ok=True)
+        target = self.download_dir / suggested
         if target.exists():
             stem, suffix = target.stem, target.suffix
             n = 1
-            while (DOWNLOAD_DIR / f"{stem} ({n}){suffix}").exists(): n += 1
-            target = DOWNLOAD_DIR / f"{stem} ({n}){suffix}"
+            while (self.download_dir / f"{stem} ({n}){suffix}").exists(): n += 1
+            target = self.download_dir / f"{stem} ({n}){suffix}"
         download.setDownloadDirectory(str(target.parent))
         download.setDownloadFileName(target.name)
         download.accept()
@@ -504,44 +563,131 @@ class LunaSurfer(QMainWindow):
 
     def open_downloads(self):
         import subprocess
-        DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
-        subprocess.Popen(["xdg-open", str(DOWNLOAD_DIR)])
+        self.download_dir.mkdir(parents=True, exist_ok=True)
+        subprocess.Popen(["xdg-open", str(self.download_dir)])
+
+    def restore_or_open_start_page(self):
+        if self.settings_data.get("startup_mode", "restore" if self.settings_data.get("restore_session", False) else "home") == "restore":
+            urls = read_json(SESSION_FILE, [])
+            valid = [u for u in urls if isinstance(u, str) and u]
+            if valid:
+                for url in valid:
+                    self.add_tab(url, switch=False)
+                self.tabs.setCurrentIndex(0)
+                return
+        mode = self.settings_data.get("startup_mode", "home")
+        self.add_tab("about:blank" if mode == "blank" else self.settings_data.get("home", "https://duckduckgo.com"))
+
+    def closeEvent(self, event):
+        urls = []
+        for i in range(self.tabs.count()):
+            view = self.tabs.widget(i)
+            if view:
+                url = view.url().toString()
+                if url and url != "about:blank":
+                    urls.append(url)
+        write_json(SESSION_FILE, urls)
+        if self.settings_data.get("clear_history_on_exit", False):
+            write_json(HISTORY_FILE, [])
+        if self.settings_data.get("clear_cache_on_exit", False):
+            self.profile.clearHttpCache()
+        if self.settings_data.get("clear_cookies_on_exit", False):
+            self.profile.cookieStore().deleteAllCookies()
+        event.accept()
+
+    def clear_history(self):
+        answer = QMessageBox.question(self, "Verlauf löschen", "Möchtest du den gesamten Verlauf wirklich löschen?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        if answer == QMessageBox.StandardButton.Yes:
+            write_json(HISTORY_FILE, [])
+            self.statusBar().showMessage("Verlauf wurde gelöscht.", 5000)
+            QMessageBox.information(self, "Verlauf gelöscht", "Der Browserverlauf wurde gelöscht.")
 
     def show_settings(self):
         dialog = QDialog(self); dialog.setWindowTitle("LunaSurfer – Einstellungen")
         form = QFormLayout(dialog)
+        startup = QComboBox(); startup.addItem("Startseite öffnen", "home"); startup.addItem("Letzte Sitzung wiederherstellen", "restore"); startup.addItem("Leere Seite öffnen", "blank")
+        startup.setCurrentIndex(max(0, startup.findData(self.settings_data.get("startup_mode", "home"))))
         home = QLineEdit(self.settings_data.get("home", "https://duckduckgo.com"))
-        search = QLineEdit(self.settings_data.get("search", "https://duckduckgo.com/?q={}"))
-        theme = QComboBox()
-        theme.addItem("Dunkel", "dark")
-        theme.addItem("Hell", "light")
-        current_theme = self.settings_data.get("theme", "dark")
-        theme.setCurrentIndex(0 if current_theme == "dark" else 1)
-        show_bookmarks_bar = QCheckBox("Lesezeichenleiste unter der Adressleiste anzeigen")
-        show_bookmarks_bar.setChecked(self.settings_data.get("show_bookmarks_bar", True))
-        form.addRow("Startseite:", home)
-        form.addRow("Such-URL ({} = Suchbegriff):", search)
-        form.addRow("Webseiten-Design:", theme)
-        form.addRow("", show_bookmarks_bar)
-        buttons = QHBoxLayout()
-        save = QPushButton("Speichern"); cancel = QPushButton("Abbrechen")
-        buttons.addWidget(save); buttons.addWidget(cancel); form.addRow(buttons)
-        save.clicked.connect(lambda: self.save_settings(dialog, home.text(), search.text(), theme.currentData(), show_bookmarks_bar.isChecked()))
-        cancel.clicked.connect(dialog.reject)
-        dialog.exec()
+        engine = QComboBox(); engines={"Google":"https://www.google.com/search?q={}","DuckDuckGo":"https://duckduckgo.com/?q={}","Bing":"https://www.bing.com/search?q={}"}
+        for name,url in engines.items(): engine.addItem(name,url)
+        saved_engine=self.settings_data.get("search_engine", "DuckDuckGo"); engine.setCurrentIndex(max(0,engine.findText(saved_engine)))
+        theme = QComboBox(); theme.addItem("Dunkel", "dark"); theme.addItem("Hell", "light"); theme.setCurrentIndex(0 if self.settings_data.get("theme", "dark") == "dark" else 1)
+        show_bookmarks_bar = QCheckBox("Lesezeichenleiste unter der Adressleiste anzeigen"); show_bookmarks_bar.setChecked(self.settings_data.get("show_bookmarks_bar", True))
+        download_dir = QLineEdit(str(self.download_dir)); choose_download = QPushButton("Ordner auswählen…"); row=QHBoxLayout(); row.addWidget(download_dir); row.addWidget(choose_download); choose_download.clicked.connect(lambda:self.choose_download_dir(download_dir))
+        zoom=QComboBox()
+        for value in (50,67,75,80,90,100,110,125,150,175,200): zoom.addItem(f"{value} %",value)
+        zoom.setCurrentIndex(max(0,zoom.findData(int(self.settings_data.get("default_zoom",100)))))
+        ask_download=QCheckBox("Bei jedem Download nach dem Speicherort fragen"); ask_download.setChecked(self.settings_data.get("ask_download_location",False))
+        font_size=QComboBox()
+        for value in ("Klein", "Mittel", "Groß", "Sehr groß"): font_size.addItem(value)
+        font_size.setCurrentText(self.settings_data.get("font_size", "Mittel"))
+        block=QCheckBox("Pop-ups blockieren"); block.setChecked(self.settings_data.get("block_popups",True))
+        permission_boxes={}
+        for key,label in [("permission_camera","Kamera"),("permission_microphone","Mikrofon"),("permission_location","Standort"),("permission_notifications","Benachrichtigungen")]:
+            box=QComboBox(); box.addItem("Beim Fragen", "ask"); box.addItem("Erlauben", "allow"); box.addItem("Blockieren", "block"); box.setCurrentIndex(max(0,box.findData(self.settings_data.get(key,"ask")))); permission_boxes[key]=box; form.addRow(label+":",box)
+        dnt=QCheckBox("Do Not Track-Anfrage senden"); dnt.setChecked(self.settings_data.get("send_dnt",False))
+        confirm_tabs=QCheckBox("Beim Schließen eines Tabs nachfragen"); confirm_tabs.setChecked(self.settings_data.get("confirm_close_multiple_tabs",True))
+        clear_history_exit=QCheckBox("Verlauf beim Beenden automatisch löschen"); clear_history_exit.setChecked(self.settings_data.get("clear_history_on_exit",False))
+        clear_cache_exit=QCheckBox("Cache beim Beenden automatisch löschen"); clear_cache_exit.setChecked(self.settings_data.get("clear_cache_on_exit",False))
+        clear_cookies_exit=QCheckBox("Cookies beim Beenden automatisch löschen"); clear_cookies_exit.setChecked(self.settings_data.get("clear_cookies_on_exit",False))
+        form.addRow("Beim Start:",startup); form.addRow("Startseite:",home); form.addRow("Suchmaschine:",engine); form.addRow("Webseiten-Design:",theme); form.addRow("",show_bookmarks_bar); form.addRow("Download-Ordner:",row); form.addRow("",ask_download); form.addRow("Standard-Zoom:",zoom); form.addRow("Standard-Schriftgröße:",font_size); form.addRow("Sicherheit:",block); form.addRow("",dnt); form.addRow("Browser-Verhalten:",confirm_tabs)
+        privacy=QHBoxLayout(); a=QPushButton("Verlauf löschen"); b=QPushButton("Cache löschen"); c=QPushButton("Cookies löschen"); [privacy.addWidget(x) for x in (a,b,c)]; form.addRow("Browserdaten:",privacy); form.addRow("",clear_history_exit); form.addRow("",clear_cache_exit); form.addRow("",clear_cookies_exit); a.clicked.connect(self.clear_history); b.clicked.connect(self.clear_cache); c.clicked.connect(self.clear_cookies)
+        buttons=QHBoxLayout(); save=QPushButton("Speichern"); cancel=QPushButton("Abbrechen"); buttons.addWidget(save); buttons.addWidget(cancel); form.addRow(buttons)
+        save.clicked.connect(lambda:self.save_settings_v39(dialog,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentText(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked()))
+        cancel.clicked.connect(dialog.reject); dialog.exec()
 
-    def save_settings(self, dialog, home, search, theme, show_bookmarks_bar):
-        self.settings_data["home"] = home.strip() or "https://duckduckgo.com"
-        self.settings_data["search"] = search.strip() or "https://duckduckgo.com/?q={}"
-        self.settings_data["theme"] = theme if theme in ("dark", "light") else "dark"
-        self.settings_data["show_bookmarks_bar"] = bool(show_bookmarks_bar)
-        write_json(CONFIG_FILE, self.settings_data)
-        self.bookmarks_bar.setVisible(self.settings_data["show_bookmarks_bar"])
+    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck):
+        chosen=pathlib.Path(download_dir.strip() or str(DOWNLOAD_DIR)).expanduser()
+        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),**permissions})
+        self.download_dir=chosen; write_json(CONFIG_FILE,self.settings_data); self.bookmarks_bar.setVisible(self.settings_data["show_bookmarks_bar"]); self.apply_theme_to_all_tabs()
+        for i in range(self.tabs.count()): self.tabs.widget(i).setZoomFactor(self.settings_data["default_zoom"]/100.0)
+        dialog.accept()
+
+    def choose_download_dir(self, field):
+        selected = QFileDialog.getExistingDirectory(self, "Download-Ordner auswählen", field.text() or str(DOWNLOAD_DIR))
+        if selected: field.setText(selected)
+
+    def clear_cache(self):
+        answer = QMessageBox.question(
+            self, "Cache löschen",
+            "Möchtest du den Browser-Cache wirklich löschen?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            self.profile.clearHttpCache()
+            self.statusBar().showMessage("Browser-Cache wurde gelöscht.", 5000)
+            QMessageBox.information(self, "Cache gelöscht", "Der Browser-Cache wurde gelöscht.")
+
+    def clear_cookies(self):
+        answer = QMessageBox.question(
+            self, "Cookies löschen",
+            "Möchtest du wirklich alle gespeicherten Cookies löschen?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            self.profile.cookieStore().deleteAllCookies()
+            self.statusBar().showMessage("Alle Cookies wurden gelöscht.", 5000)
+            QMessageBox.information(self, "Cookies gelöscht", "Alle gespeicherten Cookies wurden gelöscht.")
+
+    def save_settings(self, dialog, home, search, theme, show_bookmarks_bar, restore_session, download_dir, default_zoom, clear_history_on_exit, clear_cache_on_exit, clear_cookies_on_exit):
+        chosen = pathlib.Path(download_dir.strip() or str(DOWNLOAD_DIR)).expanduser()
+        self.settings_data.update({
+            "home": home.strip() or "https://duckduckgo.com", "search": search.strip() or "https://duckduckgo.com/?q={}",
+            "theme": theme if theme in ("dark", "light") else "dark", "show_bookmarks_bar": bool(show_bookmarks_bar),
+            "restore_session": bool(restore_session), "download_dir": str(chosen), "default_zoom": int(default_zoom or 100),
+            "clear_history_on_exit": bool(clear_history_on_exit), "clear_cache_on_exit": bool(clear_cache_on_exit), "clear_cookies_on_exit": bool(clear_cookies_on_exit)
+        })
+        self.download_dir = chosen; write_json(CONFIG_FILE, self.settings_data); self.bookmarks_bar.setVisible(self.settings_data["show_bookmarks_bar"])
         self.apply_theme_to_all_tabs()
+        for i in range(self.tabs.count()):
+            view = self.tabs.widget(i)
+            if view: view.setZoomFactor(self.settings_data["default_zoom"] / 100.0)
         dialog.accept()
 
     def about(self):
-        QMessageBox.about(self, "Über LunaSurfer", "LunaSurfer 0.3.4\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
+        QMessageBox.about(self, "Über LunaSurfer", "LunaSurfer 0.3.9\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
 
 def main():
     app = QApplication(sys.argv)

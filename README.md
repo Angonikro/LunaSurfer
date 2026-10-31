@@ -1,10 +1,6 @@
-# LunaSurfer 0.3.4
+# LunaSurfer 0.3.9
 
 Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
-
-![LunaSurfer](lunasurfer.png)
-
-[Github Seite](https://github.com/Angonikro/LunaSurfer/)
 
 ## Funktionen
 
@@ -20,6 +16,18 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 - Persistentes Browser-Profil und Cookies
 - Widevine-Unterstützung, wenn das CDM auf dem System vorhanden ist
 
+## Lesezeichen bearbeiten und verwalten
+
+- Mit der **rechten Maustaste auf ein Lesezeichen in der Lesezeichenleiste** kannst du es öffnen, bearbeiten oder löschen.
+- Unter **Menü → Lesezeichen verwalten** kannst du gespeicherte Lesezeichen ebenfalls öffnen, bearbeiten und löschen.
+
+## Speicherorte
+
+- Einstellungen: `~/.config/lunasurfer/`
+- Browserdaten und Lesezeichen: `~/.local/share/lunasurfer/`
+- Cache: `~/.cache/lunasurfer/`
+- Downloads: `~/Downloads/`
+
 ## Abhängigkeiten (Debian 13)
 
 ```bash
@@ -30,7 +38,7 @@ sudo apt install python3-pyside6.qtwidgets python3-pyside6.qtwebenginewidgets xd
 ## Installation
 
 ```bash
-sudo apt install ./lunasurfer_0.3.4_all.deb
+sudo apt install ./lunasurfer_0.3.9_all.deb
 ```
 
 ## Start aus dem Quellcode
@@ -55,18 +63,6 @@ Danach bitte **ab- und wieder anmelden** oder den Rechner neu starten, damit die
 
 LunaSurfer setzt den Widevine-Pfad zusätzlich beim Start, wenn die CDM-Datei vorhanden ist. Die Einstellung in `~/.profile` kann dennoch hilfreich sein und wird beispielsweise auch von anderen QtWebEngine-Anwendungen wie Falkon verwendet.
 
-## Speicherorte
-
-- Einstellungen: `~/.config/lunasurfer/`
-- Browserdaten und Lesezeichen: `~/.local/share/lunasurfer/`
-- Cache: `~/.cache/lunasurfer/`
-- Downloads: `~/Downloads/`
-
 Widevine ist nicht Bestandteil von LunaSurfer. Die Wiedergabe von DRM-Inhalten hängt von Widevine, QtWebEngine, den verfügbaren Codecs und dem jeweiligen Streaming-Dienst ab.
-
-## Lesezeichen bearbeiten und verwalten
-
-- Mit der **rechten Maustaste auf ein Lesezeichen in der Lesezeichenleiste** kannst du es öffnen, bearbeiten oder löschen.
-- Unter **Menü → Lesezeichen verwalten** kannst du gespeicherte Lesezeichen ebenfalls öffnen, bearbeiten und löschen.
 
 73 de DO2QG Andreas

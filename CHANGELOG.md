@@ -1,6 +1,6 @@
 # LunaSurfer Changelog
 
-## 0.3.4
+## 0.3.9
 - Lesezeichenverwaltung erweitert: Lesezeichen können im Fenster „Lesezeichen verwalten“ geöffnet, bearbeitet und gelöscht werden.
 - Bearbeiten und Löschen von Lesezeichen per rechter Maustaste in der Lesezeichenleiste.
 - Adressleiste deutlich verbreitert.
