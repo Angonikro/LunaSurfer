@@ -1,10 +1,6 @@
-# LunaSurfer 0.3.16
+# LunaSurfer 0.3.20
 
 Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
-
-![LunaSurfer](lunasurfer3.png)
-
-[Github Seite](https://github.com/Angonikro/LunaSurfer/)
 
 ## Funktionen
 
@@ -22,6 +18,7 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 - Persistentes Browser-Profil und Cookies
 - Widevine-Unterstützung, wenn das CDM auf dem System vorhanden ist
 - In den Einstellungen kann gewählt werden, ob LunaSurfer Fenstergröße und Fensterposition beim Beenden speichern und beim nächsten Start wiederherstellen soll.
+- usw.
 
 ## Lesezeichen bearbeiten und verwalten
 
@@ -45,7 +42,7 @@ sudo apt install python3-pyside6.qtwidgets python3-pyside6.qtwebenginewidgets xd
 ## Installation
 
 ```bash
-sudo apt install ./lunasurfer_0.3.16_all.deb
+sudo apt install ./lunasurfer_0.3.20_all.deb
 ```
 
 ## Start aus dem Quellcode

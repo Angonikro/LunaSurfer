@@ -1,4 +1,11 @@
 # Changelog
+## 0.3.20 – 2026-10-31
+
+- Korrektur: Das Rechtsklick-Kontextmenü direkt im URL-/Adressfeld wird jetzt von LunaSurfer selbst bereitgestellt und folgt zuverlässig der ausgewählten Sprache.
+- Deutsch: Rückgängig, Wiederholen, Ausschneiden, Kopieren, Einfügen, Löschen, Alles auswählen.
+- Englisch: Undo, Redo, Cut, Copy, Paste, Delete, Select All.
+- Das normale Rechtsklick-Kontextmenü von Webseiten bleibt unverändert.
+
 
 ## 0.3.16 – 2026-10-31
 

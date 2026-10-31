@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.16 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.20 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -46,6 +46,49 @@ def write_json(path, data):
     temp = path.with_suffix(path.suffix + ".tmp")
     temp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     temp.replace(path)
+
+class AddressLineEdit(QLineEdit):
+    """Address field with a language-aware context menu.
+
+    Qt's built-in QLineEdit menu follows the Qt platform translation and may
+    remain English even when LunaSurfer itself is switched to German.  This
+    menu is owned by LunaSurfer so it always follows the selected language.
+    """
+    def __init__(self, window):
+        super().__init__()
+        self.window_ref = window
+
+    def contextMenuEvent(self, event):
+        menu = QMenu(self)
+        de = self.window_ref.settings_data.get("language", "de") != "en"
+        labels = (
+            ("Rückgängig", "Wiederholen", "Ausschneiden", "Kopieren", "Einfügen", "Löschen", "Alles auswählen")
+            if de else
+            ("Undo", "Redo", "Cut", "Copy", "Paste", "Delete", "Select All")
+        )
+        actions = [
+            menu.addAction(labels[0], self.undo),
+            menu.addAction(labels[1], self.redo),
+        ]
+        menu.addSeparator()
+        actions.extend([
+            menu.addAction(labels[2], self.cut),
+            menu.addAction(labels[3], self.copy),
+            menu.addAction(labels[4], self.paste),
+            menu.addAction(labels[5], lambda: self.insert("")),
+        ])
+        menu.addSeparator()
+        actions.append(menu.addAction(labels[6], self.selectAll))
+        has_selection = bool(self.hasSelectedText())
+        actions[0].setEnabled(self.isUndoAvailable())
+        actions[1].setEnabled(self.isRedoAvailable())
+        actions[2].setEnabled(has_selection and not self.isReadOnly())
+        actions[3].setEnabled(has_selection)
+        actions[4].setEnabled(not self.isReadOnly())
+        actions[5].setEnabled(has_selection and not self.isReadOnly())
+        menu.exec(event.globalPos())
+        event.accept()
+
 
 class PrivacyInterceptor(QWebEngineUrlRequestInterceptor):
     def __init__(self, window):
@@ -156,7 +199,7 @@ class BrowserView(QWebEngineView):
 class LunaSurfer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LunaSurfer 0.3.16")
+        self.setWindowTitle("LunaSurfer 0.3.20")
         self.resize(1250, 820)
         self.settings_data = read_json(CONFIG_FILE, {
             "home": "https://duckduckgo.com",
@@ -237,7 +280,7 @@ class LunaSurfer(QMainWindow):
         self.home_action.triggered.connect(self.go_home)
         bar.addAction(self.home_action)
 
-        self.address = QLineEdit()
+        self.address = AddressLineEdit(self)
         self.address.setPlaceholderText(self.tr("Adresse oder Suchbegriff eingeben", "Enter address or search"))
         self.address.returnPressed.connect(self.navigate)
         self.address.setClearButtonEnabled(True)
@@ -770,7 +813,7 @@ class LunaSurfer(QMainWindow):
         dialog.accept()
 
     def about(self):
-        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.16\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
+        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.20\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
 
 def main():
     app = QApplication(sys.argv)
