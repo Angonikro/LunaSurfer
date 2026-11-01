@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.24 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.25 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -18,7 +18,7 @@ if WIDEVINE_CDM.is_file():
     if widevine_flag not in existing_flags:
         os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (existing_flags + " " + widevine_flag).strip()
 
-from PySide6.QtCore import QUrl, QSize, Qt
+from PySide6.QtCore import QUrl, QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence, QIcon
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QToolBar, QLineEdit, QToolButton,
@@ -157,10 +157,17 @@ class BrowserView(QWebEngineView):
         self.loadProgress.connect(lambda p: window.statusBar().showMessage(f"Laden … {p}%"))
         self.loadFinished.connect(self.on_load_finished)
         self.renderProcessTerminated.connect(self.on_render_process_terminated)
-        self.page().settings().setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
-        self.page().settings().setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
-        self.page().settings().setAttribute(QWebEngineSettings.WebAttribute.FullScreenSupportEnabled, True)
-        self.page().fullScreenRequested.connect(self.handle_fullscreen)
+        # The page is replaced with a profile-specific QWebEnginePage in add_tab().
+        # Configure fullscreen support there, otherwise the signal remains connected
+        # to this temporary default page and video fullscreen never reaches the window.
+
+    def configure_web_page(self):
+        page = self.page()
+        settings = page.settings()
+        settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.FullScreenSupportEnabled, True)
+        page.fullScreenRequested.connect(self.handle_fullscreen)
 
     def contextMenuEvent(self, event):
         """Show QtWebEngine's full context menu with German labels."""
@@ -240,18 +247,36 @@ class BrowserView(QWebEngineView):
             f"WebEngine-Prozess beendet (Status {status}, Code {exit_code}). Seite neu laden.", 10000
         )
 
+    def keyPressEvent(self, event):
+        # QtWebEngine can consume Escape internally, so handle it before the
+        # event reaches Chromium. This gives LunaSurfer a reliable way back
+        # from HTML/video fullscreen.
+        if event.key() == Qt.Key.Key_Escape and self.window_ref._web_fullscreen:
+            self.window_ref.leave_web_fullscreen()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
     def handle_fullscreen(self, request):
+        # Accept the Chromium/HTML fullscreen request immediately.  The native
+        # window change is queued for the next event-loop turn: changing a
+        # QMainWindow while QtWebEngine is dispatching this signal can otherwise
+        # leave the page enlarged but keep the browser chrome visible.
+        turn_on = bool(request.toggleOn())
         request.accept()
-        if request.toggleOn():
-            self.window_ref.showFullScreen()
+        if turn_on:
+            QTimer.singleShot(0, self.window_ref.enter_web_fullscreen)
         else:
-            self.window_ref.showNormal()
+            QTimer.singleShot(0, self.window_ref.leave_web_fullscreen)
 
 class LunaSurfer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LunaSurfer 0.3.24")
+        self.setWindowTitle("LunaSurfer 0.3.25")
         self.resize(1250, 820)
+        self._web_fullscreen = False
+        self._was_maximized_before_fullscreen = False
+        self._fullscreen_chrome = []
         self.settings_data = read_json(CONFIG_FILE, {
             "home": "https://duckduckgo.com",
             "search": "https://duckduckgo.com/?q={}",
@@ -312,7 +337,8 @@ class LunaSurfer(QMainWindow):
         self.tabs.setCornerWidget(self.new_tab_button, Qt.Corner.TopRightCorner)
         self.setCentralWidget(self.tabs)
 
-        bar = QToolBar("Navigation")
+        self.navigation_bar = QToolBar("Navigation")
+        bar = self.navigation_bar
         bar.setMovable(False)
         bar.setIconSize(QSize(28, 28))
         bar.setMinimumHeight(54)
@@ -448,6 +474,44 @@ class LunaSurfer(QMainWindow):
         self.menu_button.setMenu(menu)
         self.menu_button.setToolTip(self.tr("Menü", "Menu"))
 
+    def enter_web_fullscreen(self):
+        if self._web_fullscreen:
+            return
+        self._was_maximized_before_fullscreen = self.isMaximized()
+        self._web_fullscreen = True
+
+        # Explicitly hide LunaSurfer's chrome as well.  This is important on
+        # desktop/window-manager combinations where showFullScreen() alone is
+        # delayed while a WebEngine fullscreen request is being processed.
+        # Hide every piece of LunaSurfer chrome, including the navigation toolbar.
+        chrome = [self.menuBar(), self.navigation_bar, self.tabs.tabBar(), self.new_tab_button, self.bookmarks_bar, self.statusBar()]
+        self._fullscreen_chrome = [(widget, widget.isVisible()) for widget in chrome if widget is not None]
+        for widget, _visible in self._fullscreen_chrome:
+            widget.hide()
+
+        self.showFullScreen()
+        QTimer.singleShot(0, self.showFullScreen)
+
+    def leave_web_fullscreen(self):
+        if not self._web_fullscreen:
+            return
+        self._web_fullscreen = False
+        if self._was_maximized_before_fullscreen:
+            self.showMaximized()
+        else:
+            self.showNormal()
+        for widget, was_visible in self._fullscreen_chrome:
+            if was_visible:
+                widget.show()
+        self._fullscreen_chrome = []
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape and self._web_fullscreen:
+            self.leave_web_fullscreen()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
     def current_view(self):
         w = self.tabs.currentWidget()
         return w if isinstance(w, BrowserView) else None
@@ -456,6 +520,7 @@ class LunaSurfer(QMainWindow):
         view = BrowserView(self)
         page = QWebEnginePage(self.profile, view)
         view.setPage(page)
+        view.configure_web_page()
         self.apply_page_theme(view)
         self.apply_font_size(view)
         self.apply_font_size(view)
@@ -986,7 +1051,7 @@ class LunaSurfer(QMainWindow):
         dialog.accept()
 
     def about(self):
-        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.24\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
+        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.25\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
 
 def main():
     app = QApplication(sys.argv)

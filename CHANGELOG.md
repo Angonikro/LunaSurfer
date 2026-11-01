@@ -1,3 +1,8 @@
+## 0.3.25 - 2026-11-01
+- HTML5/Web-Vollbild korrigiert: Vollbildunterstützung und das Vollbildsignal werden jetzt an die tatsächliche Profilseite angehängt, die von jedem Tab verwendet wird. 
+- YouTube-, Pluto TV- und Joyn-Vollbildanfragen erreichen jetzt das LunaSurfer-Fenster. 
+– Stellt den vorherigen maximierten/normalen Fensterstatus wieder her, wenn das Web im Vollbildmodus verlassen wird.
+
 ## 0.3.24 - 2026-11-01
 - Lesezeichen-Stern in der Navigationsleiste deutlich vergrößert.
 - Schriftgrößen-Fix: Die gewählte Schriftgröße bleibt nach dem vollständigen Laden einer Webseite erhalten und springt nicht mehr auf Mittel zurück.
