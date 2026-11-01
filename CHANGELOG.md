@@ -1,3 +1,8 @@
+## 0.3.26 - 2026-11-01
+
+- Tooltips/Info-Kästchen: deutlich besserer Kontrast und etwas größere, besser lesbare Darstellung.
+- Tableiste verbessert
+
 ## 0.3.25 - 2026-11-01
 - HTML5/Web-Vollbild korrigiert: Vollbildunterstützung und das Vollbildsignal werden jetzt an die tatsächliche Profilseite angehängt, die von jedem Tab verwendet wird. 
 - YouTube-, Pluto TV- und Joyn-Vollbildanfragen erreichen jetzt das LunaSurfer-Fenster. 
@@ -80,3 +85,7 @@
 
 ## 0.3.22
 - Chromium-kompatibler Import und Export von Lesezeichen im HTML-Format.
+
+## 0.3.26 – UI-Fix
+- Kompaktere Hinweisfenster/Tooltips für Stern und Neuer-Tab-Schaltfläche.
+- Plus-Schaltfläche der Tab-Leiste steht direkt hinter dem letzten geöffneten Tab statt am rechten Fensterrand.

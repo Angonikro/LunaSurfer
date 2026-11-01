@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.25 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.26 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -18,7 +18,7 @@ if WIDEVINE_CDM.is_file():
     if widevine_flag not in existing_flags:
         os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (existing_flags + " " + widevine_flag).strip()
 
-from PySide6.QtCore import QUrl, QSize, Qt, QTimer
+from PySide6.QtCore import QUrl, QSize, Qt, QTimer, QEvent
 from PySide6.QtGui import QAction, QKeySequence, QIcon
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QToolBar, QLineEdit, QToolButton,
@@ -272,7 +272,7 @@ class BrowserView(QWebEngineView):
 class LunaSurfer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LunaSurfer 0.3.25")
+        self.setWindowTitle("LunaSurfer 0.3.26")
         self.resize(1250, 820)
         self._web_fullscreen = False
         self._was_maximized_before_fullscreen = False
@@ -327,15 +327,17 @@ class LunaSurfer(QMainWindow):
         self.tabs.tabBar().setUsesScrollButtons(True)
         self.tabs.tabCloseRequested.connect(self.close_tab)
         self.tabs.currentChanged.connect(self.on_tab_changed)
-        # Chromium-style + button directly at the end of the tab bar.
-        self.new_tab_button = QToolButton(self.tabs)
+        # The + button belongs directly after the last open tab, not at the
+        # far right edge of the window.  This keeps the tab strip compact.
+        self.new_tab_button = QToolButton(self.tabs.tabBar())
         self.new_tab_button.setText("+")
         self.new_tab_button.setToolTip("Neuer Tab / New tab")
-        self.new_tab_button.setFixedSize(42, 34)
-        self.new_tab_button.setStyleSheet("font-size: 24px; font-weight: bold; color: #ffffff; background: #1769aa; border: 1px solid #5fa8e8; border-radius: 6px; margin: 2px;")
+        self.new_tab_button.setFixedSize(38, 30)
+        self.new_tab_button.setStyleSheet("font-size: 21px; font-weight: bold; color: #ffffff; background: #1769aa; border: 1px solid #5fa8e8; border-radius: 5px; margin: 1px;")
         self.new_tab_button.clicked.connect(lambda: self.add_tab(self.settings_data.get("home", "https://duckduckgo.com")))
-        self.tabs.setCornerWidget(self.new_tab_button, Qt.Corner.TopRightCorner)
+        self.tabs.tabBar().installEventFilter(self)
         self.setCentralWidget(self.tabs)
+        QTimer.singleShot(0, self.update_new_tab_button_position)
 
         self.navigation_bar = QToolBar("Navigation")
         bar = self.navigation_bar
@@ -424,11 +426,32 @@ class LunaSurfer(QMainWindow):
             QTabWidget::pane { border: 0; background: #101827; }
             QTabBar::tab { background: #1c2c42; color: #dce8f8; padding: 9px 16px; margin-right: 2px; }
             QTabBar::tab:selected { background: #1769aa; color: white; }
-            QTabWidget QToolButton { min-width: 42px; min-height: 34px; }
+            QTabWidget QToolButton { min-width: 38px; min-height: 30px; }
+            /* Keep tooltips compact; they should not look like large info windows. */
+            QToolTip { font-size: 11px; padding: 3px 6px; border-radius: 3px; }
             QStatusBar { background: #142238; color: #dce8f8; }
+            QToolTip { background: #1b2b42; color: #ffffff; border: 1px solid #6f9fc9; border-radius: 3px; padding: 3px 6px; font-size: 11px; }
         """)
         self.restore_or_open_start_page()
         self.set_shortcuts()
+
+    def eventFilter(self, watched, event):
+        if watched is self.tabs.tabBar() and event.type() in (QEvent.Type.Resize, QEvent.Type.Show, QEvent.Type.LayoutRequest):
+            QTimer.singleShot(0, self.update_new_tab_button_position)
+        return super().eventFilter(watched, event)
+
+    def update_new_tab_button_position(self):
+        """Place the + button immediately after the last visible tab."""
+        if not hasattr(self, "tabs") or self.tabs.count() < 1:
+            return
+        bar = self.tabs.tabBar()
+        last = bar.tabRect(self.tabs.count() - 1)
+        x = last.right() + 3
+        y = max(1, (bar.height() - self.new_tab_button.height()) // 2)
+        # Avoid covering the tab bar's scroll controls when many tabs are open.
+        x = min(x, max(0, bar.width() - self.new_tab_button.width() - 2))
+        self.new_tab_button.move(x, y)
+        self.new_tab_button.raise_()
 
     def set_shortcuts(self):
         for seq, callback in [
@@ -571,10 +594,17 @@ class LunaSurfer(QMainWindow):
         widget = self.tabs.widget(index)
         self.tabs.removeTab(index)
         if widget: widget.deleteLater()
+        QTimer.singleShot(0, self.update_new_tab_button_position)
 
     def update_tab_title(self, view, title):
         index = self.tabs.indexOf(view)
-        if index >= 0: self.tabs.setTabText(index, (title or self.tr("Neuer Tab", "New tab"))[:24])
+        if index >= 0:
+            self.tabs.setTabText(index, (title or self.tr("Neuer Tab", "New tab"))[:24])
+            # A changed page title can make the last tab wider. Recalculate the
+            # position after Qt has completed the tab-bar layout, so the + button
+            # always follows the actual right edge of the last tab.
+            QTimer.singleShot(0, self.update_new_tab_button_position)
+            QTimer.singleShot(50, self.update_new_tab_button_position)
 
     def on_tab_changed(self, index):
         view = self.current_view()
@@ -1051,7 +1081,7 @@ class LunaSurfer(QMainWindow):
         dialog.accept()
 
     def about(self):
-        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.25\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
+        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.26\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
 
 def main():
     app = QApplication(sys.argv)

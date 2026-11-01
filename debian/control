@@ -1,9 +1,9 @@
 Package: lunasurfer
-Version: 0.3.25
+Version: 0.3.26
 Section: web
 Priority: optional
 Architecture: all
-Depends: python3
+Depends: python3, python3-pyside6.qtwidgets, python3-pyside6.qtwebenginewidgets, xdg-utils
 Maintainer: LunaSurfer
 Description: LunaSurfer web browser
  A Qt WebEngine browser with bookmarks and Chromium-compatible bookmark import/export.
