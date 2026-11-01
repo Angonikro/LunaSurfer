@@ -1,3 +1,10 @@
+# LunaSurfer 0.3.23
+
+## 0.3.23 – 2026-11-01
+- Lesezeichenordner in der Symbolleiste korrigiert: QToolBar verwendet jetzt QToolButton + QMenu. 
+- Chromium-Lesezeichenimporte bewahren die Ordnerhierarchie und Ordner werden als erweiterbare Menüs angezeigt. 
+– Startabsturz behoben, der durch den Aufruf von addMenu() auf QToolBar verursacht wurde.
+
 # Changelog
 ## 0.3.21 – 2026-10-31
 -  Start-URLs korrigiert: Wenn LunaSurfer als Standardbrowser verwendet wird und ein Link von einem anderen Programm geöffnet wird, soll jetzt direkt die übergebene URL geöffnet werden – nicht nur die Startseite.
@@ -61,3 +68,6 @@
 
 ## 0.3.0
 - Chromium-ähnliche Lesezeichenleiste ergänzt.
+
+## 0.3.22
+- Chromium-kompatibler Import und Export von Lesezeichen im HTML-Format.

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.21 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.23 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
 import urllib.parse
 import os
+from html.parser import HTMLParser
+from html import escape
 
 # Keep QtWebEngine's own helper selection. Forcing a system helper can mix
 # Qt installations and leave the browser surface blank on some Debian systems.
@@ -46,6 +48,52 @@ def write_json(path, data):
     temp = path.with_suffix(path.suffix + ".tmp")
     temp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     temp.replace(path)
+
+
+class ChromiumBookmarksParser(HTMLParser):
+    """Read Chromium/Netscape bookmark HTML while preserving folder structure."""
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.items = []
+        self._stack = [self.items]
+        self._href = None
+        self._text = []
+        self._folder_text = []
+        self._in_h3 = False
+        self._pending_folder = None
+        self._last_start = None
+
+    def handle_starttag(self, tag, attrs):
+        tag = tag.lower()
+        self._last_start = tag
+        if tag == "h3":
+            self._in_h3 = True; self._folder_text = []
+        elif tag == "a":
+            self._href = dict(attrs).get("href", "").strip(); self._text = []
+        elif tag == "dl" and self._pending_folder is not None:
+            folder = self._pending_folder
+            self._pending_folder = None
+            self._stack.append(folder["children"])
+
+    def handle_data(self, data):
+        if self._in_h3: self._folder_text.append(data)
+        if self._href is not None: self._text.append(data)
+
+    def handle_endtag(self, tag):
+        tag = tag.lower()
+        if tag == "h3" and self._in_h3:
+            title = "".join(self._folder_text).strip() or "Ordner"
+            folder = {"type": "folder", "title": title, "children": []}
+            self._stack[-1].append(folder)
+            self._pending_folder = folder
+            self._in_h3 = False
+        elif tag == "a" and self._href is not None:
+            title = "".join(self._text).strip() or self._href
+            if self._href.startswith(("http://", "https://", "file://")):
+                self._stack[-1].append({"title": title, "url": self._href})
+            self._href = None; self._text = []
+        elif tag == "dl":
+            if len(self._stack) > 1: self._stack.pop()
 
 class AddressLineEdit(QLineEdit):
     """Address field with a language-aware context menu.
@@ -199,7 +247,7 @@ class BrowserView(QWebEngineView):
 class LunaSurfer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LunaSurfer 0.3.21")
+        self.setWindowTitle("LunaSurfer 0.3.23")
         self.resize(1250, 820)
         self.settings_data = read_json(CONFIG_FILE, {
             "home": "https://duckduckgo.com",
@@ -483,30 +531,51 @@ class LunaSurfer(QMainWindow):
         self.statusBar().showMessage("Lesezeichen gespeichert", 3000)
 
     def refresh_bookmarks_bar(self):
-        """Rebuild the bookmarks bar from the saved bookmarks."""
+        """Rebuild the bookmarks bar, including Chromium bookmark folders."""
         if not hasattr(self, "bookmarks_bar"):
             return
         self.bookmarks_bar.clear()
         items = read_json(BOOKMARKS_FILE, [])
         style = QApplication.style()
-        for item in items:
-            url = item.get("url", "").strip()
-            if not url:
-                continue
-            title = (item.get("title") or url).strip()
-            action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload), title, self)
-            action.setToolTip(url)
-            action.triggered.connect(lambda checked=False, u=url: self.open_bookmark(u))
-            self.bookmarks_bar.addAction(action)
-            # Chromium-like editing: right-click a bookmark directly in the bar.
-            button = self.bookmarks_bar.widgetForAction(action)
-            if button is not None:
-                button.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-                button.customContextMenuRequested.connect(
-                    lambda pos, u=url, b=button: self.show_bookmark_context_menu(u, b.mapToGlobal(pos))
-                )
-        if items:
-            self.bookmarks_bar.addSeparator()
+
+        def add_items(parent_toolbar, entries):
+            for item in entries:
+                if item.get("type") == "folder" or "children" in item:
+                    title = (item.get("title") or "Ordner").strip()
+                    menu = QMenu(title, self)
+                    def fill_menu(target, children):
+                        for child in children:
+                            if child.get("type") == "folder" or "children" in child:
+                                sub = target.addMenu((child.get("title") or "Ordner").strip())
+                                fill_menu(sub, child.get("children", []))
+                            else:
+                                u = child.get("url", "").strip()
+                                if u:
+                                    a = target.addAction((child.get("title") or u).strip())
+                                    a.setToolTip(u)
+                                    a.triggered.connect(lambda checked=False, url=u: self.open_bookmark(url))
+                    fill_menu(menu, item.get("children", []))
+                    button = QToolButton(self.bookmarks_bar)
+                    button.setText(title)
+                    button.setMenu(menu)
+                    button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+                    parent_toolbar.addWidget(button)
+                else:
+                    url = item.get("url", "").strip()
+                    if not url:
+                        continue
+                    title = (item.get("title") or url).strip()
+                    action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload), title, self)
+                    action.setToolTip(url)
+                    action.triggered.connect(lambda checked=False, u=url: self.open_bookmark(u))
+                    parent_toolbar.addAction(action)
+                    button = parent_toolbar.widgetForAction(action)
+                    if button is not None:
+                        button.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+                        button.customContextMenuRequested.connect(lambda pos, u=url, b=button: self.show_bookmark_context_menu(u, b.mapToGlobal(pos)))
+
+        add_items(self.bookmarks_bar, items)
+        if items: self.bookmarks_bar.addSeparator()
         manage = QAction("Lesezeichen verwalten", self)
         manage.setToolTip("Lesezeichen anzeigen und verwalten")
         manage.triggered.connect(self.show_bookmarks)
@@ -597,10 +666,14 @@ class LunaSurfer(QMainWindow):
         open_btn = QPushButton("Öffnen")
         edit_btn = QPushButton("Bearbeiten…")
         delete_btn = QPushButton("Löschen")
+        import_btn = QPushButton("Importieren…")
+        export_btn = QPushButton("Exportieren…")
         close_btn = QPushButton("Schließen")
         buttons.addWidget(open_btn)
         buttons.addWidget(edit_btn)
         buttons.addWidget(delete_btn)
+        buttons.addWidget(import_btn)
+        buttons.addWidget(export_btn)
         buttons.addStretch(1)
         buttons.addWidget(close_btn)
         layout.addLayout(buttons)
@@ -626,9 +699,67 @@ class LunaSurfer(QMainWindow):
                 self.delete_bookmark(url)
                 populate()
 
+        def do_export():
+            filename, _ = QFileDialog.getSaveFileName(
+                dialog, "Lesezeichen exportieren", str(pathlib.Path.home() / "LunaSurfer-Lesezeichen.html"),
+                "HTML-Dateien (*.html *.htm)"
+            )
+            if not filename:
+                return
+            rows = []
+            for entry in read_json(BOOKMARKS_FILE, []):
+                url = str(entry.get("url", "")).strip()
+                title = str(entry.get("title", "") or url).strip()
+                if url:
+                    rows.append(f'<DT><A HREF="{escape(url, quote=True)}">{escape(title)}</A>')
+            content = "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks</H1>\n<DL><p>\n" + "\n".join(rows) + "\n</DL><p>\n"
+            try:
+                pathlib.Path(filename).write_text(content, encoding="utf-8")
+                self.statusBar().showMessage("Lesezeichen exportiert", 4000)
+                QMessageBox.information(dialog, "Export", "Die Lesezeichen wurden im Chromium-kompatiblen HTML-Format exportiert.")
+            except Exception as exc:
+                QMessageBox.warning(dialog, "Export fehlgeschlagen", str(exc))
+
+        def do_import():
+            filename, _ = QFileDialog.getOpenFileName(
+                dialog, "Lesezeichen importieren", str(pathlib.Path.home()), "HTML-Dateien (*.html *.htm)"
+            )
+            if not filename:
+                return
+            try:
+                parser = ChromiumBookmarksParser()
+                parser.feed(pathlib.Path(filename).read_text(encoding="utf-8", errors="replace"))
+                imported = parser.items
+                if not imported:
+                    QMessageBox.warning(dialog, "Import", "Keine Lesezeichen in der ausgewählten Datei gefunden.")
+                    return
+                answer = QMessageBox.question(
+                    dialog, "Lesezeichen importieren",
+                    f"{len(imported)} Lesezeichen gefunden.\n\nJa: vorhandene Lesezeichen ersetzen\nNein: zu vorhandenen Lesezeichen hinzufügen",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
+                    QMessageBox.StandardButton.No,
+                )
+                if answer == QMessageBox.StandardButton.Cancel:
+                    return
+                if answer == QMessageBox.StandardButton.Yes:
+                    result = imported
+                else:
+                    result = read_json(BOOKMARKS_FILE, [])
+                    existing = {str(x.get("url", "")).strip() for x in result}
+                    result.extend(x for x in imported if x["url"] not in existing)
+                write_json(BOOKMARKS_FILE, result)
+                self.refresh_bookmarks_bar()
+                populate()
+                self.statusBar().showMessage("Lesezeichen importiert", 4000)
+                QMessageBox.information(dialog, "Import", f"{len(imported)} Lesezeichen wurden importiert.")
+            except Exception as exc:
+                QMessageBox.warning(dialog, "Import fehlgeschlagen", str(exc))
+
         open_btn.clicked.connect(do_open)
         edit_btn.clicked.connect(do_edit)
         delete_btn.clicked.connect(do_delete)
+        import_btn.clicked.connect(do_import)
+        export_btn.clicked.connect(do_export)
         bookmark_list.itemDoubleClicked.connect(lambda item: do_open())
         close_btn.clicked.connect(dialog.accept)
         populate()
@@ -833,7 +964,7 @@ class LunaSurfer(QMainWindow):
         dialog.accept()
 
     def about(self):
-        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.21\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
+        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.23\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
 
 def main():
     app = QApplication(sys.argv)
