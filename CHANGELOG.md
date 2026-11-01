@@ -1,3 +1,8 @@
+
+## 0.3.27 – Clipboard & GitHub graph rendering fixes
+– Der QtWebEngine-Zugriff auf die Zwischenablage für vom Benutzer ausgelöste Website-Kopierschaltflächen wurde aktiviert. 
+– Verbesserter Kontrast von SVG-Beschriftungen in GitHub-Verkehrsdiagrammen, sodass Werte auf hellen Diagrammfeldern sichtbar bleiben.
+
 ## 0.3.26 - 2026-11-01
 - Tooltips/Info-Kästchen: deutlich besserer Kontrast und etwas größere, besser lesbare Darstellung.
 - Tableiste verbessert

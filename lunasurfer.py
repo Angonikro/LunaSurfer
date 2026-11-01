@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.26 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.27 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -165,6 +165,11 @@ class BrowserView(QWebEngineView):
         page = self.page()
         settings = page.settings()
         settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+        # Allow websites to copy text after an explicit user action.  Many modern
+        # pages use navigator.clipboard.writeText() for their own Copy buttons.
+        clipboard_attr = getattr(QWebEngineSettings.WebAttribute, "JavascriptCanAccessClipboard", None)
+        if clipboard_attr is not None:
+            settings.setAttribute(clipboard_attr, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.FullScreenSupportEnabled, True)
         page.fullScreenRequested.connect(self.handle_fullscreen)
@@ -228,6 +233,20 @@ class BrowserView(QWebEngineView):
 
     def on_load_finished(self, ok):
         url = self.url().toString()
+        # GitHub's traffic graphs contain a few light SVG panels.  With the
+        # dark browser chrome on this QtWebEngine build their SVG labels can be
+        # rendered too lightly.  Correct only those graph labels, not GitHub's
+        # normal page colours.
+        if ok and "github.com" in url and "/graphs/traffic" in url:
+            self.page().runJavaScript("""
+                (() => {
+                    const style = document.createElement('style');
+                    style.id = 'lunasurfer-github-traffic-contrast';
+                    style.textContent = `svg text { fill: #57606a !important; color: #57606a !important; }
+                                         svg [fill="white"] + text { fill: #24292f !important; }`;
+                    if (!document.getElementById(style.id)) document.head.appendChild(style);
+                })();
+            """)
         if ok:
             if url.startswith(("http://", "https://")):
                 history = read_json(HISTORY_FILE, [])
@@ -272,7 +291,7 @@ class BrowserView(QWebEngineView):
 class LunaSurfer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LunaSurfer 0.3.26")
+        self.setWindowTitle("LunaSurfer 0.3.27")
         self.resize(1250, 820)
         self._web_fullscreen = False
         self._was_maximized_before_fullscreen = False
@@ -1081,7 +1100,7 @@ class LunaSurfer(QMainWindow):
         dialog.accept()
 
     def about(self):
-        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.26\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
+        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.27\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
 
 def main():
     app = QApplication(sys.argv)
