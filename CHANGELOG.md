@@ -1,3 +1,7 @@
+## 0.3.24 - 2026-11-01
+- Lesezeichen-Stern in der Navigationsleiste deutlich vergrößert.
+- Schriftgrößen-Fix: Die gewählte Schriftgröße bleibt nach dem vollständigen Laden einer Webseite erhalten und springt nicht mehr auf Mittel zurück.
+
 # LunaSurfer 0.3.23
 
 ## 0.3.23 – 2026-11-01

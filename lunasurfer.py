@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.23 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.24 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -231,6 +231,9 @@ class BrowserView(QWebEngineView):
         else:
             self.window_ref.statusBar().showMessage("Seite konnte nicht geladen werden – Adresse und Netzwerk prüfen", 8000)
         self.window_ref.update_navigation()
+        # Re-apply after the page and its own CSS have finished loading.
+        # This prevents the selected browser font size from reverting to medium.
+        self.window_ref.enforce_font_size(self)
 
     def on_render_process_terminated(self, status, exit_code):
         self.window_ref.statusBar().showMessage(
@@ -247,7 +250,7 @@ class BrowserView(QWebEngineView):
 class LunaSurfer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LunaSurfer 0.3.23")
+        self.setWindowTitle("LunaSurfer 0.3.24")
         self.resize(1250, 820)
         self.settings_data = read_json(CONFIG_FILE, {
             "home": "https://duckduckgo.com",
@@ -338,10 +341,17 @@ class LunaSurfer(QMainWindow):
         self.address.setSizePolicy(self.address.sizePolicy().horizontalPolicy(), self.address.sizePolicy().verticalPolicy())
         bar.addWidget(self.address)
 
+        # Use a dedicated button so the bookmark star remains clearly visible
+        # and is not reduced to the toolbar's normal text/icon size.
         self.star_action = QAction("★", self)
         self.star_action.setToolTip(self.tr("Aktuelle Seite als Lesezeichen hinzufügen", "Add current page to bookmarks"))
         self.star_action.triggered.connect(self.add_bookmark)
-        bar.addAction(self.star_action)
+        self.star_button = QToolButton(self)
+        self.star_button.setDefaultAction(self.star_action)
+        self.star_button.setText("★")
+        self.star_button.setFixedSize(46, 42)
+        self.star_button.setStyleSheet("font-size: 30px; font-weight: bold; padding: 0px; margin: 0px;")
+        bar.addWidget(self.star_button)
         self.newtab_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_FileDialogNewFolder), "", self); self.newtab_action.setToolTip(self.tr("Neuer Tab", "New tab"))
         self.newtab_action.triggered.connect(lambda: self.add_tab(self.settings_data["home"]))
         bar.addAction(self.newtab_action)
@@ -448,7 +458,7 @@ class LunaSurfer(QMainWindow):
         view.setPage(page)
         self.apply_page_theme(view)
         self.apply_font_size(view)
-        view.setZoomFactor(int(self.settings_data.get("default_zoom", 100)) / 100.0)
+        self.apply_font_size(view)
         index = self.tabs.addTab(view, self.tr("Neuer Tab", "New tab"))
         if switch: self.tabs.setCurrentIndex(index)
         view.load(QUrl(url or self.settings_data.get("home", "https://duckduckgo.com")))
@@ -462,9 +472,21 @@ class LunaSurfer(QMainWindow):
             settings.setAttribute(force_dark, self.settings_data.get("theme", "dark") == "dark")
 
     def apply_font_size(self, view):
+        # Apply both WebEngine's font defaults and a visible page scale. Many
+        # modern websites define their own CSS font sizes, so DefaultFontSize
+        # alone often has no visible effect.
         sizes = {"Klein": 13, "Mittel": 16, "Groß": 19, "Sehr groß": 22}
-        size = sizes.get(self.settings_data.get("font_size", "Mittel"), 16)
+        scales = {"Klein": 0.90, "Mittel": 1.00, "Groß": 1.15, "Sehr groß": 1.30}
+        selected = self.settings_data.get("font_size", "Mittel")
+        size = sizes.get(selected, 16)
         view.page().settings().setFontSize(QWebEngineSettings.FontSize.DefaultFontSize, size)
+        view.page().settings().setFontSize(QWebEngineSettings.FontSize.DefaultFixedFontSize, size)
+        base_zoom = int(self.settings_data.get("default_zoom", 100)) / 100.0
+        view.setZoomFactor(base_zoom * scales.get(selected, 1.0))
+
+    def enforce_font_size(self, view):
+        # Keep the selected size active after a page has finished loading.
+        self.apply_font_size(view)
 
     def apply_theme_to_all_tabs(self):
         for index in range(self.tabs.count()):
@@ -899,7 +921,7 @@ class LunaSurfer(QMainWindow):
         old_language = self.settings_data.get("language", "de")
         self.download_dir=chosen; write_json(CONFIG_FILE,self.settings_data); self.set_default_browser(bool(default_browser)); self.apply_language_live()
         self.bookmarks_bar.setVisible(self.settings_data["show_bookmarks_bar"]); self.apply_theme_to_all_tabs()
-        for i in range(self.tabs.count()): self.tabs.widget(i).setZoomFactor(self.settings_data["default_zoom"]/100.0)
+        for i in range(self.tabs.count()): self.apply_font_size(self.tabs.widget(i))
         dialog.accept()
 
     def set_default_browser(self, enabled):
@@ -960,11 +982,11 @@ class LunaSurfer(QMainWindow):
         self.apply_theme_to_all_tabs()
         for i in range(self.tabs.count()):
             view = self.tabs.widget(i)
-            if view: view.setZoomFactor(self.settings_data["default_zoom"] / 100.0)
+            if view: self.apply_font_size(view)
         dialog.accept()
 
     def about(self):
-        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.23\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
+        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.24\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
 
 def main():
     app = QApplication(sys.argv)
