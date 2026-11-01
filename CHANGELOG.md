@@ -1,5 +1,4 @@
 ## 0.3.26 - 2026-11-01
-
 - Tooltips/Info-Kästchen: deutlich besserer Kontrast und etwas größere, besser lesbare Darstellung.
 - Tableiste verbessert
 
