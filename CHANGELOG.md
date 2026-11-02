@@ -1,4 +1,11 @@
-# LunaSurfer 0.3.29
+LunaSurfer
+
+## 0.3.30 - 2026-11-02
+- Sprachwechsel-Fix: Der Wechsel zwischen den Sprachen wurde korrigiert, damit die Benutzeroberfläche zuverlässig neu aufgebaut bzw. aktualisiert wird.
+- Hauptmenü verbessert: Der Menüpunkt „Beenden / Quit“ befindet sich jetzt zusammen mit: Einstellungen, Über LunaSurfer im selben Hauptmenü.
+- ADBlocker verbesser: Jetzt gibt es noch Super Stark und Mega Stark.
+
+## 0.3.29 - 2026-11-02
 - Responsive Lesezeichenleiste mit lesbaren Mindestbreiten. 
 - Zusätzliche Lesezeichen werden in ein „» Weitere“-Überlaufmenü verschoben, anstatt gequetscht zu werden. 
 - „Lesezeichen verwalten“ bleibt verankert und sichtbar. 
@@ -113,3 +120,8 @@
 ## 0.3.26 – UI-Fix
 - Kompaktere Hinweisfenster/Tooltips für Stern und Neuer-Tab-Schaltfläche.
 - Plus-Schaltfläche der Tab-Leiste steht direkt hinter dem letzten geöffneten Tab statt am rechten Fensterrand.
+
+## 0.3.30 – Super-Strong Adblock Test
+- Added a new "Super stark / Super strong" adblock level.
+- Extends "Sehr stark" with additional common advertising, attribution, analytics and telemetry endpoints.
+- Whitelist remains available for websites that need an exception.

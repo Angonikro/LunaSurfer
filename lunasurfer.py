@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.29 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.30 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -158,10 +158,74 @@ class PrivacyInterceptor(QWebEngineUrlRequestInterceptor):
         standard = ["doubleclick.net", "googlesyndication.com", "googleadservices.com", "adservice.google.", "adsystem.com", "taboola.com", "outbrain.com", "scorecardresearch.com"]
         strong = standard + ["adnxs.com", "adsrvr.org", "amazon-adsystem.com", "criteo.com", "criteo.net", "demdex.net", "rubiconproject.com", "openx.net", "pubmatic.com", "casalemedia.com", "mathtag.com", "smartadserver.com", "advertising.com", "2mdn.net", "moatads.com", "quantserve.com", "bluekai.com", "chartbeat.com", "hotjar.com", "mouseflow.com", "mixpanel.com", "segment.io"]
         very_strong = strong + ["google-analytics.com", "googletagmanager.com", "analytics.google.com", "facebook.net", "connect.facebook.net", "bat.bing.com", "clarity.ms", "branch.io", "app-measurement.com", "newrelic.com", "nr-data.net", "sentry.io"]
+        # Super strong adds a broader set of common advertising, attribution and telemetry endpoints.
+        # It can occasionally affect login, embedded media or site statistics; the whitelist remains available.
+        super_strong = very_strong + [
+            "googletagservices.com", "googlesyndication.com", "doubleclick.net", "2mdn.net",
+            "adform.net", "adnxs.net", "adsafeprotected.com", "advertising.com", "advertserve.com",
+            "bidswitch.net", "contextweb.com", "lijit.com", "media.net", "mgid.com", "revcontent.com",
+            "sharethrough.com", "smaato.net", "spotxchange.com", "teads.tv", "tradedoubler.com",
+            "yieldmo.com", "yieldlab.net", "zedo.com", "serving-sys.com", "eyeota.net",
+            "exelator.com", "krxd.net", "rlcdn.com", "turn.com", "turner.com",
+            "omtrdc.net", "2o7.net", "demdex.net", "everesttech.net", "agkn.com",
+            "segment.com", "segment.io", "amplitude.com", "amplitudeapp.com", "heap.io",
+            "fullstory.com", "luckyorange.com", "inspectlet.com", "crazyegg.com", "smartlook.com",
+            "optimizely.com", "vwo.com", "visualwebsiteoptimizer.com", "contentsquare.net",
+            "ads-twitter.com", "analytics.twitter.com", "snap.licdn.com", "px.ads.linkedin.com",
+            "ads.yahoo.com", "gemini.yahoo.com", "yahoo.com/analytics"
+        ]
+        # Mega strong is deliberately intended for maximum privacy/ad-test use.
+        # Keep host rules and URL/path rules separate: a hostname comparison cannot
+        # reliably match entries such as "facebook.com/tr".
+        mega_strong = super_strong + [
+            "adobedtm.com", "demdex.com", "marketo.net", "pardot.com", "hubspot.com",
+            "hs-analytics.net", "hsadspixel.net", "bizible.com", "drift.com", "intercom.io",
+            "pendo.io", "appcues.com", "launchdarkly.com", "split.io", "statsig.com",
+            "logrocket.io", "datadoghq.com", "browser-intake-datadoghq.com", "bugsnag.com",
+            "rollbar.com", "raygun.io", "mousestats.com", "clicktale.net", "sessioncam.com",
+            "glassboxdigital.com", "matomo.cloud", "piwik.pro", "kissmetrics.io", "woopra.com",
+            "chartbeat.net", "parsely.com", "conviva.com", "nielsen.com", "adsymptotic.com",
+            "adkernel.com", "adroll.com", "adition.com", "adsnative.com", "adzerk.net",
+            "moatpixel.com", "doubleverify.com", "integralads.com", "casalegslb.com",
+            "indexexchange.com", "bluekai.net", "liveintent.com", "lotame.com", "permutive.com",
+            "zeotap.com", "tealiumiq.com", "tealium.com", "tagcommander.com", "ensighten.com",
+            "fingerprintjs.com", "fingerprint.com", "iovation.com", "threatmetrix.com",
+            # Frequently used advertising, attribution and tracker hosts.
+            "1rx.io", "33across.com", "360yield.com", "acuityads.com", "adblade.com",
+            "adbutler.com", "adcolony.com", "adgear.com", "adhaven.com", "adition.com",
+            "admarvel.com", "adnxs.net", "adnxs.com", "adpushup.com", "adskeeper.com",
+            "adswizz.com", "adtech.de", "adtechus.com", "advertising.com", "advertserve.com",
+            "agkn.com", "appsflyer.com", "atdmt.com", "beacon.kr", "beeswax.io",
+            "branch.io", "btloader.com", "cedexis.com", "clicky.com", "criteo.net",
+            "demdex.net", "dpm.demdex.net", "everesttech.net", "eyeota.net", "flashtalking.com",
+            "gemius.pl", "getclicky.com", "impactradius.com", "imrworldwide.com",
+            "inmobi.com", "krxd.net", "liadm.com", "mathtag.com", "media6degrees.com",
+            "nexac.com", "omnitagjs.com", "openx.net", "optimizely.com", "quantserve.com",
+            "rfihub.com", "scorecardresearch.com", "serving-sys.com", "sharethis.com",
+            "simpli.fi", "sitescout.com", "skimresources.com", "stickyadstv.com", "tapad.com",
+            "teads.tv", "tribalfusion.com", "undertone.com", "weborama.com", "yieldlab.net",
+            "zemanta.com", "analytics.tiktok.com", "analytics.twitter.com", "snap.licdn.com"
+        ]
+        mega_url_patterns = [
+            "facebook.com/tr", "/collect?", "/collect/", "/analytics", "/analytics/",
+            "/tracking", "/tracking/", "/tracker", "/tracker/", "/telemetry", "/telemetry/",
+            "/beacon", "/beacon/", "/pixel", "/pixel/", "/pageview", "/page-view",
+            "/event?", "/events?", "/conversion", "/conversions", "/remarketing",
+            "/adservice", "/adserver", "/ads/", "/ads?", "/advert/", "/advertising/",
+            "utm_source=", "utm_medium=", "gclid=", "fbclid="
+        ]
         strength = self.window_ref.settings_data.get("adblock_strength", "standard")
-        builtins = standard if strength == "standard" else (strong if strength == "strong" else very_strong)
+        builtins = (standard if strength == "standard" else
+                    strong if strength == "strong" else
+                    very_strong if strength == "very_strong" else
+                    super_strong if strength == "super_strong" else mega_strong)
         custom = [str(x).lower() for x in self.window_ref.settings_data.get("adblock_custom_blocklist", [])]
-        if any(token in host or token in url for token in builtins + custom):
+        # Match domains precisely (including subdomains), while custom entries may
+        # still be URL patterns. This avoids accidental partial hostname matches.
+        domain_match = any(host == token or host.endswith("." + token) for token in builtins if "/" not in token)
+        pattern_match = any(token in url for token in custom)
+        mega_pattern_match = strength == "mega_strong" and any(token in url for token in mega_url_patterns)
+        if domain_match or pattern_match or mega_pattern_match:
             info.block(True)
 
 
@@ -308,7 +372,7 @@ class BrowserView(QWebEngineView):
 class LunaSurfer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LunaSurfer 0.3.29")
+        self.setWindowTitle("LunaSurfer 0.3.30")
         self.resize(1250, 820)
         self._web_fullscreen = False
         self._was_maximized_before_fullscreen = False
@@ -318,6 +382,7 @@ class LunaSurfer(QMainWindow):
             "search": "https://duckduckgo.com/?q={}",
             "dark": True,
             "theme": "dark",
+            "browser_design": "dark",
             "show_bookmarks_bar": True,
             "restore_session": False,
             "startup_mode": "home",
@@ -451,6 +516,8 @@ class LunaSurfer(QMainWindow):
         menu.addSeparator()
         menu.addAction(self.tr("Einstellungen", "Settings"), self.show_settings)
         menu.addAction(self.tr("Über LunaSurfer", "About LunaSurfer"), self.about)
+        menu.addSeparator()
+        menu.addAction(self.tr("Beenden", "Quit"), self.close)
         self.menu_button = QToolButton()
         self.menu_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_TitleBarMenuButton))
         self.menu_button.setIconSize(QSize(28, 28))
@@ -477,25 +544,68 @@ class LunaSurfer(QMainWindow):
         self.bookmarks_bar.setVisible(self.settings_data.get("show_bookmarks_bar", True))
 
         self.statusBar().showMessage("Bereit / Ready")
-        self.setStyleSheet("""
-            QMainWindow { background: #101827; }
-            QToolBar { background: #17263b; border: 0; spacing: 8px; padding: 8px 10px; }
-            QToolBar QToolButton { color: #eef4ff; padding: 7px; border-radius: 9px; min-width: 34px; min-height: 34px; }
-            QToolBar QToolButton:hover { background: #294564; }
-            QToolBar QToolButton:pressed { background: #1769aa; }
-            QToolBar QToolButton:disabled { opacity: 0.45; }
-            QLineEdit { background: #202f45; color: #f2f6ff; border: 1px solid #3d5878; border-radius: 16px; padding: 9px 13px; font-size: 13px; }
-            QTabWidget::pane { border: 0; background: #101827; }
-            QTabBar::tab { background: #1c2c42; color: #dce8f8; padding: 9px 16px; margin-right: 2px; }
-            QTabBar::tab:selected { background: #1769aa; color: white; }
-            QTabWidget QToolButton { min-width: 38px; min-height: 30px; }
-            /* Keep tooltips compact; they should not look like large info windows. */
-            QToolTip { font-size: 11px; padding: 3px 6px; border-radius: 3px; }
-            QStatusBar { background: #142238; color: #dce8f8; }
-            QToolTip { background: #1b2b42; color: #ffffff; border: 1px solid #6f9fc9; border-radius: 3px; padding: 3px 6px; font-size: 11px; }
-        """)
+        self.apply_browser_design()
         self.restore_or_open_start_page()
         self.set_shortcuts()
+
+    def apply_browser_design(self):
+        """Apply the selected LunaSurfer chrome design immediately."""
+        design = self.settings_data.get("browser_design", "dark")
+        if design == "light":
+            css = """
+                QMainWindow { background: #f4f6f9; color: #1d2630; }
+                QToolBar { background: #ffffff; border-bottom: 1px solid #d6dbe2; spacing: 8px; padding: 8px 10px; }
+                QToolBar QToolButton { color: #26313d; padding: 7px; border-radius: 9px; min-width: 34px; min-height: 34px; }
+                QToolBar QToolButton:hover { background: #e7edf5; }
+                QToolBar QToolButton:pressed { background: #d3e5f8; }
+                QLineEdit { background: #ffffff; color: #1d2630; border: 1px solid #b9c4d0; border-radius: 16px; padding: 9px 13px; font-size: 13px; }
+                QTabWidget::pane { border: 0; background: #f4f6f9; }
+                QTabBar::tab { background: #e7ebf0; color: #293440; padding: 9px 16px; margin-right: 2px; }
+                QTabBar::tab:selected { background: #d7e9fa; color: #163d62; }
+                QTabWidget QToolButton { min-width: 38px; min-height: 30px; }
+                QStatusBar { background: #edf1f5; color: #26313d; }
+                QToolTip { background: #ffffff; color: #1d2630; border: 1px solid #9da9b6; border-radius: 3px; padding: 3px 6px; font-size: 11px; }
+            """
+        elif design == "luna":
+            css = """
+                QMainWindow { background: #21163a; }
+                QToolBar { background: #302052; border: 0; spacing: 8px; padding: 8px 10px; }
+                QToolBar QToolButton { color: #f5efff; padding: 7px; border-radius: 9px; min-width: 34px; min-height: 34px; }
+                QToolBar QToolButton:hover { background: #513781; }
+                QToolBar QToolButton:pressed { background: #7c3fc2; }
+                QLineEdit { background: #3a275c; color: #ffffff; border: 1px solid #8061ae; border-radius: 16px; padding: 9px 13px; font-size: 13px; }
+                QTabWidget::pane { border: 0; background: #21163a; }
+                QTabBar::tab { background: #38265b; color: #eadfff; padding: 9px 16px; margin-right: 2px; }
+                QTabBar::tab:selected { background: #7c3fc2; color: white; }
+                QTabWidget QToolButton { min-width: 38px; min-height: 30px; }
+                QStatusBar { background: #2b1d48; color: #eadfff; }
+                QToolTip { background: #352451; color: #ffffff; border: 1px solid #aa83df; border-radius: 3px; padding: 3px 6px; font-size: 11px; }
+            """
+        else:
+            css = """
+                QMainWindow { background: #101827; }
+                QToolBar { background: #17263b; border: 0; spacing: 8px; padding: 8px 10px; }
+                QToolBar QToolButton { color: #eef4ff; padding: 7px; border-radius: 9px; min-width: 34px; min-height: 34px; }
+                QToolBar QToolButton:hover { background: #294564; }
+                QToolBar QToolButton:pressed { background: #1769aa; }
+                QLineEdit { background: #202f45; color: #f2f6ff; border: 1px solid #3d5878; border-radius: 16px; padding: 9px 13px; font-size: 13px; }
+                QTabWidget::pane { border: 0; background: #101827; }
+                QTabBar::tab { background: #1c2c42; color: #dce8f8; padding: 9px 16px; margin-right: 2px; }
+                QTabBar::tab:selected { background: #1769aa; color: white; }
+                QTabWidget QToolButton { min-width: 38px; min-height: 30px; }
+                QStatusBar { background: #142238; color: #dce8f8; }
+                QToolTip { background: #1b2b42; color: #ffffff; border: 1px solid #6f9fc9; border-radius: 3px; padding: 3px 6px; font-size: 11px; }
+            """
+        self.setStyleSheet(css)
+        # Keep the compact special buttons visually consistent with the selected design.
+        if hasattr(self, "new_tab_button"):
+            if design == "luna":
+                accent, border, fg = "#7c3fc2", "#b28ae8", "#ffffff"
+            elif design == "light":
+                accent, border, fg = "#d7e9fa", "#6f9fc9", "#163d62"
+            else:
+                accent, border, fg = "#1769aa", "#5fa8e8", "#ffffff"
+            self.new_tab_button.setStyleSheet(f"font-size: 21px; font-weight: bold; color: {fg}; background: {accent}; border: 1px solid {border}; border-radius: 5px; margin: 1px;")
 
     def eventFilter(self, watched, event):
         if watched is self.tabs.tabBar() and event.type() in (QEvent.Type.Resize, QEvent.Type.Show, QEvent.Type.LayoutRequest):
@@ -558,8 +668,14 @@ class LunaSurfer(QMainWindow):
         menu.addSeparator()
         menu.addAction(self.tr("Einstellungen", "Settings"), self.show_settings)
         menu.addAction(self.tr("Über LunaSurfer", "About LunaSurfer"), self.about)
+        menu.addSeparator()
+        menu.addAction(self.tr("Beenden", "Quit"), self.close)
         self.menu_button.setMenu(menu)
         self.menu_button.setToolTip(self.tr("Menü", "Menu"))
+        # The bookmarks toolbar contains dynamically created actions, including
+        # the permanent "Manage bookmarks" button. Rebuild it immediately so
+        # its texts follow a language change without requiring a restart.
+        self.refresh_bookmarks_bar()
 
     def enter_web_fullscreen(self):
         if self._web_fullscreen:
@@ -1001,14 +1117,14 @@ class LunaSurfer(QMainWindow):
         layout = QVBoxLayout(dialog)
         enabled = QCheckBox(self.tr("Werbeblocker aktivieren", "Enable ad blocker")); enabled.setChecked(self.settings_data.get("adblock_enabled", True)); layout.addWidget(enabled)
         layout.addWidget(QLabel(self.tr("Blockierstärke:", "Blocking strength:")))
-        strength = QComboBox(); strength.addItem(self.tr("Standard", "Standard"), "standard"); strength.addItem(self.tr("Stark", "Strong"), "strong"); strength.addItem(self.tr("Sehr stark", "Very strong"), "very_strong")
+        strength = QComboBox(); strength.addItem(self.tr("Standard", "Standard"), "standard"); strength.addItem(self.tr("Stark", "Strong"), "strong"); strength.addItem(self.tr("Sehr stark", "Very strong"), "very_strong"); strength.addItem(self.tr("Super stark", "Super strong"), "super_strong"); strength.addItem(self.tr("Mega stark", "Mega strong"), "mega_strong")
         current_strength = self.settings_data.get("adblock_strength", "standard"); strength.setCurrentIndex(max(0, strength.findData(current_strength))); layout.addWidget(strength)
         layout.addWidget(QLabel(self.tr("Eigene Blockiermuster (eine Domain oder ein Muster pro Zeile):", "Custom block patterns (one domain or pattern per line):")))
         patterns = QLineEdit("; ".join(self.settings_data.get("adblock_custom_blocklist", []))); patterns.setPlaceholderText("z. B. example-ads.com")
         layout.addWidget(patterns)
         layout.addWidget(QLabel(self.tr("Whitelist-Domains (mit Semikolon trennen):", "Whitelist domains (separate with semicolons):")))
         whitelist = QLineEdit("; ".join(self.settings_data.get("adblock_whitelist", []))); layout.addWidget(whitelist)
-        info = QLabel(self.tr("Der integrierte Blocker filtert bekannte Werbe- und Tracking-Domains. Änderungen gelten für neue Anfragen sofort.", "The built-in blocker filters known advertising and tracking domains. Changes apply to new requests immediately.")); info.setWordWrap(True); layout.addWidget(info)
+        info = QLabel(self.tr("Der integrierte Blocker filtert bekannte Werbe- und Tracking-Domains. Super stark blockiert zusätzlich eine breitere Auswahl an Werbe-, Analyse- und Tracking-Endpunkten. Mega stark ist für gezielte maximale Blockierung gedacht und filtert zusätzlich URL-/Pfad-Muster für Werbung, Tracking, Telemetrie, Pixel und Attribution. Dadurch können einzelne Webseiten deutlich stärker beeinträchtigt werden. Änderungen gelten für neue Anfragen sofort.", "The built-in blocker filters known advertising and tracking domains. Super strong additionally blocks a broader selection of advertising, analytics and tracking endpoints. Mega strong is intended for targeted maximum blocking and additionally filters URL/path patterns for advertising, tracking, telemetry, pixels and attribution. This can affect individual websites much more strongly. Changes apply to new requests immediately.")); info.setWordWrap(True); layout.addWidget(info)
         buttons = QHBoxLayout(); save = QPushButton(self.tr("Speichern", "Save")); close = QPushButton(self.tr("Abbrechen", "Cancel")); buttons.addStretch(1); buttons.addWidget(save); buttons.addWidget(close); layout.addLayout(buttons)
         def do_save():
             self.settings_data["adblock_enabled"] = enabled.isChecked()
@@ -1203,6 +1319,7 @@ class LunaSurfer(QMainWindow):
         for name,url in engines.items(): engine.addItem(name,url)
         saved_engine=self.settings_data.get("search_engine", "DuckDuckGo"); engine.setCurrentIndex(max(0,engine.findText(saved_engine)))
         theme = QComboBox(); theme.addItem(self.tr("Dunkel", "Dark"), "dark"); theme.addItem(self.tr("Hell", "Light"), "light"); theme.setCurrentIndex(0 if self.settings_data.get("theme", "dark") == "dark" else 1)
+        browser_design = QComboBox(); browser_design.addItem(self.tr("Dunkel (Standard)", "Dark (Standard)"), "dark"); browser_design.addItem(self.tr("Hell (Klassisch)", "Light (Classic)"), "light"); browser_design.addItem(self.tr("Luna (Modern)", "Luna (Modern)"), "luna"); browser_design.setCurrentIndex(max(0, browser_design.findData(self.settings_data.get("browser_design", "dark"))))
         show_bookmarks_bar = QCheckBox(self.tr("Lesezeichenleiste unter der Adressleiste anzeigen", "Show bookmarks bar below the address bar")); show_bookmarks_bar.setChecked(self.settings_data.get("show_bookmarks_bar", True))
         download_dir = QLineEdit(str(self.download_dir)); choose_download = QPushButton(self.tr("Ordner auswählen…", "Choose folder…")); row=QHBoxLayout(); row.addWidget(download_dir); row.addWidget(choose_download); choose_download.clicked.connect(lambda:self.choose_download_dir(download_dir))
         zoom=QComboBox()
@@ -1225,18 +1342,18 @@ class LunaSurfer(QMainWindow):
         clear_cookies_exit=QCheckBox(self.tr("Cookies beim Beenden automatisch löschen", "Automatically clear cookies on exit")); clear_cookies_exit.setChecked(self.settings_data.get("clear_cookies_on_exit",False))
         remember_window_size=QCheckBox(self.tr("Fenstergröße und Position beim Beenden merken", "Remember window size and position on exit")); remember_window_size.setChecked(self.settings_data.get("remember_window_size",True))
         default_browser=QCheckBox(self.tr("LunaSurfer als Standardbrowser verwenden", "Use LunaSurfer as default browser")); default_browser.setChecked(self.settings_data.get("default_browser",False))
-        form.addRow(self.tr("Sprache:", "Language:"), language); form.addRow(self.tr("Beim Start:", "On startup:"),startup); form.addRow(self.tr("Startseite:", "Homepage:"),home); form.addRow(self.tr("Suchmaschine:", "Search engine:"),engine); form.addRow(self.tr("Webseiten-Design:", "Website appearance:"),theme); form.addRow("",show_bookmarks_bar); form.addRow(self.tr("Download-Ordner:", "Download folder:"),row); form.addRow("",ask_download); form.addRow(self.tr("Standard-Zoom:", "Default zoom:"),zoom); form.addRow(self.tr("Standard-Schriftgröße:", "Default font size:"),font_size); form.addRow(self.tr("Sicherheit:", "Security:"),block); form.addRow("",dnt); form.addRow(self.tr("Browser-Verhalten:", "Browser behavior:"),confirm_tabs)
+        form.addRow(self.tr("Sprache:", "Language:"), language); form.addRow(self.tr("Beim Start:", "On startup:"),startup); form.addRow(self.tr("Startseite:", "Homepage:"),home); form.addRow(self.tr("Suchmaschine:", "Search engine:"),engine); form.addRow(self.tr("Browser-Design:", "Browser design:"),browser_design); form.addRow(self.tr("Webseiten-Design:", "Website appearance:"),theme); form.addRow("",show_bookmarks_bar); form.addRow(self.tr("Download-Ordner:", "Download folder:"),row); form.addRow("",ask_download); form.addRow(self.tr("Standard-Zoom:", "Default zoom:"),zoom); form.addRow(self.tr("Standard-Schriftgröße:", "Default font size:"),font_size); form.addRow(self.tr("Sicherheit:", "Security:"),block); form.addRow("",dnt); form.addRow(self.tr("Browser-Verhalten:", "Browser behavior:"),confirm_tabs)
         privacy=QHBoxLayout(); a=QPushButton(self.tr("Verlauf löschen", "Clear history")); b=QPushButton(self.tr("Cache löschen", "Clear cache")); c=QPushButton(self.tr("Cookies löschen", "Clear cookies")); [privacy.addWidget(x) for x in (a,b,c)]; form.addRow(self.tr("Browserdaten:", "Browser data:"),privacy); form.addRow("",clear_history_exit); form.addRow("",clear_cache_exit); form.addRow("",clear_cookies_exit); form.addRow("",remember_window_size); form.addRow("",default_browser); a.clicked.connect(self.clear_history); b.clicked.connect(self.clear_cache); c.clicked.connect(self.clear_cookies)
         buttons=QHBoxLayout(); save=QPushButton(self.tr("Speichern", "Save")); cancel=QPushButton(self.tr("Abbrechen", "Cancel")); buttons.addWidget(save); buttons.addWidget(cancel); form.addRow(buttons)
-        save.clicked.connect(lambda:self.save_settings_v39(dialog,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData(),default_browser.isChecked()))
+        save.clicked.connect(lambda:self.save_settings_v39(dialog,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData(),default_browser.isChecked(),browser_design.currentData()))
         cancel.clicked.connect(dialog.reject); dialog.exec()
 
-    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de", default_browser=False):
+    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de", default_browser=False, browser_design="dark"):
         chosen=pathlib.Path(download_dir.strip() or str(DOWNLOAD_DIR)).expanduser()
-        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"remember_window_size":bool(remember_window_size),"language":language or "de","default_browser":bool(default_browser),**permissions})
+        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"remember_window_size":bool(remember_window_size),"language":language or "de","default_browser":bool(default_browser),"browser_design":browser_design if browser_design in ("dark", "light", "luna") else "dark",**permissions})
         old_language = self.settings_data.get("language", "de")
         self.download_dir=chosen; write_json(CONFIG_FILE,self.settings_data); self.set_default_browser(bool(default_browser)); self.apply_language_live()
-        self.bookmarks_bar.setVisible(self.settings_data["show_bookmarks_bar"]); self.apply_theme_to_all_tabs()
+        self.bookmarks_bar.setVisible(self.settings_data["show_bookmarks_bar"]); self.apply_browser_design(); self.apply_theme_to_all_tabs()
         for i in range(self.tabs.count()): self.apply_font_size(self.tabs.widget(i))
         dialog.accept()
 
@@ -1302,7 +1419,7 @@ class LunaSurfer(QMainWindow):
         dialog.accept()
 
     def about(self):
-        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.29\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
+        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.30\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
 
 def main():
     app = QApplication(sys.argv)
