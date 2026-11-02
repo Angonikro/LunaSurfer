@@ -1,10 +1,35 @@
 LunaSurfer
 
+## 0.3.31 - 2026-11-02
+
+### Download-Manager
+- Modernes dunkles Design mit übersichtlichen Download-Karten.
+- Fortschrittsbalken, Prozentanzeige, Dateigröße, Download-Geschwindigkeit und klare Statusanzeigen.
+- Downloads können abgebrochen sowie fertige Dateien oder deren Speicherordner geöffnet werden.
+- Einträge können aus der Liste entfernt und Dateien nach Sicherheitsabfrage gelöscht werden.
+- Suche nach Dateiname und Speicherpfad sowie Filter für alle, aktive und fertige Downloads.
+- Download-Manager-Scrollfix: Die bestehenden Karten werden beim 800-ms-Update aktualisiert, statt die gesamte Liste neu aufzubauen. Dadurch bleiben Scrollposition und Sichtbarkeit des letzten Downloads erhalten.
+- Download-Ordner konfigurierbar; optional kann vor jedem Download nach dem Speicherort gefragt werden.
+
+### Lesezeichen
+- Chromium-Import ohne Überschreiben korrigiert: Ordner und einzelne Lesezeichen werden getrennt verarbeitet; Ordner ohne URL lösen keinen `'url'`-Fehler mehr aus.
+- Die spezielle Lesezeichenleisten-Root wird an ihrer festen Position behandelt und mit einer vorhandenen Lesezeichenleiste zusammengeführt. Fehlt sie, wird sie ganz links eingefügt.
+- Der Lesezeichenmanager erhält eine moderne dunkle Oberfläche mit aufklappbarer Ordnerstruktur, Name-/Adressspalten und Live-Suche.
+- Doppelklick öffnet ein Lesezeichen oder klappt einen Ordner auf bzw. zu.
+- Import und Export berücksichtigen die Ordnerhierarchie; Bearbeiten und Löschen bleiben verfügbar.
+
+### Versions- und Releasepflege
+- Versionsanzeige im Fenstertitel und im Dialog „Über LunaSurfer“ auf 0.3.31 vereinheitlicht; beide Anzeigen verwenden dieselbe Versionskonstante.
+- README, VERSION und Debian-Paketmetadaten auf 0.3.31 abgestimmt.
+- Vorhandene Browserfunktionen und Einstellungen aus Version 0.3.30 bleiben erhalten.
+
+
 ## 0.3.30 - 2026-11-02
 - Sprachwechsel-Fix: Der Wechsel zwischen den Sprachen wurde korrigiert, damit die Benutzeroberfläche zuverlässig neu aufgebaut bzw. aktualisiert wird.
 - Hauptmenü verbessert: Der Menüpunkt „Beenden / Quit“ befindet sich jetzt zusammen mit: Einstellungen, Über LunaSurfer im selben Hauptmenü.
-- ADBlocker verbesser: Jetzt gibt es noch Super Stark und Mega Stark.
-- Drei neue Designs hinzugefügt: Dunkel Standart, Hell Klissisch, Luna Modern
+- Adblocker erweitert: Super stark und Mega stark ergänzt; die fünf Stufen Standard, Stark, Sehr stark, Super stark und Mega stark stehen zur Verfügung.
+- Drei Designs zur Auswahl: Dunkel Standard, Hell Klassisch und Luna Modern.
+- Chromium-Lesezeichenimport ohne Überschreiben: Die Lesezeichenleisten-Root wird mit der vorhandenen Root zusammengeführt und nicht hinter das letzte Lesezeichen angehängt.
 
 ## 0.3.29 - 2026-11-02
 - Responsive Lesezeichenleiste mit lesbaren Mindestbreiten. 
@@ -20,12 +45,7 @@ LunaSurfer
 - Dateien können nach Sicherheitsabfrage direkt von der Festplatte gelöscht werden.
 - Download-Verlauf kann aufgeräumt werden, ohne laufende Downloads zu beeinflussen.
 - README und Paketversion für GitHub-Release aktualisiert.
-- ADBlocker: Der Adblocker verhindert, dass bekannte unerwünschte Domains geladen werden, an und abschaltbar.
-- Drei Blockierstärken: Stanard, Stark, Sehr Stark 
-- Werbeanzeigen verschwinden
-- Tracker blockiert werden
-- weniger Daten an Werbenetzwerke gesendet werden
-- Webseiten teilweise schneller laden
+- Integrierter, aktivierbarer Adblocker mit den Stufen Standard, Stark und Sehr stark; benutzerdefinierte Blockiermuster und Whitelist.
 
 ## 0.3.27 – Clipboard & GitHub graph rendering fixes
 – Der QtWebEngine-Zugriff auf die Zwischenablage für vom Benutzer ausgelöste Website-Kopierschaltflächen wurde aktiviert. 
@@ -122,7 +142,5 @@ LunaSurfer
 - Kompaktere Hinweisfenster/Tooltips für Stern und Neuer-Tab-Schaltfläche.
 - Plus-Schaltfläche der Tab-Leiste steht direkt hinter dem letzten geöffneten Tab statt am rechten Fensterrand.
 
-## 0.3.30 – Super-Strong Adblock Test
-- Added a new "Super stark / Super strong" adblock level.
-- Extends "Sehr stark" with additional common advertising, attribution, analytics and telemetry endpoints.
-- Whitelist remains available for websites that need an exception.
+- Adblock-Stufen „Super stark“ und „Mega stark“ mit zusätzlichen Werbe-, Analyse-, Tracking- und Telemetrie-Regeln; die Whitelist bleibt verfügbar.
+- IMPORT MERGE ROOT FIX: Beim Import ohne Überschreiben wird die Chromium-Lesezeichenleiste mit der vorhandenen Root-Leiste zusammengeführt und nicht hinter das letzte Lesezeichen gesetzt.

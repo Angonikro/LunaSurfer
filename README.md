@@ -1,4 +1,4 @@
-# LunaSurfer 0.3.30
+# LunaSurfer 0.3.31
 
 Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 
@@ -14,7 +14,7 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 - Lesezeichenleiste direkt unter der Adressleiste, ähnlich Chromium
 - Lesezeichen und Verlauf werden dauerhaft gespeichert
 - Lesezeichenleiste kann unter **Menü → Einstellungen** ein- oder ausgeblendet werden
-- Lesezeichen können im standardmäßigen Chromium/Netscape-HTML-Format exportiert und aus einer Chromium-kompatiblen HTML-Datei wieder importiert werden.
+- Lesezeichen können im standardmäßigen Chromium/Netscape-HTML-Format einschließlich Ordnerstruktur exportiert und aus einer Chromium-kompatiblen HTML-Datei importiert werden. Beim Zusammenführen werden doppelte URLs vermieden und die Lesezeichenleisten-Root korrekt behandelt.
 - Deutsche Kontextmenüs für die rechte Maustaste
 - Erweiterter Download-Manager mit Fortschritt, Prozent, Größe, Geschwindigkeit, Abbrechen, Datei/Ordner öffnen sowie Listen- und Dateilöschung
 - Kleines Hinweisfenster, sobald ein Download vollständig abgeschlossen ist
@@ -24,13 +24,13 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 - Persistentes Browser-Profil und Cookies
 - Widevine-Unterstützung, wenn das CDM auf dem System vorhanden ist
 - In den Einstellungen kann gewählt werden, ob LunaSurfer Fenstergröße und Fensterposition beim Beenden speichern und beim nächsten Start wiederherstellen soll.
-- ADBlocker in vier Stärken
+- Integrierter Adblocker mit fünf Stufen: Standard, Stark, Sehr stark, Super stark und Mega stark; inklusive eigener Blockiermuster und Whitelist
 - usw.
 
 ## Lesezeichen bearbeiten und verwalten
 
 - Mit der **rechten Maustaste auf ein Lesezeichen in der Lesezeichenleiste** kannst du es öffnen, bearbeiten oder löschen.
-- Unter **Menü → Lesezeichen verwalten** kannst du gespeicherte Lesezeichen ebenfalls öffnen, bearbeiten und löschen.
+- Unter **Menü → Lesezeichen verwalten** kannst du gespeicherte Lesezeichen öffnen, bearbeiten und löschen. Der Manager bietet eine aufklappbare Ordnerstruktur, Suche nach Namen und Adressen sowie Import und Export.
 
 ## Speicherorte
 
@@ -49,7 +49,7 @@ sudo apt install python3-pyside6.qtwidgets python3-pyside6.qtwebenginewidgets xd
 ## Installation
 
 ```bash
-sudo apt install ./lunasurfer_0.3.30_all.deb
+sudo apt install ./lunasurfer_0.3.31_all.deb
 ```
 
 ## Start aus dem Quellcode

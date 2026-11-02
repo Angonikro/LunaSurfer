@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.30 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.31 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -25,12 +25,17 @@ from PySide6.QtGui import QAction, QKeySequence, QIcon
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QToolBar, QLineEdit, QToolButton,
     QVBoxLayout, QWidget, QMenu, QFileDialog, QMessageBox, QDialog,
-    QFormLayout, QPushButton, QHBoxLayout, QLabel, QCheckBox, QComboBox, QStyle, QInputDialog, QListWidget, QListWidgetItem, QProgressBar, QSizePolicy
+    QFormLayout, QPushButton, QHBoxLayout, QLabel, QCheckBox, QComboBox, QStyle, QInputDialog, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QHeaderView, QProgressBar, QSizePolicy
 )
 from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEngineSettings, QWebEngineUrlRequestInterceptor
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
 APP_NAME = "LunaSurfer"
+_VERSION_FILE = pathlib.Path(__file__).resolve().with_name("VERSION")
+try:
+    APP_VERSION = _VERSION_FILE.read_text(encoding="utf-8").strip() or "0.3.31"
+except OSError:
+    APP_VERSION = "0.3.31"
 CONFIG_DIR = pathlib.Path.home() / ".config" / "lunasurfer"
 DATA_DIR = pathlib.Path.home() / ".local" / "share" / "lunasurfer"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
@@ -372,7 +377,7 @@ class BrowserView(QWebEngineView):
 class LunaSurfer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LunaSurfer 0.3.30")
+        self.setWindowTitle(f"{APP_NAME} {APP_VERSION}")
         self.resize(1250, 820)
         self._web_fullscreen = False
         self._was_maximized_before_fullscreen = False
@@ -641,6 +646,26 @@ class LunaSurfer(QMainWindow):
         """Return the selected application language."""
         return en if self.settings_data.get("language", "de") == "en" else de
 
+    def bookmark_display_title(self, item, root=False):
+        """Return a language-aware title without changing saved bookmark data.
+
+        Chromium may import the bookmarks-bar root with a localized name such as
+        'Lesezeichenleiste'.  That name is data from the source browser, not a
+        fixed LunaSurfer UI translation.  Only the top-level special folder is
+        given the current application's display name; normal user folders keep
+        their saved names.
+        """
+        title = (item.get("title") or item.get("url") or self.tr("Ordner", "Folder")).strip()
+        if root and (item.get("type") == "folder" or "children" in item):
+            normalized = " ".join(title.casefold().split())
+            bookmark_bar_names = {
+                "lesezeichenleiste", "bookmarks bar", "bookmark bar",
+                "bookmarks toolbar", "bookmarks bar folder"
+            }
+            if normalized in bookmark_bar_names:
+                return self.tr("Lesezeichenleiste", "Bookmarks bar")
+        return title
+
 
     def apply_language_live(self):
         """Update visible application texts immediately after a language change."""
@@ -842,7 +867,7 @@ class LunaSurfer(QMainWindow):
         visible, overflow = [], []
 
         def entry_width(item):
-            title = (item.get("title") or item.get("url") or "Ordner").strip()
+            title = self.bookmark_display_title(item, root=True)
             return max(88, min(220, self.fontMetrics().horizontalAdvance(title) + 42))
 
         for item in items:
@@ -868,7 +893,7 @@ class LunaSurfer(QMainWindow):
 
         def add_visible(item):
             if item.get("type") == "folder" or "children" in item:
-                title = (item.get("title") or "Ordner").strip()
+                title = self.bookmark_display_title(item, root=True)
                 menu = QMenu(title, self)
                 add_menu_entries(menu, item.get("children", []))
                 button = QToolButton(self.bookmarks_bar)
@@ -983,44 +1008,150 @@ class LunaSurfer(QMainWindow):
         dialog.exec()
 
     def show_bookmarks(self):
-        """Open a bookmark manager with edit/delete controls."""
+        """Open a searchable, collapsible bookmark manager."""
         dialog = QDialog(self)
         dialog.setWindowTitle(self.tr("Lesezeichen verwalten", "Manage bookmarks"))
-        dialog.resize(760, 500)
+        dialog.resize(940, 650)
+        dialog.setMinimumSize(720, 480)
+        dialog.setStyleSheet("""
+            QDialog { background: #171b23; color: #edf2f8; }
+            QLabel { color: #edf2f8; }
+            QLineEdit {
+                background: #222a36; border: 1px solid #3d4a5e;
+                border-radius: 9px; padding: 10px 12px; color: #f4f7fb;
+                selection-background-color: #7544b8;
+            }
+            QTreeWidget {
+                background: #1d2430; alternate-background-color: #222b39;
+                color: #e8edf5; border: 1px solid #354155;
+                border-radius: 10px; padding: 7px;
+                outline: 0; selection-background-color: #57358b;
+                selection-color: #ffffff;
+            }
+            QTreeWidget::item { min-height: 30px; padding: 4px 6px; }
+            QTreeWidget::item:hover { background: #303b4c; }
+            QHeaderView::section {
+                background: #252f3e; color: #cbd5e2; border: 0;
+                border-bottom: 1px solid #3d4a5e; padding: 9px 8px;
+                font-weight: 600;
+            }
+            QPushButton {
+                background: #293548; border: 1px solid #40516a;
+                border-radius: 8px; padding: 8px 13px; color: #edf2f8;
+            }
+            QPushButton:hover { background: #3b4b63; border-color: #7188a8; }
+            QPushButton:disabled { color: #778395; background: #202733; border-color: #2c3542; }
+            QPushButton#primary { background: #7042aa; border-color: #8b5bc7; font-weight: 600; }
+            QPushButton#primary:hover { background: #8252bd; }
+        """)
         layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(16, 16, 16, 14)
+        layout.setSpacing(11)
 
-        from PySide6.QtWidgets import QListWidget, QListWidgetItem, QHBoxLayout
-        bookmark_list = QListWidget()
-        layout.addWidget(bookmark_list)
+        heading = QLabel(self.tr("Deine Lesezeichen", "Your bookmarks"))
+        heading.setStyleSheet("font-size: 18px; font-weight: 700; color: #ffffff;")
+        layout.addWidget(heading)
+        subtitle = QLabel(self.tr("Ordner aufklappen, Einträge suchen und direkt verwalten.", "Expand folders, search entries and manage them directly."))
+        subtitle.setStyleSheet("color: #aab6c7;")
+        layout.addWidget(subtitle)
 
-        def populate():
-            bookmark_list.clear()
-            for item in read_json(BOOKMARKS_FILE, []):
-                title = (item.get("title") or item.get("url") or "").strip()
-                url = item.get("url", "").strip()
-                row = QListWidgetItem(f"{title}\n{url}")
-                row.setData(Qt.ItemDataRole.UserRole, url)
-                bookmark_list.addItem(row)
+        search_row = QHBoxLayout()
+        search = QLineEdit()
+        search.setPlaceholderText(self.tr("Lesezeichen oder Adresse suchen …", "Search bookmarks or addresses …"))
+        search.setClearButtonEnabled(True)
+        count_label = QLabel()
+        count_label.setMinimumWidth(110)
+        count_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        count_label.setStyleSheet("color: #aab6c7; font-weight: 600;")
+        search_row.addWidget(search, 1)
+        search_row.addWidget(count_label)
+        layout.addLayout(search_row)
+
+        bookmark_tree = QTreeWidget()
+        bookmark_tree.setColumnCount(2)
+        bookmark_tree.setHeaderLabels([self.tr("Name", "Name"), self.tr("Adresse", "Address")])
+        bookmark_tree.setAlternatingRowColors(True)
+        bookmark_tree.setUniformRowHeights(True)
+        bookmark_tree.setRootIsDecorated(True)
+        bookmark_tree.setIndentation(22)
+        bookmark_tree.setSortingEnabled(False)
+        bookmark_tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        bookmark_tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        bookmark_tree.setColumnWidth(0, 330)
+        bookmark_tree.setSelectionBehavior(QTreeWidget.SelectionBehavior.SelectRows)
+        bookmark_tree.setEditTriggers(QTreeWidget.EditTrigger.NoEditTriggers)
+        layout.addWidget(bookmark_tree, 1)
 
         buttons = QHBoxLayout()
-        open_btn = QPushButton(self.tr("Öffnen", "Open"))
+        open_btn = QPushButton(self.tr("Öffnen", "Open")); open_btn.setObjectName("primary")
         edit_btn = QPushButton(self.tr("Bearbeiten…", "Edit…"))
         delete_btn = QPushButton(self.tr("Löschen", "Delete"))
         import_btn = QPushButton(self.tr("Importieren…", "Import…"))
         export_btn = QPushButton(self.tr("Exportieren…", "Export…"))
         close_btn = QPushButton(self.tr("Schließen", "Close"))
-        buttons.addWidget(open_btn)
-        buttons.addWidget(edit_btn)
-        buttons.addWidget(delete_btn)
-        buttons.addWidget(import_btn)
-        buttons.addWidget(export_btn)
-        buttons.addStretch(1)
-        buttons.addWidget(close_btn)
+        for button in (open_btn, edit_btn, delete_btn): buttons.addWidget(button)
+        buttons.addSpacing(8)
+        buttons.addWidget(import_btn); buttons.addWidget(export_btn)
+        buttons.addStretch(1); buttons.addWidget(close_btn)
         layout.addLayout(buttons)
 
+        def populate():
+            bookmark_tree.clear()
+            total = 0
+            def add_item(parent, item, root=False, path=()):
+                nonlocal total
+                if not isinstance(item, dict):
+                    return
+                is_folder = item.get("type") == "folder" or "children" in item
+                title = self.bookmark_display_title(item, root=root) if is_folder else (str(item.get("title") or item.get("url") or "").strip())
+                node = QTreeWidgetItem(parent, [title, "" if is_folder else str(item.get("url", "")).strip()])
+                node.setData(0, Qt.ItemDataRole.UserRole, "" if is_folder else str(item.get("url", "")).strip())
+                node.setData(0, Qt.ItemDataRole.UserRole + 1, "folder" if is_folder else "bookmark")
+                node.setData(0, Qt.ItemDataRole.UserRole + 2, tuple(path))
+                if is_folder:
+                    node.setIcon(0, self.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon))
+                    for index, child in enumerate(item.get("children", [])):
+                        add_item(node, child, False, tuple(path) + (index,))
+                else:
+                    node.setIcon(0, self.style().standardIcon(QStyle.StandardPixmap.SP_FileLinkIcon))
+                    total += 1
+            for index, entry in enumerate(read_json(BOOKMARKS_FILE, [])):
+                add_item(bookmark_tree.invisibleRootItem(), entry, True, (index,))
+            count_label.setText(self.tr(f"{total} Einträge", f"{total} items"))
+            bookmark_tree.expandAll()
+            apply_filter()
+
+        def apply_filter(_text=None):
+            needle = search.text().casefold().strip()
+            visible_count = 0
+            def visit(node):
+                nonlocal visible_count
+                own = needle in node.text(0).casefold() or needle in node.text(1).casefold()
+                child_match = False
+                for i in range(node.childCount()):
+                    if visit(node.child(i)):
+                        child_match = True
+                visible = not needle or own or child_match
+                node.setHidden(not visible)
+                if visible and node.data(0, Qt.ItemDataRole.UserRole + 1) == "bookmark":
+                    visible_count += 1
+                if needle and child_match:
+                    node.setExpanded(True)
+                return visible
+            root = bookmark_tree.invisibleRootItem()
+            for i in range(root.childCount()): visit(root.child(i))
+            if needle:
+                count_label.setText(self.tr(f"{visible_count} Treffer", f"{visible_count} matches"))
+            else:
+                count_label.setText(self.tr(f"{visible_count} Einträge", f"{visible_count} items"))
+
+        def selected_node():
+            items = bookmark_tree.selectedItems()
+            return items[0] if items else None
+
         def selected_url():
-            item = bookmark_list.currentItem()
-            return item.data(Qt.ItemDataRole.UserRole) if item else ""
+            node = selected_node()
+            return node.data(0, Qt.ItemDataRole.UserRole) if node else ""
 
         def do_open():
             url = selected_url()
@@ -1034,74 +1165,126 @@ class LunaSurfer(QMainWindow):
                 populate()
 
         def do_delete():
-            url = selected_url()
-            if url:
-                self.delete_bookmark(url)
-                populate()
+            node = selected_node()
+            if not node:
+                return
+            path = node.data(0, Qt.ItemDataRole.UserRole + 2)
+            if path is None:
+                return
+            kind = node.data(0, Qt.ItemDataRole.UserRole + 1)
+            if kind == "folder":
+                answer = QMessageBox.question(
+                    dialog, self.tr("Ordner löschen", "Delete folder"),
+                    self.tr("Diesen Ordner und alle enthaltenen Lesezeichen wirklich löschen?", "Really delete this folder and all bookmarks inside it?"),
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No)
+                if answer != QMessageBox.StandardButton.Yes:
+                    return
+                items = read_json(BOOKMARKS_FILE, [])
+                try:
+                    parent = items
+                    for index in tuple(path)[:-1]:
+                        parent = parent[index].setdefault("children", [])
+                    del parent[tuple(path)[-1]]
+                    write_json(BOOKMARKS_FILE, items)
+                    self.refresh_bookmarks_bar(); populate()
+                    self.statusBar().showMessage(self.tr("Ordner gelöscht", "Folder deleted"), 3000)
+                except (IndexError, KeyError, TypeError):
+                    QMessageBox.warning(dialog, self.tr("Fehler", "Error"), self.tr("Der Ordner konnte nicht gelöscht werden.", "The folder could not be deleted."))
+            else:
+                url = selected_url()
+                if url:
+                    self.delete_bookmark(url); populate()
 
         def do_export():
-            filename, _ = QFileDialog.getSaveFileName(
-                dialog, "Lesezeichen exportieren", str(pathlib.Path.home() / "LunaSurfer-Lesezeichen.html"),
-                "HTML-Dateien (*.html *.htm)"
-            )
-            if not filename:
-                return
-            rows = []
-            for entry in read_json(BOOKMARKS_FILE, []):
-                url = str(entry.get("url", "")).strip()
-                title = str(entry.get("title", "") or url).strip()
-                if url:
-                    rows.append(f'<DT><A HREF="{escape(url, quote=True)}">{escape(title)}</A>')
-            content = "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks</H1>\n<DL><p>\n" + "\n".join(rows) + "\n</DL><p>\n"
+            filename, _ = QFileDialog.getSaveFileName(dialog, self.tr("Lesezeichen exportieren", "Export bookmarks"), str(pathlib.Path.home() / "LunaSurfer-Lesezeichen.html"), "HTML-Dateien (*.html *.htm)")
+            if not filename: return
+            def export_entries(entries, depth=0):
+                rows = []
+                for entry in entries if isinstance(entries, list) else []:
+                    if not isinstance(entry, dict): continue
+                    title = str(entry.get("title") or "").strip()
+                    url = str(entry.get("url") or "").strip()
+                    children = entry.get("children", [])
+                    if entry.get("type") == "folder" or "children" in entry:
+                        rows.append("    " * depth + f"<DT><H3>{escape(title)}</H3>")
+                        rows.append("    " * depth + "<DL><p>")
+                        rows.extend(export_entries(children, depth + 1))
+                        rows.append("    " * depth + "</DL><p>")
+                    elif url:
+                        rows.append("    " * depth + f'<DT><A HREF="{escape(url, quote=True)}">{escape(title or url)}</A>')
+                return rows
+            content = "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks</H1>\n<DL><p>\n" + "\n".join(export_entries(read_json(BOOKMARKS_FILE, []))) + "\n</DL><p>\n"
             try:
                 pathlib.Path(filename).write_text(content, encoding="utf-8")
-                self.statusBar().showMessage("Lesezeichen exportiert", 4000)
-                QMessageBox.information(dialog, "Export", "Die Lesezeichen wurden im Chromium-kompatiblen HTML-Format exportiert.")
+                self.statusBar().showMessage(self.tr("Lesezeichen exportiert", "Bookmarks exported"), 4000)
+                QMessageBox.information(dialog, self.tr("Export", "Export"), self.tr("Die Lesezeichen wurden einschließlich Ordnerstruktur exportiert.", "Bookmarks were exported, including their folder structure."))
             except Exception as exc:
-                QMessageBox.warning(dialog, "Export fehlgeschlagen", str(exc))
+                QMessageBox.warning(dialog, self.tr("Export fehlgeschlagen", "Export failed"), str(exc))
 
         def do_import():
-            filename, _ = QFileDialog.getOpenFileName(
-                dialog, "Lesezeichen importieren", str(pathlib.Path.home()), "HTML-Dateien (*.html *.htm)"
-            )
-            if not filename:
-                return
+            filename, _ = QFileDialog.getOpenFileName(dialog, self.tr("Lesezeichen importieren", "Import bookmarks"), str(pathlib.Path.home()), "HTML-Dateien (*.html *.htm)")
+            if not filename: return
             try:
                 parser = ChromiumBookmarksParser()
                 parser.feed(pathlib.Path(filename).read_text(encoding="utf-8", errors="replace"))
                 imported = parser.items
                 if not imported:
-                    QMessageBox.warning(dialog, "Import", "Keine Lesezeichen in der ausgewählten Datei gefunden.")
-                    return
-                answer = QMessageBox.question(
-                    dialog, "Lesezeichen importieren",
-                    f"{len(imported)} Lesezeichen gefunden.\n\nJa: vorhandene Lesezeichen ersetzen\nNein: zu vorhandenen Lesezeichen hinzufügen",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
-                    QMessageBox.StandardButton.No,
-                )
-                if answer == QMessageBox.StandardButton.Cancel:
-                    return
+                    QMessageBox.warning(dialog, "Import", self.tr("Keine Lesezeichen in der ausgewählten Datei gefunden.", "No bookmarks found in the selected file.")); return
+                answer = QMessageBox.question(dialog, self.tr("Lesezeichen importieren", "Import bookmarks"), f"{len(imported)} Lesezeichen gefunden.\n\nJa: vorhandene Lesezeichen ersetzen\nNein: zu vorhandenen Lesezeichen hinzufügen", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel, QMessageBox.StandardButton.No)
+                if answer == QMessageBox.StandardButton.Cancel: return
                 if answer == QMessageBox.StandardButton.Yes:
                     result = imported
                 else:
                     result = read_json(BOOKMARKS_FILE, [])
-                    existing = {str(x.get("url", "")).strip() for x in result}
-                    result.extend(x for x in imported if x["url"] not in existing)
+                    existing_urls = set()
+                    def collect_urls(entries):
+                        for entry in entries if isinstance(entries, list) else []:
+                            if not isinstance(entry, dict): continue
+                            url = str(entry.get("url", "")).strip()
+                            if url: existing_urls.add(url)
+                            collect_urls(entry.get("children", []))
+                    collect_urls(result)
+                    def merge_entries(entries):
+                        merged = []
+                        for entry in entries if isinstance(entries, list) else []:
+                            if not isinstance(entry, dict): continue
+                            if entry.get("type") == "folder" or "children" in entry:
+                                folder = dict(entry); folder["children"] = merge_entries(entry.get("children", [])); merged.append(folder)
+                            else:
+                                url = str(entry.get("url", "")).strip()
+                                if url and url not in existing_urls:
+                                    existing_urls.add(url); merged.append(entry)
+                        return merged
+                    bookmark_bar_names = {"lesezeichenleiste", "bookmarks bar", "bookmark bar", "bookmarks toolbar", "bookmarks bar folder"}
+                    def is_bookmarks_bar(entry):
+                        if not isinstance(entry, dict) or not (entry.get("type") == "folder" or "children" in entry): return False
+                        return " ".join(str(entry.get("title", "")).casefold().split()) in bookmark_bar_names
+                    merged_import = merge_entries(imported)
+                    existing_bar = next((entry for entry in result if is_bookmarks_bar(entry)), None)
+                    for entry in merged_import:
+                        if is_bookmarks_bar(entry):
+                            if existing_bar is None:
+                                result.insert(0, entry); existing_bar = entry
+                            else:
+                                existing_bar.setdefault("children", []).extend(entry.get("children", []))
+                        else:
+                            result.append(entry)
                 write_json(BOOKMARKS_FILE, result)
-                self.refresh_bookmarks_bar()
-                populate()
-                self.statusBar().showMessage("Lesezeichen importiert", 4000)
-                QMessageBox.information(dialog, "Import", f"{len(imported)} Lesezeichen wurden importiert.")
+                self.refresh_bookmarks_bar(); populate()
+                self.statusBar().showMessage(self.tr("Lesezeichen importiert", "Bookmarks imported"), 4000)
+                QMessageBox.information(dialog, self.tr("Import", "Import"), self.tr(f"{len(imported)} Lesezeichen wurden importiert.", f"{len(imported)} bookmark folders/items were imported."))
             except Exception as exc:
-                QMessageBox.warning(dialog, "Import fehlgeschlagen", str(exc))
+                QMessageBox.warning(dialog, self.tr("Import fehlgeschlagen", "Import failed"), str(exc))
 
         open_btn.clicked.connect(do_open)
         edit_btn.clicked.connect(do_edit)
         delete_btn.clicked.connect(do_delete)
         import_btn.clicked.connect(do_import)
         export_btn.clicked.connect(do_export)
-        bookmark_list.itemDoubleClicked.connect(lambda item: do_open())
         close_btn.clicked.connect(dialog.accept)
+        search.textChanged.connect(apply_filter)
+        bookmark_tree.itemDoubleClicked.connect(lambda item, column: (bookmark_tree.setExpanded(item, not item.isExpanded()) if item.data(0, Qt.ItemDataRole.UserRole + 1) == "folder" else do_open()))
         populate()
         dialog.exec()
 
@@ -1137,86 +1320,297 @@ class LunaSurfer(QMainWindow):
     def show_download_manager(self):
         dialog = QDialog(self)
         dialog.setWindowTitle(self.tr("Download-Manager", "Download Manager"))
-        dialog.resize(900, 520)
-        layout = QVBoxLayout(dialog)
-        info = QLabel(self.tr("Verwalte laufende und abgeschlossene Downloads.", "Manage active and completed downloads."))
-        layout.addWidget(info)
-        lst = QListWidget(); layout.addWidget(lst)
+        dialog.resize(980, 650)
+        dialog.setMinimumSize(760, 500)
+        dialog.setStyleSheet("""
+            QDialog { background: #171b23; color: #edf2f8; }
+            QLabel { color: #edf2f8; }
+            QPushButton {
+                background: #293342; border: 1px solid #3b485b;
+                border-radius: 8px; padding: 8px 13px; color: #edf2f8;
+            }
+            QPushButton:hover { background: #354357; border-color: #58708d; }
+            QPushButton:disabled { color: #778395; background: #202733; border-color: #2c3542; }
+            QLineEdit {
+                background: #202733; border: 1px solid #39475a;
+                border-radius: 9px; padding: 9px 12px; color: #ffffff;
+                selection-background-color: #287fc1;
+            }
+            QLineEdit:focus { border: 1px solid #399de5; }
+            QComboBox {
+                background: #202733; border: 1px solid #39475a;
+                border-radius: 9px; padding: 8px 12px; color: #ffffff;
+            }
+            QComboBox QAbstractItemView {
+                background: #202733; color: #ffffff; selection-background-color: #287fc1;
+            }
+            QListWidget { background: transparent; border: 0; outline: 0; }
+            QProgressBar {
+                border: 0; background: #354153; border-radius: 5px;
+                min-height: 9px; max-height: 9px; text-align: center;
+            }
+            QProgressBar::chunk { background: #299be8; border-radius: 5px; }
+        """)
 
-        def selected_item():
-            row = lst.currentRow()
-            return self.download_items[row] if 0 <= row < len(self.download_items) else None
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(22, 20, 22, 18)
+        layout.setSpacing(13)
+
+        # Header
+        title_row = QHBoxLayout()
+        icon = QLabel("↓")
+        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon.setFixedSize(46, 46)
+        icon.setStyleSheet("background:#173b59; color:#55b8ff; border-radius:13px; font-size:27px; font-weight:700;")
+        title_col = QVBoxLayout()
+        title = QLabel(self.tr("Downloads", "Downloads"))
+        title.setStyleSheet("font-size:23px; font-weight:700;")
+        subtitle = QLabel(self.tr("Alle laufenden und abgeschlossenen Dateien an einem Ort.",
+                                  "All active and completed files in one place."))
+        subtitle.setStyleSheet("color:#9eabba; font-size:12px;")
+        title_col.addWidget(title); title_col.addWidget(subtitle)
+        title_row.addWidget(icon); title_row.addSpacing(5); title_row.addLayout(title_col); title_row.addStretch(1)
+        layout.addLayout(title_row)
+
+        # Live overview
+        stats_row = QHBoxLayout()
+        stats_row.setSpacing(9)
+        stat_active = QLabel()
+        stat_finished = QLabel()
+        stat_total = QLabel()
+        for label in (stat_active, stat_finished, stat_total):
+            label.setMinimumHeight(34)
+            label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+            label.setStyleSheet("background:#202733; border:1px solid #303c4d; border-radius:8px; padding:6px 11px; color:#cbd5e1; font-weight:600;")
+            stats_row.addWidget(label)
+        stats_row.addStretch(1)
+        layout.addLayout(stats_row)
+
+        # Search and status filter
+        top = QHBoxLayout()
+        filter_box = QComboBox()
+        filter_box.addItem(self.tr("Alle Downloads", "All downloads"), "all")
+        filter_box.addItem(self.tr("Laufen", "In progress"), "active")
+        filter_box.addItem(self.tr("Abgeschlossen", "Completed"), "finished")
+        search = QLineEdit()
+        search.setPlaceholderText(self.tr("Dateiname oder Pfad suchen …", "Search filename or path …"))
+        search.setClearButtonEnabled(True)
+        top.addWidget(filter_box)
+        top.addWidget(search, 1)
+        layout.addLayout(top)
+
+        lst = QListWidget()
+        lst.setSpacing(9)
+        lst.setStyleSheet("QListWidget { background:transparent; border:0; outline:0; }")
+        layout.addWidget(lst, 1)
+
+        def fmt(n):
+            units = ["B", "KB", "MB", "GB", "TB"]
+            n = float(max(0, n)); i = 0
+            while n >= 1024 and i < len(units) - 1:
+                n /= 1024; i += 1
+            return f"{n:.1f} {units[i]}"
+
+        def actual_selected():
+            qitem = lst.currentItem()
+            if qitem is None:
+                return None, -1
+            idx = qitem.data(Qt.ItemDataRole.UserRole)
+            return (self.download_items[idx], idx) if isinstance(idx, int) and 0 <= idx < len(self.download_items) else (None, -1)
+
+        def update_row(item, now):
+            """Update an existing download card without replacing its widget."""
+            download = item["download"]
+            received = getattr(download, "receivedBytes", lambda: 0)()
+            total = getattr(download, "totalBytes", lambda: 0)()
+            finished = download.isFinished()
+            if not finished:
+                last_bytes = item.get("last_bytes", received)
+                last_time = item.get("last_time", now)
+                dt = max(now - last_time, 0.001)
+                speed = max(0, received - last_bytes) / dt
+                item["speed"] = speed
+                item["last_bytes"] = received
+                item["last_time"] = now
+            else:
+                speed = 0
+
+            percent = int(received * 100 / total) if total and total > 0 else (100 if finished else 0)
+            ui = item.get("_download_ui")
+            if ui is None:
+                return
+            ui["bar"].setValue(percent)
+            if finished:
+                ui["bar"].setStyleSheet(
+                    "QProgressBar { background:#354153; border:0; border-radius:5px; min-height:9px; max-height:9px; } "
+                    "QProgressBar::chunk { background:#26bd83; border-radius:5px; }"
+                )
+            else:
+                ui["bar"].setStyleSheet(
+                    "QProgressBar { background:#354153; border:0; border-radius:5px; min-height:9px; max-height:9px; } "
+                    "QProgressBar::chunk { background:#279bd8; border-radius:5px; }"
+                )
+            details_text = f"{fmt(received)} / {fmt(total)}" if total and total > 0 else fmt(received)
+            if not finished and speed > 0:
+                details_text += f"   ·   {fmt(speed)}/s"
+            ui["details"].setText(details_text)
+            ui["state"].setText(self.tr("Fertig", "Completed") if finished else f"{percent} %")
+            ui["state"].setStyleSheet(
+                ("background:#153d32; color:#5ce0a8;" if finished else "background:#173954; color:#73c7ff;")
+                + "border:0; border-radius:8px; padding:7px 9px; font-size:11px; font-weight:800;"
+            )
+
+        def make_row(item, now):
+            target = item["target"]
+            card = QWidget()
+            card.setStyleSheet("QWidget#downloadCard { background:#202733; border:1px solid #303c4d; border-radius:12px; }")
+            card.setObjectName("downloadCard")
+            outer = QHBoxLayout(card)
+            outer.setContentsMargins(14, 12, 14, 12)
+            outer.setSpacing(13)
+
+            suffix = target.suffix.lower().replace(".", "").upper() or "FILE"
+            file_icon = QLabel(suffix[:4])
+            file_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            file_icon.setFixedSize(48, 48)
+            file_icon.setStyleSheet("background:#263f59; border:0; border-radius:10px; color:#8bd0ff; font-size:11px; font-weight:800;")
+            outer.addWidget(file_icon)
+
+            text_col = QVBoxLayout()
+            text_col.setSpacing(4)
+            name = QLabel(target.name)
+            name.setToolTip(str(target))
+            name.setStyleSheet("font-size:14px; font-weight:700; color:#f3f6fb; border:0;")
+            name.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            path_label = QLabel(str(target.parent))
+            path_label.setToolTip(str(target.parent))
+            path_label.setStyleSheet("font-size:11px; color:#8f9daf; border:0;")
+            path_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            text_col.addWidget(name)
+            text_col.addWidget(path_label)
+            outer.addLayout(text_col, 2)
+
+            progress_col = QVBoxLayout()
+            progress_col.setSpacing(7)
+            bar = QProgressBar()
+            bar.setRange(0, 100)
+            bar.setTextVisible(False)
+            details = QLabel()
+            details.setStyleSheet("font-size:11px; color:#aab6c5; border:0;")
+            progress_col.addWidget(bar)
+            progress_col.addWidget(details)
+            outer.addLayout(progress_col, 2)
+
+            state = QLabel()
+            state.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            state.setMinimumWidth(88)
+            outer.addWidget(state)
+            item["_download_ui"] = {"bar": bar, "details": details, "state": state}
+            update_row(item, now)
+            return card
 
         def refresh():
-            current = lst.currentRow()
-            lst.clear()
+            query = search.text().strip().casefold()
+            mode = filter_box.currentData()
             now = time.monotonic()
-            for item in self.download_items:
-                d = item["download"]; target = item["target"]; name = target.name
-                received = getattr(d, "receivedBytes", lambda: 0)()
-                total = getattr(d, "totalBytes", lambda: 0)()
-                finished = d.isFinished()
-                if not finished:
-                    last_b = item.get("last_bytes", received); last_t = item.get("last_time", now)
-                    dt = max(now - last_t, 0.001); speed = max(0, received - last_b) / dt
-                    item["speed"] = speed; item["last_bytes"] = received; item["last_time"] = now
-                else:
-                    speed = 0
-                percent = int(received * 100 / total) if total and total > 0 else (100 if finished else 0)
-                def fmt(n):
-                    units=["B","KB","MB","GB"]
-                    n=float(max(0,n)); i=0
-                    while n>=1024 and i<len(units)-1: n/=1024; i+=1
-                    return f"{n:.1f} {units[i]}"
-                state = self.tr("Fertig", "Finished") if finished else self.tr("Lädt", "Downloading")
-                size = f"{fmt(received)} / {fmt(total)}" if total and total > 0 else fmt(received)
-                extra = self.tr(f"{fmt(speed)}/s", f"{fmt(speed)}/s") if not finished else ""
-                lst.addItem(f"{name}\n{state} — {percent}% — {size} {extra}")
-            if current >= 0 and current < lst.count(): lst.setCurrentRow(current)
+            active_count = sum(not entry["download"].isFinished() for entry in self.download_items)
+            finished_count = len(self.download_items) - active_count
+            stat_active.setText("●  " + self.tr("Aktiv", "Active") + f"  {active_count}")
+            stat_finished.setText("✓  " + self.tr("Fertig", "Completed") + f"  {finished_count}")
+            stat_total.setText(self.tr("Gesamt", "Total") + f"  {len(self.download_items)}")
+
+            visible = []
+            for index, item in enumerate(self.download_items):
+                finished = item["download"].isFinished()
+                target = item["target"]
+                searchable = (target.name + " " + str(target.parent)).casefold()
+                if query and query not in searchable:
+                    continue
+                if mode == "active" and finished:
+                    continue
+                if mode == "finished" and not finished:
+                    continue
+                visible.append((index, item))
+
+            # Keep the existing QListWidgetItems and card widgets while the
+            # visible download set is unchanged. This preserves scroll position
+            # and avoids flicker every time the 800 ms timer fires.
+            current_indices = [
+                lst.item(row).data(Qt.ItemDataRole.UserRole)
+                for row in range(lst.count())
+            ]
+            wanted_indices = [index for index, _item in visible]
+            if current_indices != wanted_indices:
+                selected = actual_selected()
+                selected_download = selected[0]["download"] if selected[0] else None
+                scroll_value = lst.verticalScrollBar().value()
+                lst.clear()
+                for index, item in visible:
+                    widget = make_row(item, now)
+                    qitem = QListWidgetItem()
+                    qitem.setData(Qt.ItemDataRole.UserRole, index)
+                    qitem.setSizeHint(widget.sizeHint())
+                    lst.addItem(qitem)
+                    lst.setItemWidget(qitem, widget)
+                    if selected_download is not None and item["download"] is selected_download:
+                        lst.setCurrentItem(qitem)
+                lst.verticalScrollBar().setValue(scroll_value)
+            else:
+                for row, (_index, item) in enumerate(visible):
+                    update_row(item, now)
 
         def cancel_selected():
-            item = selected_item()
+            item, _ = actual_selected()
             if item and not item["download"].isFinished():
-                item["download"].cancel(); refresh()
+                item["download"].cancel()
+                refresh()
 
         def open_file():
-            item = selected_item()
-            if item and item["target"].exists(): subprocess.Popen(["xdg-open", str(item["target"])])
+            item, _ = actual_selected()
+            if item and item["target"].exists():
+                subprocess.Popen(["xdg-open", str(item["target"])])
 
         def open_folder_selected():
-            item = selected_item()
+            item, _ = actual_selected()
             path = item["target"].parent if item else self.download_dir
-            path.mkdir(parents=True, exist_ok=True); subprocess.Popen(["xdg-open", str(path)])
+            path.mkdir(parents=True, exist_ok=True)
+            subprocess.Popen(["xdg-open", str(path)])
 
         def remove_entry():
-            row = lst.currentRow()
-            if 0 <= row < len(self.download_items):
-                self.download_items.pop(row); refresh()
-
-        def delete_file():
-            item = selected_item()
-            if not item: return
-            target = item["target"]
-            if not target.exists():
-                remove_entry(); return
-            answer = QMessageBox.question(dialog, self.tr("Datei löschen", "Delete file"), self.tr(f"Soll die Datei wirklich von der Festplatte gelöscht werden?\n\n{target.name}", f"Really delete this file from disk?\n\n{target.name}"), QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
-            if answer == QMessageBox.StandardButton.Yes:
-                try: target.unlink(); remove_entry()
-                except Exception as exc: QMessageBox.warning(dialog, self.tr("Fehler", "Error"), str(exc))
+            item, idx = actual_selected()
+            if item is not None:
+                self.download_items.pop(idx)
+                refresh()
 
         def clear_history():
-            self.download_items[:] = [i for i in self.download_items if not i["download"].isFinished()]
+            self.download_items[:] = [entry for entry in self.download_items if not entry["download"].isFinished()]
             refresh()
 
+        actions = QHBoxLayout()
+        cancel = QPushButton(self.tr("Download abbrechen", "Cancel download"))
+        open_btn = QPushButton(self.tr("Datei öffnen", "Open file"))
+        folder = QPushButton(self.tr("Ordner öffnen", "Open folder"))
+        remove = QPushButton(self.tr("Eintrag entfernen", "Remove entry"))
+        clear = QPushButton(self.tr("Fertige löschen", "Clear completed"))
+        close = QPushButton(self.tr("Schließen", "Close"))
+        close.setStyleSheet("background:#087fce; border:1px solid #249ce9; font-weight:700;")
+        for button in (cancel, open_btn, folder, remove, clear):
+            actions.addWidget(button)
+        actions.addStretch(1); actions.addWidget(close)
+        layout.addLayout(actions)
+
         refresh()
-        timer = QTimer(dialog); timer.timeout.connect(refresh); timer.start(700)
-        buttons1 = QHBoxLayout()
-        cancel = QPushButton(self.tr("Abbrechen", "Cancel download")); open_btn = QPushButton(self.tr("Datei öffnen", "Open file")); folder = QPushButton(self.tr("Ordner öffnen", "Open folder"))
-        buttons1.addWidget(cancel); buttons1.addWidget(open_btn); buttons1.addWidget(folder); buttons1.addStretch(1); layout.addLayout(buttons1)
-        buttons2 = QHBoxLayout()
-        remove = QPushButton(self.tr("Aus Liste entfernen", "Remove from list")); delete = QPushButton(self.tr("Datei löschen", "Delete file")); clear = QPushButton(self.tr("Verlauf löschen", "Clear history")); close = QPushButton(self.tr("Schließen", "Close"))
-        buttons2.addWidget(remove); buttons2.addWidget(delete); buttons2.addWidget(clear); buttons2.addStretch(1); buttons2.addWidget(close); layout.addLayout(buttons2)
-        cancel.clicked.connect(cancel_selected); open_btn.clicked.connect(open_file); folder.clicked.connect(open_folder_selected); remove.clicked.connect(remove_entry); delete.clicked.connect(delete_file); clear.clicked.connect(clear_history); close.clicked.connect(dialog.accept)
+        timer = QTimer(dialog)
+        timer.timeout.connect(refresh)
+        timer.start(800)
+        search.textChanged.connect(refresh)
+        filter_box.currentIndexChanged.connect(refresh)
+        cancel.clicked.connect(cancel_selected)
+        open_btn.clicked.connect(open_file)
+        folder.clicked.connect(open_folder_selected)
+        remove.clicked.connect(remove_entry)
+        clear.clicked.connect(clear_history)
+        close.clicked.connect(dialog.accept)
         dialog.exec()
 
     def on_download(self, download):
@@ -1419,7 +1813,7 @@ class LunaSurfer(QMainWindow):
         dialog.accept()
 
     def about(self):
-        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), "LunaSurfer 0.3.30\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
+        QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), f"{APP_NAME} {APP_VERSION}\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
 
 def main():
     app = QApplication(sys.argv)
