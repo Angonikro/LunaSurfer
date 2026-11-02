@@ -531,7 +531,7 @@ class LunaSurfer(QMainWindow):
         self.addToolBarBreak(Qt.ToolBarArea.TopToolBarArea)
 
         # Chromium-style bookmarks bar directly below the navigation bar.
-        self.bookmarks_bar = QToolBar("Lesezeichenleiste")
+        self.bookmarks_bar = QToolBar(self.tr("Lesezeichenleiste", "Bookmarks bar"))
         self.bookmarks_bar.setMovable(False)
         self.bookmarks_bar.setIconSize(QSize(18, 18))
         self.bookmarks_bar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
@@ -929,9 +929,9 @@ class LunaSurfer(QMainWindow):
     def show_bookmark_context_menu(self, url, global_pos):
         """Right-click menu for bookmarks in the bookmarks bar."""
         menu = QMenu(self)
-        open_action = menu.addAction("Öffnen")
-        edit_action = menu.addAction("Lesezeichen bearbeiten…")
-        delete_action = menu.addAction("Lesezeichen löschen")
+        open_action = menu.addAction(self.tr("Öffnen", "Open"))
+        edit_action = menu.addAction(self.tr("Lesezeichen bearbeiten…", "Edit bookmark…"))
+        delete_action = menu.addAction(self.tr("Lesezeichen löschen", "Delete bookmark"))
         selected = menu.exec(global_pos)
         if selected == open_action:
             self.open_bookmark(url)
@@ -945,21 +945,21 @@ class LunaSurfer(QMainWindow):
         item = next((x for x in items if x.get("url") == old_url), None)
         if item is None:
             return
-        title, ok = QInputDialog.getText(self, "Lesezeichen bearbeiten", "Name:", text=item.get("title", ""))
+        title, ok = QInputDialog.getText(self, self.tr("Lesezeichen bearbeiten", "Edit bookmark"), self.tr("Name:", "Name:"), text=item.get("title", ""))
         if not ok:
             return
-        url, ok = QInputDialog.getText(self, "Lesezeichen bearbeiten", "Adresse:", text=item.get("url", ""))
+        url, ok = QInputDialog.getText(self, self.tr("Lesezeichen bearbeiten", "Edit bookmark"), self.tr("Adresse:", "Address:"), text=item.get("url", ""))
         if not ok or not url.strip():
             return
         item["title"] = title.strip() or url.strip()
         item["url"] = url.strip()
         write_json(BOOKMARKS_FILE, items)
         self.refresh_bookmarks_bar()
-        self.statusBar().showMessage("Lesezeichen geändert", 3000)
+        self.statusBar().showMessage(self.tr("Lesezeichen geändert", "Bookmark changed"), 3000)
 
     def delete_bookmark(self, url):
         answer = QMessageBox.question(
-            self, "Lesezeichen löschen", "Dieses Lesezeichen wirklich löschen?",
+            self, self.tr("Lesezeichen löschen", "Delete bookmark"), self.tr("Dieses Lesezeichen wirklich löschen?", "Really delete this bookmark?"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
@@ -968,7 +968,7 @@ class LunaSurfer(QMainWindow):
         items = [x for x in read_json(BOOKMARKS_FILE, []) if x.get("url") != url]
         write_json(BOOKMARKS_FILE, items)
         self.refresh_bookmarks_bar()
-        self.statusBar().showMessage("Lesezeichen gelöscht", 3000)
+        self.statusBar().showMessage(self.tr("Lesezeichen gelöscht", "Bookmark deleted"), 3000)
 
     def show_list_dialog(self, title, path, key):
         dialog = QDialog(self); dialog.setWindowTitle(title); dialog.resize(720, 500)
@@ -985,7 +985,7 @@ class LunaSurfer(QMainWindow):
     def show_bookmarks(self):
         """Open a bookmark manager with edit/delete controls."""
         dialog = QDialog(self)
-        dialog.setWindowTitle("Lesezeichen verwalten")
+        dialog.setWindowTitle(self.tr("Lesezeichen verwalten", "Manage bookmarks"))
         dialog.resize(760, 500)
         layout = QVBoxLayout(dialog)
 
@@ -1003,12 +1003,12 @@ class LunaSurfer(QMainWindow):
                 bookmark_list.addItem(row)
 
         buttons = QHBoxLayout()
-        open_btn = QPushButton("Öffnen")
-        edit_btn = QPushButton("Bearbeiten…")
-        delete_btn = QPushButton("Löschen")
-        import_btn = QPushButton("Importieren…")
-        export_btn = QPushButton("Exportieren…")
-        close_btn = QPushButton("Schließen")
+        open_btn = QPushButton(self.tr("Öffnen", "Open"))
+        edit_btn = QPushButton(self.tr("Bearbeiten…", "Edit…"))
+        delete_btn = QPushButton(self.tr("Löschen", "Delete"))
+        import_btn = QPushButton(self.tr("Importieren…", "Import…"))
+        export_btn = QPushButton(self.tr("Exportieren…", "Export…"))
+        close_btn = QPushButton(self.tr("Schließen", "Close"))
         buttons.addWidget(open_btn)
         buttons.addWidget(edit_btn)
         buttons.addWidget(delete_btn)

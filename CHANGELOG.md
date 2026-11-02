@@ -4,6 +4,7 @@ LunaSurfer
 - Sprachwechsel-Fix: Der Wechsel zwischen den Sprachen wurde korrigiert, damit die Benutzeroberfläche zuverlässig neu aufgebaut bzw. aktualisiert wird.
 - Hauptmenü verbessert: Der Menüpunkt „Beenden / Quit“ befindet sich jetzt zusammen mit: Einstellungen, Über LunaSurfer im selben Hauptmenü.
 - ADBlocker verbesser: Jetzt gibt es noch Super Stark und Mega Stark.
+- Drei neue Designs hinzugefügt: Dunkel Standart, Hell Klissisch, Luna Modern
 
 ## 0.3.29 - 2026-11-02
 - Responsive Lesezeichenleiste mit lesbaren Mindestbreiten. 
