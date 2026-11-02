@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.31 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.32 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -25,7 +25,7 @@ from PySide6.QtGui import QAction, QKeySequence, QIcon
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QToolBar, QLineEdit, QToolButton,
     QVBoxLayout, QWidget, QMenu, QFileDialog, QMessageBox, QDialog,
-    QFormLayout, QPushButton, QHBoxLayout, QLabel, QCheckBox, QComboBox, QStyle, QInputDialog, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QHeaderView, QProgressBar, QSizePolicy
+    QFormLayout, QPushButton, QHBoxLayout, QLabel, QCheckBox, QComboBox, QStyle, QInputDialog, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QHeaderView, QProgressBar, QSizePolicy, QScrollArea
 )
 from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEngineSettings, QWebEngineUrlRequestInterceptor
 from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -33,9 +33,9 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 APP_NAME = "LunaSurfer"
 _VERSION_FILE = pathlib.Path(__file__).resolve().with_name("VERSION")
 try:
-    APP_VERSION = _VERSION_FILE.read_text(encoding="utf-8").strip() or "0.3.31"
+    APP_VERSION = _VERSION_FILE.read_text(encoding="utf-8").strip() or "0.3.32"
 except OSError:
-    APP_VERSION = "0.3.31"
+    APP_VERSION = "0.3.32"
 CONFIG_DIR = pathlib.Path.home() / ".config" / "lunasurfer"
 DATA_DIR = pathlib.Path.home() / ".local" / "share" / "lunasurfer"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
@@ -816,6 +816,10 @@ class LunaSurfer(QMainWindow):
         if view:
             self.address.setText(view.url().toString())
             self.update_navigation()
+        elif index >= 0:
+            self.address.setText("lunasurfer://settings")
+            self.back_action.setEnabled(False)
+            self.forward_action.setEnabled(False)
 
     def update_navigation(self):
         view = self.current_view()
@@ -1703,9 +1707,84 @@ class LunaSurfer(QMainWindow):
             QMessageBox.information(self, "Verlauf gelöscht", "Der Browserverlauf wurde gelöscht.")
 
     def show_settings(self):
-        dialog = QDialog(self); dialog.setWindowTitle(self.tr("LunaSurfer – Einstellungen", "LunaSurfer – Settings"))
+        # Settings live in a normal browser tab, like Chromium's chrome://settings.
+        for i in range(self.tabs.count()):
+            existing = self.tabs.widget(i)
+            if getattr(existing, "_lunasurfer_settings_page", False):
+                self.tabs.setCurrentIndex(i)
+                return
+        page = QWidget(self)
+        page._lunasurfer_settings_page = True
+        page.setObjectName("settingsPage")
+        page.setStyleSheet("""
+            QWidget#settingsPage, QWidget#settingsContent, QScrollArea#settingsScroll,
+            QScrollArea#settingsScroll QWidget#qt_scrollarea_viewport {
+                background-color: #11151d; color: #e8edf5; border: 0;
+            }
+            QWidget#settingsPage QLabel { color: #d5dbea; background: transparent; }
+            QWidget#settingsPage QLineEdit, QWidget#settingsPage QComboBox {
+                background-color: #202938; color: #f4f7fb;
+                border: 1px solid #3a4960; border-radius: 9px;
+                padding: 9px 12px; min-height: 24px;
+                selection-background-color: #8150c9;
+            }
+            QWidget#settingsPage QLineEdit:focus, QWidget#settingsPage QComboBox:focus {
+                border: 1px solid #a879f5; background-color: #252f40;
+            }
+            QWidget#settingsPage QComboBox::drop-down {
+                border: 0; width: 30px; background: transparent;
+            }
+            QWidget#settingsPage QComboBox QAbstractItemView {
+                background: #202938; color: #f4f7fb;
+                selection-background-color: #7040ad; border: 1px solid #46536a;
+                padding: 5px;
+            }
+            QWidget#settingsPage QPushButton {
+                background-color: #293548; color: #edf2f8;
+                border: 1px solid #40516a; border-radius: 9px;
+                padding: 9px 15px; min-height: 25px;
+            }
+            QWidget#settingsPage QPushButton:hover {
+                background-color: #3b4b63; border-color: #a879f5;
+            }
+            QWidget#settingsPage QPushButton:pressed { background: #7040ad; }
+            QWidget#settingsPage QCheckBox { color: #d5dbea; spacing: 10px; padding: 5px 2px; }
+            QWidget#settingsPage QCheckBox::indicator {
+                width: 17px; height: 17px; border-radius: 5px;
+                border: 1px solid #65738a; background: #202938;
+            }
+            QWidget#settingsPage QCheckBox::indicator:checked {
+                background: #8954d4; border: 1px solid #b995f4;
+            }
+            QScrollArea#settingsScroll { border: 0; }
+            QScrollArea#settingsScroll QScrollBar:vertical {
+                background: #171e29; width: 11px; margin: 3px; border-radius: 5px;
+            }
+            QScrollArea#settingsScroll QScrollBar::handle:vertical {
+                background: #46536a; min-height: 35px; border-radius: 5px;
+            }
+            QScrollArea#settingsScroll QScrollBar::handle:vertical:hover { background: #8960c4; }
+        """)
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(28, 18, 28, 20)
+        page_layout.setSpacing(14)
+        scroll = QScrollArea(page); scroll.setObjectName("settingsScroll"); scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        content = QWidget(scroll); content.setObjectName("settingsContent")
+        content.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        form = QFormLayout(content)
+        form.setContentsMargins(14, 12, 14, 18)
+        form.setHorizontalSpacing(24); form.setVerticalSpacing(14)
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        scroll.setWidget(content)
+        heading = QLabel(self.tr("Einstellungen", "Settings"))
+        heading.setStyleSheet("font-size: 26px; font-weight: 750; color: #f2f4fa; padding: 2px 4px 8px 4px;")
+        page_layout.addWidget(heading)
+        page_layout.addWidget(scroll)
+        tab_index = self.tabs.addTab(page, "⚙ " + self.tr("Einstellungen", "Settings"))
+        self.tabs.setCurrentIndex(tab_index)
         language = QComboBox(); language.addItem("Deutsch", "de"); language.addItem("English", "en"); language.setCurrentIndex(max(0, language.findData(self.settings_data.get("language", "de"))))
-        form = QFormLayout(dialog)
         startup = QComboBox(); startup.addItem(self.tr("Startseite öffnen", "Open homepage"), "home"); startup.addItem(self.tr("Letzte Sitzung wiederherstellen", "Restore last session"), "restore"); startup.addItem(self.tr("Leere Seite öffnen", "Open blank page"), "blank")
         startup.setCurrentIndex(max(0, startup.findData(self.settings_data.get("startup_mode", "home"))))
         home = QLineEdit(self.settings_data.get("home", "https://duckduckgo.com"))
@@ -1728,7 +1807,7 @@ class LunaSurfer(QMainWindow):
         block=QCheckBox(self.tr("Pop-ups blockieren", "Block pop-ups")); block.setChecked(self.settings_data.get("block_popups",True))
         permission_boxes={}
         for key,de_label,en_label in [("permission_camera","Kamera","Camera"),("permission_microphone","Mikrofon","Microphone"),("permission_location","Standort","Location"),("permission_notifications","Benachrichtigungen","Notifications")]:
-            box=QComboBox(); box.addItem(self.tr("Beim Fragen", "Ask"), "ask"); box.addItem(self.tr("Erlauben", "Allow"), "allow"); box.addItem(self.tr("Blockieren", "Block"), "block"); box.setCurrentIndex(max(0,box.findData(self.settings_data.get(key,"ask")))); permission_boxes[key]=box; form.addRow(self.tr(de_label,en_label)+":",box)
+            box=QComboBox(); box.addItem(self.tr("Beim Fragen", "Ask"), "ask"); box.addItem(self.tr("Erlauben", "Allow"), "allow"); box.addItem(self.tr("Blockieren", "Block"), "block"); box.setCurrentIndex(max(0,box.findData(self.settings_data.get(key,"ask")))); permission_boxes[key]=box
         dnt=QCheckBox(self.tr("Do Not Track-Anfrage senden", "Send Do Not Track request")); dnt.setChecked(self.settings_data.get("send_dnt",False))
         confirm_tabs=QCheckBox(self.tr("Beim Schließen eines Tabs nachfragen", "Ask when closing a tab")); confirm_tabs.setChecked(self.settings_data.get("confirm_close_multiple_tabs",True))
         clear_history_exit=QCheckBox(self.tr("Verlauf beim Beenden automatisch löschen", "Automatically clear history on exit")); clear_history_exit.setChecked(self.settings_data.get("clear_history_on_exit",False))
@@ -1736,20 +1815,58 @@ class LunaSurfer(QMainWindow):
         clear_cookies_exit=QCheckBox(self.tr("Cookies beim Beenden automatisch löschen", "Automatically clear cookies on exit")); clear_cookies_exit.setChecked(self.settings_data.get("clear_cookies_on_exit",False))
         remember_window_size=QCheckBox(self.tr("Fenstergröße und Position beim Beenden merken", "Remember window size and position on exit")); remember_window_size.setChecked(self.settings_data.get("remember_window_size",True))
         default_browser=QCheckBox(self.tr("LunaSurfer als Standardbrowser verwenden", "Use LunaSurfer as default browser")); default_browser.setChecked(self.settings_data.get("default_browser",False))
-        form.addRow(self.tr("Sprache:", "Language:"), language); form.addRow(self.tr("Beim Start:", "On startup:"),startup); form.addRow(self.tr("Startseite:", "Homepage:"),home); form.addRow(self.tr("Suchmaschine:", "Search engine:"),engine); form.addRow(self.tr("Browser-Design:", "Browser design:"),browser_design); form.addRow(self.tr("Webseiten-Design:", "Website appearance:"),theme); form.addRow("",show_bookmarks_bar); form.addRow(self.tr("Download-Ordner:", "Download folder:"),row); form.addRow("",ask_download); form.addRow(self.tr("Standard-Zoom:", "Default zoom:"),zoom); form.addRow(self.tr("Standard-Schriftgröße:", "Default font size:"),font_size); form.addRow(self.tr("Sicherheit:", "Security:"),block); form.addRow("",dnt); form.addRow(self.tr("Browser-Verhalten:", "Browser behavior:"),confirm_tabs)
-        privacy=QHBoxLayout(); a=QPushButton(self.tr("Verlauf löschen", "Clear history")); b=QPushButton(self.tr("Cache löschen", "Clear cache")); c=QPushButton(self.tr("Cookies löschen", "Clear cookies")); [privacy.addWidget(x) for x in (a,b,c)]; form.addRow(self.tr("Browserdaten:", "Browser data:"),privacy); form.addRow("",clear_history_exit); form.addRow("",clear_cache_exit); form.addRow("",clear_cookies_exit); form.addRow("",remember_window_size); form.addRow("",default_browser); a.clicked.connect(self.clear_history); b.clicked.connect(self.clear_cache); c.clicked.connect(self.clear_cookies)
+        def add_section(title):
+            # A section heading must span BOTH columns of QFormLayout.  The old
+            # two-column row squeezed long headings into the narrow label column;
+            # stylesheet padding also made the text clip vertically on Qt 6.
+            label = QLabel(title)
+            label.setWordWrap(False)
+            label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            label.setContentsMargins(0, 10, 0, 7)
+            label.setMinimumHeight(44)
+            label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            label.setStyleSheet(
+                "font-size: 15px; font-weight: 700; color: #c6a1ff; "
+                "background: transparent; padding: 0; margin: 0; "
+                "border-bottom: 1px solid #34264d;"
+            )
+            # The single-argument overload creates a spanning row, avoiding
+            # clipping of headings such as 'Sicherheit und Berechtigungen'.
+            form.addRow(label)
+        add_section(self.tr("Allgemein", "General"))
+        form.addRow(self.tr("Sprache:", "Language:"), language); form.addRow(self.tr("Beim Start:", "On startup:"),startup); form.addRow(self.tr("Startseite:", "Homepage:"),home); form.addRow(self.tr("Suchmaschine:", "Search engine:"),engine); form.addRow(self.tr("Browser-Design:", "Browser design:"),browser_design); form.addRow(self.tr("Webseiten-Design:", "Website appearance:"),theme); form.addRow("",show_bookmarks_bar); form.addRow(self.tr("Download-Ordner:", "Download folder:"),row); form.addRow("",ask_download); form.addRow(self.tr("Standard-Zoom:", "Default zoom:"),zoom); form.addRow(self.tr("Standard-Schriftgröße:", "Default font size:"),font_size)
+        add_section(self.tr("Sicherheit und Berechtigungen", "Security and permissions"))
+        form.addRow(self.tr("Sicherheit:", "Security:"),block)
+        for key, box in permission_boxes.items():
+            labels = {"permission_camera": ("Kamera", "Camera"), "permission_microphone": ("Mikrofon", "Microphone"), "permission_location": ("Standort", "Location"), "permission_notifications": ("Benachrichtigungen", "Notifications")}
+            de_label, en_label = labels[key]
+            form.addRow(self.tr(de_label, en_label) + ":", box)
+        form.addRow("",dnt); form.addRow(self.tr("Browser-Verhalten:", "Browser behavior:"),confirm_tabs)
+        privacy=QHBoxLayout(); a=QPushButton(self.tr("Verlauf löschen", "Clear history")); b=QPushButton(self.tr("Cache löschen", "Clear cache")); c=QPushButton(self.tr("Cookies löschen", "Clear cookies")); [privacy.addWidget(x) for x in (a,b,c)]; add_section(self.tr("Datenschutz und Browserdaten", "Privacy and browser data"))
+        form.addRow(self.tr("Browserdaten:", "Browser data:"),privacy); form.addRow("",clear_history_exit); form.addRow("",clear_cache_exit); form.addRow("",clear_cookies_exit); form.addRow("",remember_window_size); form.addRow("",default_browser); a.clicked.connect(self.clear_history); b.clicked.connect(self.clear_cache); c.clicked.connect(self.clear_cookies)
         buttons=QHBoxLayout(); save=QPushButton(self.tr("Speichern", "Save")); cancel=QPushButton(self.tr("Abbrechen", "Cancel")); buttons.addWidget(save); buttons.addWidget(cancel); form.addRow(buttons)
-        save.clicked.connect(lambda:self.save_settings_v39(dialog,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData(),default_browser.isChecked(),browser_design.currentData()))
-        cancel.clicked.connect(dialog.reject); dialog.exec()
+        save.clicked.connect(lambda:self.save_settings_v39(page,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData(),default_browser.isChecked(),browser_design.currentData()))
+        cancel.clicked.connect(lambda: self.close_settings_page(page))
+
+    def close_settings_page(self, page):
+        index = self.tabs.indexOf(page)
+        if index >= 0:
+            self.tabs.removeTab(index)
+            page.deleteLater()
+            if self.tabs.count() == 0:
+                self.add_tab(self.settings_data.get("home"))
+            QTimer.singleShot(0, self.update_new_tab_button_position)
 
     def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de", default_browser=False, browser_design="dark"):
         chosen=pathlib.Path(download_dir.strip() or str(DOWNLOAD_DIR)).expanduser()
         self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"remember_window_size":bool(remember_window_size),"language":language or "de","default_browser":bool(default_browser),"browser_design":browser_design if browser_design in ("dark", "light", "luna") else "dark",**permissions})
-        old_language = self.settings_data.get("language", "de")
         self.download_dir=chosen; write_json(CONFIG_FILE,self.settings_data); self.set_default_browser(bool(default_browser)); self.apply_language_live()
         self.bookmarks_bar.setVisible(self.settings_data["show_bookmarks_bar"]); self.apply_browser_design(); self.apply_theme_to_all_tabs()
-        for i in range(self.tabs.count()): self.apply_font_size(self.tabs.widget(i))
-        dialog.accept()
+        for i in range(self.tabs.count()):
+            view = self.tabs.widget(i)
+            if isinstance(view, BrowserView):
+                self.apply_font_size(view)
+        self.close_settings_page(dialog)
 
     def set_default_browser(self, enabled):
         """Register or unregister LunaSurfer as the preferred browser for this user."""

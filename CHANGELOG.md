@@ -1,5 +1,32 @@
 LunaSurfer
 
+## 0.3.32 - 2026-11-02
+
+### Einstellungen im Browser-Tab
+- Der Einstellungsdialog wurde durch eine integrierte Einstellungsseite in einem eigenen Browser-Tab ersetzt – ähnlich wie `chrome://settings` in Chromium.
+- Der Einstellungs-Tab kann wie jeder andere Tab geöffnet und geschlossen werden; ein erneuter Aufruf wechselt zum bereits geöffneten Einstellungs-Tab.
+- Die Einstellungsseite ist scrollbar und optisch an das dunkle LunaSurfer-Design angepasst.
+- Einstellungen sind in die Bereiche Allgemein, Sicherheit und Berechtigungen sowie Datenschutz und Browserdaten gegliedert.
+- Die vorhandene Speicher- und Einstellungslogik bleibt erhalten; Speichern schließt nur den Einstellungs-Tab und kehrt zum vorherigen Browser-Tab zurück.
+- Beim Wechsel auf den Einstellungs-Tab werden Navigation und Adressanzeige passend aktualisiert.
+
+### Korrektur des Einstellungsseiten-Layouts
+- Abschnittsüberschriften spannen jetzt die gesamte Formularbreite statt nur die schmale Beschriftungsspalte.
+- Überschriften erhalten eine ausreichende Höhe und feste Innenabstände; dadurch werden lange Titel nicht mehr abgeschnitten.
+- Dezente Trennlinie und einheitliche Abstände verbessern die Gliederung der Einstellungsgruppen.
+- Ausschließlich Layoutkorrektur: Einstellungswerte, Speicherlogik und Browserfunktionen bleiben unverändert.
+
+## Designkorrektur Einstellungen
+
+- Hintergrund der Einstellungsseite und des Scrollbereichs vereinheitlicht: kein hellgrauer Qt-Standardhintergrund mehr.
+- Dunkle Eingabefelder, klarere Beschriftungen, besser sichtbare Checkboxen und einheitlich abgerundete Bedienelemente.
+- Fokus-, Hover- und Auswahlzustände im Luna-Farbton gestaltet; Scrollleiste optisch angepasst.
+- Einstellungslogik, gespeicherte Werte und Tab-Verhalten unverändert.
+
+### Versionspflege
+- VERSION, Fenstertitel, Über-Dialog, README und Debian-Paketmetadaten auf 0.3.32 aktualisiert.
+- Die bestehende Funktionalität aus 0.3.31 bleibt erhalten.
+
 ## 0.3.31 - 2026-11-02
 
 ### Download-Manager
