@@ -1,3 +1,17 @@
+## 0.3.28 – 2026-11-02
+- Download-Manager umfassend erweitert: Fortschritt, Prozent, Dateigröße und Download-Geschwindigkeit.
+- Laufende Downloads können abgebrochen werden.
+- Fertige Dateien oder ihr Ordner können direkt geöffnet werden.
+- Einträge können aus der Liste entfernt werden, ohne die Datei zu löschen.
+- Dateien können nach Sicherheitsabfrage direkt von der Festplatte gelöscht werden.
+- Download-Verlauf kann aufgeräumt werden, ohne laufende Downloads zu beeinflussen.
+- README und Paketversion für GitHub-Release aktualisiert.
+- ADBlocker: Der Adblocker verhindert, dass bekannte unerwünschte Domains geladen werden, an und abschaltbar.
+- Drei Blockierstärken: Stanard, Stark, Sehr Stark 
+- Werbeanzeigen verschwinden
+- Tracker blockiert werden
+- weniger Daten an Werbenetzwerke gesendet werden
+- Webseiten teilweise schneller laden
 
 ## 0.3.27 – Clipboard & GitHub graph rendering fixes
 – Der QtWebEngine-Zugriff auf die Zwischenablage für vom Benutzer ausgelöste Website-Kopierschaltflächen wurde aktiviert. 

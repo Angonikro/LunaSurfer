@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.27 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.28 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
 import urllib.parse
 import os
+import subprocess
+import time
 from html.parser import HTMLParser
 from html import escape
 
@@ -23,7 +25,7 @@ from PySide6.QtGui import QAction, QKeySequence, QIcon
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QToolBar, QLineEdit, QToolButton,
     QVBoxLayout, QWidget, QMenu, QFileDialog, QMessageBox, QDialog,
-    QFormLayout, QPushButton, QHBoxLayout, QLabel, QCheckBox, QComboBox, QStyle, QInputDialog
+    QFormLayout, QPushButton, QHBoxLayout, QLabel, QCheckBox, QComboBox, QStyle, QInputDialog, QListWidget, QListWidgetItem, QProgressBar
 )
 from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEngineSettings, QWebEngineUrlRequestInterceptor
 from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -146,6 +148,21 @@ class PrivacyInterceptor(QWebEngineUrlRequestInterceptor):
     def interceptRequest(self, info):
         if self.window_ref.settings_data.get("send_dnt", False):
             info.setHttpHeader(b"DNT", b"1")
+        if not self.window_ref.settings_data.get("adblock_enabled", True):
+            return
+        url = info.requestUrl().toString().lower()
+        host = info.requestUrl().host().lower()
+        whitelist = [str(x).lower() for x in self.window_ref.settings_data.get("adblock_whitelist", [])]
+        if any(host == x or host.endswith("." + x) for x in whitelist):
+            return
+        standard = ["doubleclick.net", "googlesyndication.com", "googleadservices.com", "adservice.google.", "adsystem.com", "taboola.com", "outbrain.com", "scorecardresearch.com"]
+        strong = standard + ["adnxs.com", "adsrvr.org", "amazon-adsystem.com", "criteo.com", "criteo.net", "demdex.net", "rubiconproject.com", "openx.net", "pubmatic.com", "casalemedia.com", "mathtag.com", "smartadserver.com", "advertising.com", "2mdn.net", "moatads.com", "quantserve.com", "bluekai.com", "chartbeat.com", "hotjar.com", "mouseflow.com", "mixpanel.com", "segment.io"]
+        very_strong = strong + ["google-analytics.com", "googletagmanager.com", "analytics.google.com", "facebook.net", "connect.facebook.net", "bat.bing.com", "clarity.ms", "branch.io", "app-measurement.com", "newrelic.com", "nr-data.net", "sentry.io"]
+        strength = self.window_ref.settings_data.get("adblock_strength", "standard")
+        builtins = standard if strength == "standard" else (strong if strength == "strong" else very_strong)
+        custom = [str(x).lower() for x in self.window_ref.settings_data.get("adblock_custom_blocklist", [])]
+        if any(token in host or token in url for token in builtins + custom):
+            info.block(True)
 
 
 class BrowserView(QWebEngineView):
@@ -291,7 +308,7 @@ class BrowserView(QWebEngineView):
 class LunaSurfer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LunaSurfer 0.3.27")
+        self.setWindowTitle("LunaSurfer 0.3.28")
         self.resize(1250, 820)
         self._web_fullscreen = False
         self._was_maximized_before_fullscreen = False
@@ -320,7 +337,11 @@ class LunaSurfer(QMainWindow):
             "window_geometry": None,
             "font_size": "Mittel",
             "language": "de",
-            "default_browser": False
+            "default_browser": False,
+            "adblock_enabled": True,
+            "adblock_whitelist": [],
+            "adblock_custom_blocklist": [],
+            "adblock_strength": "standard"
         })
         if self.settings_data.get("remember_window_size", True):
             geometry = self.settings_data.get("window_geometry")
@@ -333,6 +354,7 @@ class LunaSurfer(QMainWindow):
         self.profile.setPersistentStoragePath(str(DATA_DIR / "webengine"))
         self.profile.setCachePath(str(pathlib.Path.home() / ".cache" / "lunasurfer" / "webengine"))
         self.profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies)
+        self.download_items = []
         self.privacy_interceptor = PrivacyInterceptor(self)
         self.profile.setUrlRequestInterceptor(self.privacy_interceptor)
         self.profile.downloadRequested.connect(self.on_download)
@@ -399,6 +421,24 @@ class LunaSurfer(QMainWindow):
         self.star_button.setFixedSize(46, 42)
         self.star_button.setStyleSheet("font-size: 30px; font-weight: bold; padding: 0px; margin: 0px;")
         bar.addWidget(self.star_button)
+
+        # Compact toolbar buttons for Download Manager and Ad Blocker.
+        self.download_action = QAction("⇩", self)
+        self.download_action.setToolTip(self.tr("Download-Manager", "Download manager"))
+        self.download_action.triggered.connect(self.show_download_manager)
+        self.download_button = QToolButton(self); self.download_button.setDefaultAction(self.download_action)
+        self.download_button.setText("⇩"); self.download_button.setFixedSize(34, 34)
+        self.download_button.setStyleSheet("font-size: 24px; font-weight: bold; color: #6ee7ff; border: 1px solid #3285bd; border-radius: 7px; padding: 0px;")
+        bar.addWidget(self.download_button)
+
+        self.adblock_action = QAction("🛡", self)
+        self.adblock_action.setToolTip(self.tr("Werbeblocker", "Ad blocker"))
+        self.adblock_action.triggered.connect(self.show_adblock_settings)
+        self.adblock_button = QToolButton(self); self.adblock_button.setDefaultAction(self.adblock_action)
+        self.adblock_button.setText("🛡"); self.adblock_button.setFixedSize(34, 34)
+        self.adblock_button.setStyleSheet("font-size: 20px; color: #7dd3fc; border: 1px solid #3285bd; border-radius: 7px; padding: 0px;")
+        bar.addWidget(self.adblock_button)
+        self.update_adblock_button()
         self.newtab_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_FileDialogNewFolder), "", self); self.newtab_action.setToolTip(self.tr("Neuer Tab", "New tab"))
         self.newtab_action.triggered.connect(lambda: self.add_tab(self.settings_data["home"]))
         bar.addAction(self.newtab_action)
@@ -496,6 +536,8 @@ class LunaSurfer(QMainWindow):
         self.reload_action.setToolTip(self.tr("Neu laden", "Reload"))
         self.home_action.setToolTip(self.tr("Startseite", "Home"))
         self.star_action.setToolTip(self.tr("Aktuelle Seite als Lesezeichen hinzufügen", "Add current page to bookmarks"))
+        self.download_action.setToolTip(self.tr("Download-Manager", "Download manager"))
+        self.adblock_action.setToolTip(self.tr("Werbeblocker", "Ad blocker"))
         self.newtab_action.setToolTip(self.tr("Neuer Tab", "New tab"))
         self.new_tab_button.setToolTip(self.tr("Neuer Tab", "New tab"))
         self.address.setPlaceholderText(self.tr("Adresse oder Suchbegriff eingeben", "Enter address or search"))
@@ -903,6 +945,118 @@ class LunaSurfer(QMainWindow):
 
     def show_history(self): self.show_list_dialog(self.tr("Verlauf", "History"), HISTORY_FILE, "url")
 
+    def update_adblock_button(self):
+        enabled = self.settings_data.get("adblock_enabled", True)
+        self.adblock_button.setText("🛡" if enabled else "⊘")
+        self.adblock_button.setToolTip(self.tr("Werbeblocker aktiv – klicken für Einstellungen", "Ad blocker active – click for settings") if enabled else self.tr("Werbeblocker deaktiviert – klicken für Einstellungen", "Ad blocker disabled – click for settings"))
+
+    def show_adblock_settings(self):
+        dialog = QDialog(self); dialog.setWindowTitle(self.tr("Werbeblocker", "Ad blocker")); dialog.resize(520, 360)
+        layout = QVBoxLayout(dialog)
+        enabled = QCheckBox(self.tr("Werbeblocker aktivieren", "Enable ad blocker")); enabled.setChecked(self.settings_data.get("adblock_enabled", True)); layout.addWidget(enabled)
+        layout.addWidget(QLabel(self.tr("Blockierstärke:", "Blocking strength:")))
+        strength = QComboBox(); strength.addItem(self.tr("Standard", "Standard"), "standard"); strength.addItem(self.tr("Stark", "Strong"), "strong"); strength.addItem(self.tr("Sehr stark", "Very strong"), "very_strong")
+        current_strength = self.settings_data.get("adblock_strength", "standard"); strength.setCurrentIndex(max(0, strength.findData(current_strength))); layout.addWidget(strength)
+        layout.addWidget(QLabel(self.tr("Eigene Blockiermuster (eine Domain oder ein Muster pro Zeile):", "Custom block patterns (one domain or pattern per line):")))
+        patterns = QLineEdit("; ".join(self.settings_data.get("adblock_custom_blocklist", []))); patterns.setPlaceholderText("z. B. example-ads.com")
+        layout.addWidget(patterns)
+        layout.addWidget(QLabel(self.tr("Whitelist-Domains (mit Semikolon trennen):", "Whitelist domains (separate with semicolons):")))
+        whitelist = QLineEdit("; ".join(self.settings_data.get("adblock_whitelist", []))); layout.addWidget(whitelist)
+        info = QLabel(self.tr("Der integrierte Blocker filtert bekannte Werbe- und Tracking-Domains. Änderungen gelten für neue Anfragen sofort.", "The built-in blocker filters known advertising and tracking domains. Changes apply to new requests immediately.")); info.setWordWrap(True); layout.addWidget(info)
+        buttons = QHBoxLayout(); save = QPushButton(self.tr("Speichern", "Save")); close = QPushButton(self.tr("Abbrechen", "Cancel")); buttons.addStretch(1); buttons.addWidget(save); buttons.addWidget(close); layout.addLayout(buttons)
+        def do_save():
+            self.settings_data["adblock_enabled"] = enabled.isChecked()
+            self.settings_data["adblock_strength"] = strength.currentData()
+            self.settings_data["adblock_custom_blocklist"] = [x.strip() for x in patterns.text().split(";") if x.strip()]
+            self.settings_data["adblock_whitelist"] = [x.strip() for x in whitelist.text().split(";") if x.strip()]
+            write_json(CONFIG_FILE, self.settings_data); self.update_adblock_button(); dialog.accept()
+        save.clicked.connect(do_save); close.clicked.connect(dialog.reject); dialog.exec()
+
+    def show_download_manager(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.tr("Download-Manager", "Download Manager"))
+        dialog.resize(900, 520)
+        layout = QVBoxLayout(dialog)
+        info = QLabel(self.tr("Verwalte laufende und abgeschlossene Downloads.", "Manage active and completed downloads."))
+        layout.addWidget(info)
+        lst = QListWidget(); layout.addWidget(lst)
+
+        def selected_item():
+            row = lst.currentRow()
+            return self.download_items[row] if 0 <= row < len(self.download_items) else None
+
+        def refresh():
+            current = lst.currentRow()
+            lst.clear()
+            now = time.monotonic()
+            for item in self.download_items:
+                d = item["download"]; target = item["target"]; name = target.name
+                received = getattr(d, "receivedBytes", lambda: 0)()
+                total = getattr(d, "totalBytes", lambda: 0)()
+                finished = d.isFinished()
+                if not finished:
+                    last_b = item.get("last_bytes", received); last_t = item.get("last_time", now)
+                    dt = max(now - last_t, 0.001); speed = max(0, received - last_b) / dt
+                    item["speed"] = speed; item["last_bytes"] = received; item["last_time"] = now
+                else:
+                    speed = 0
+                percent = int(received * 100 / total) if total and total > 0 else (100 if finished else 0)
+                def fmt(n):
+                    units=["B","KB","MB","GB"]
+                    n=float(max(0,n)); i=0
+                    while n>=1024 and i<len(units)-1: n/=1024; i+=1
+                    return f"{n:.1f} {units[i]}"
+                state = self.tr("Fertig", "Finished") if finished else self.tr("Lädt", "Downloading")
+                size = f"{fmt(received)} / {fmt(total)}" if total and total > 0 else fmt(received)
+                extra = self.tr(f"{fmt(speed)}/s", f"{fmt(speed)}/s") if not finished else ""
+                lst.addItem(f"{name}\n{state} — {percent}% — {size} {extra}")
+            if current >= 0 and current < lst.count(): lst.setCurrentRow(current)
+
+        def cancel_selected():
+            item = selected_item()
+            if item and not item["download"].isFinished():
+                item["download"].cancel(); refresh()
+
+        def open_file():
+            item = selected_item()
+            if item and item["target"].exists(): subprocess.Popen(["xdg-open", str(item["target"])])
+
+        def open_folder_selected():
+            item = selected_item()
+            path = item["target"].parent if item else self.download_dir
+            path.mkdir(parents=True, exist_ok=True); subprocess.Popen(["xdg-open", str(path)])
+
+        def remove_entry():
+            row = lst.currentRow()
+            if 0 <= row < len(self.download_items):
+                self.download_items.pop(row); refresh()
+
+        def delete_file():
+            item = selected_item()
+            if not item: return
+            target = item["target"]
+            if not target.exists():
+                remove_entry(); return
+            answer = QMessageBox.question(dialog, self.tr("Datei löschen", "Delete file"), self.tr(f"Soll die Datei wirklich von der Festplatte gelöscht werden?\n\n{target.name}", f"Really delete this file from disk?\n\n{target.name}"), QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+            if answer == QMessageBox.StandardButton.Yes:
+                try: target.unlink(); remove_entry()
+                except Exception as exc: QMessageBox.warning(dialog, self.tr("Fehler", "Error"), str(exc))
+
+        def clear_history():
+            self.download_items[:] = [i for i in self.download_items if not i["download"].isFinished()]
+            refresh()
+
+        refresh()
+        timer = QTimer(dialog); timer.timeout.connect(refresh); timer.start(700)
+        buttons1 = QHBoxLayout()
+        cancel = QPushButton(self.tr("Abbrechen", "Cancel download")); open_btn = QPushButton(self.tr("Datei öffnen", "Open file")); folder = QPushButton(self.tr("Ordner öffnen", "Open folder"))
+        buttons1.addWidget(cancel); buttons1.addWidget(open_btn); buttons1.addWidget(folder); buttons1.addStretch(1); layout.addLayout(buttons1)
+        buttons2 = QHBoxLayout()
+        remove = QPushButton(self.tr("Aus Liste entfernen", "Remove from list")); delete = QPushButton(self.tr("Datei löschen", "Delete file")); clear = QPushButton(self.tr("Verlauf löschen", "Clear history")); close = QPushButton(self.tr("Schließen", "Close"))
+        buttons2.addWidget(remove); buttons2.addWidget(delete); buttons2.addWidget(clear); buttons2.addStretch(1); buttons2.addWidget(close); layout.addLayout(buttons2)
+        cancel.clicked.connect(cancel_selected); open_btn.clicked.connect(open_file); folder.clicked.connect(open_folder_selected); remove.clicked.connect(remove_entry); delete.clicked.connect(delete_file); clear.clicked.connect(clear_history); close.clicked.connect(dialog.accept)
+        dialog.exec()
+
     def on_download(self, download):
         suggested = download.suggestedFileName() or "download"
         if self.settings_data.get("ask_download_location", False):
@@ -915,6 +1069,7 @@ class LunaSurfer(QMainWindow):
             download.setDownloadDirectory(str(target.parent))
             download.setDownloadFileName(target.name)
             download.accept()
+            self.download_items.append({"download": download, "target": target, "last_bytes": 0, "last_time": time.monotonic(), "speed": 0})
             self.watch_download_finished(download, target)
             self.statusBar().showMessage(f"Download gestartet: {target.name}", 5000)
             return
@@ -928,6 +1083,7 @@ class LunaSurfer(QMainWindow):
         download.setDownloadDirectory(str(target.parent))
         download.setDownloadFileName(target.name)
         download.accept()
+        self.download_items.append({"download": download, "target": target, "last_bytes": 0, "last_time": time.monotonic(), "speed": 0})
         self.watch_download_finished(download, target)
         self.statusBar().showMessage(f"Download gestartet: {target.name}", 5000)
 
