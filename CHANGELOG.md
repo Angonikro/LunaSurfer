@@ -4,7 +4,7 @@
 - „Lesezeichen verwalten“ bleibt verankert und sichtbar. 
 - Beinhaltet alle Funktionen und Updates von 0.3.28.
 
-## 0.3.29 – 2026-11-02
+## 0.3.28 – 2026-11-02
 - Download-Manager umfassend erweitert: Fortschritt, Prozent, Dateigröße und Download-Geschwindigkeit.
 - Laufende Downloads können abgebrochen werden.
 - Fertige Dateien oder ihr Ordner können direkt geöffnet werden.
