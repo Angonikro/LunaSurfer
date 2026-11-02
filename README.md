@@ -2,7 +2,7 @@
 
 Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 
-![LunaSurfer](lunasurfer5.png)
+![LunaSurfer](lunasurfer7.png)
 
 [Github Seite](https://github.com/Angonikro/LunaSurfer/)
 
