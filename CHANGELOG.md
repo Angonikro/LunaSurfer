@@ -1,4 +1,10 @@
-## 0.3.28 – 2026-11-02
+# LunaSurfer 0.3.29
+- Responsive Lesezeichenleiste mit lesbaren Mindestbreiten. 
+- Zusätzliche Lesezeichen werden in ein „» Weitere“-Überlaufmenü verschoben, anstatt gequetscht zu werden. 
+- „Lesezeichen verwalten“ bleibt verankert und sichtbar. 
+- Beinhaltet alle Funktionen und Updates von 0.3.28.
+
+## 0.3.29 – 2026-11-02
 - Download-Manager umfassend erweitert: Fortschritt, Prozent, Dateigröße und Download-Geschwindigkeit.
 - Laufende Downloads können abgebrochen werden.
 - Fertige Dateien oder ihr Ordner können direkt geöffnet werden.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.28 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.29 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -25,7 +25,7 @@ from PySide6.QtGui import QAction, QKeySequence, QIcon
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QToolBar, QLineEdit, QToolButton,
     QVBoxLayout, QWidget, QMenu, QFileDialog, QMessageBox, QDialog,
-    QFormLayout, QPushButton, QHBoxLayout, QLabel, QCheckBox, QComboBox, QStyle, QInputDialog, QListWidget, QListWidgetItem, QProgressBar
+    QFormLayout, QPushButton, QHBoxLayout, QLabel, QCheckBox, QComboBox, QStyle, QInputDialog, QListWidget, QListWidgetItem, QProgressBar, QSizePolicy
 )
 from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEngineSettings, QWebEngineUrlRequestInterceptor
 from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -470,6 +470,9 @@ class LunaSurfer(QMainWindow):
         self.bookmarks_bar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.bookmarks_bar.setMinimumHeight(36)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.bookmarks_bar)
+        self._bookmark_resize_timer = QTimer(self)
+        self._bookmark_resize_timer.setSingleShot(True)
+        self._bookmark_resize_timer.timeout.connect(self.refresh_bookmarks_bar)
         self.refresh_bookmarks_bar()
         self.bookmarks_bar.setVisible(self.settings_data.get("show_bookmarks_bar", True))
 
@@ -709,55 +712,98 @@ class LunaSurfer(QMainWindow):
         self.statusBar().showMessage("Lesezeichen gespeichert", 3000)
 
     def refresh_bookmarks_bar(self):
-        """Rebuild the bookmarks bar, including Chromium bookmark folders."""
+        """Build a responsive bookmarks bar with a clean overflow menu."""
         if not hasattr(self, "bookmarks_bar"):
             return
         self.bookmarks_bar.clear()
         items = read_json(BOOKMARKS_FILE, [])
         style = QApplication.style()
 
-        def add_items(parent_toolbar, entries):
+        # Reserve space for the permanent management button and the overflow
+        # button.  Entries are never squeezed into unreadable widths.
+        available = max(180, self.bookmarks_bar.width() - 230)
+        used = 0
+        visible, overflow = [], []
+
+        def entry_width(item):
+            title = (item.get("title") or item.get("url") or "Ordner").strip()
+            return max(88, min(220, self.fontMetrics().horizontalAdvance(title) + 42))
+
+        for item in items:
+            width = entry_width(item)
+            if used + width <= available or not visible:
+                visible.append(item)
+                used += width
+            else:
+                overflow.append(item)
+
+        def add_menu_entries(menu, entries):
             for item in entries:
                 if item.get("type") == "folder" or "children" in item:
-                    title = (item.get("title") or "Ordner").strip()
-                    menu = QMenu(title, self)
-                    def fill_menu(target, children):
-                        for child in children:
-                            if child.get("type") == "folder" or "children" in child:
-                                sub = target.addMenu((child.get("title") or "Ordner").strip())
-                                fill_menu(sub, child.get("children", []))
-                            else:
-                                u = child.get("url", "").strip()
-                                if u:
-                                    a = target.addAction((child.get("title") or u).strip())
-                                    a.setToolTip(u)
-                                    a.triggered.connect(lambda checked=False, url=u: self.open_bookmark(url))
-                    fill_menu(menu, item.get("children", []))
-                    button = QToolButton(self.bookmarks_bar)
-                    button.setText(title)
-                    button.setMenu(menu)
-                    button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-                    parent_toolbar.addWidget(button)
+                    sub = menu.addMenu((item.get("title") or "Ordner").strip())
+                    add_menu_entries(sub, item.get("children", []))
                 else:
                     url = item.get("url", "").strip()
-                    if not url:
-                        continue
-                    title = (item.get("title") or url).strip()
-                    action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload), title, self)
-                    action.setToolTip(url)
-                    action.triggered.connect(lambda checked=False, u=url: self.open_bookmark(u))
-                    parent_toolbar.addAction(action)
-                    button = parent_toolbar.widgetForAction(action)
-                    if button is not None:
-                        button.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-                        button.customContextMenuRequested.connect(lambda pos, u=url, b=button: self.show_bookmark_context_menu(u, b.mapToGlobal(pos)))
+                    if url:
+                        title = (item.get("title") or url).strip()
+                        action = menu.addAction(title)
+                        action.setToolTip(url)
+                        action.triggered.connect(lambda checked=False, u=url: self.open_bookmark(u))
 
-        add_items(self.bookmarks_bar, items)
-        if items: self.bookmarks_bar.addSeparator()
-        manage = QAction("Lesezeichen verwalten", self)
-        manage.setToolTip("Lesezeichen anzeigen und verwalten")
+        def add_visible(item):
+            if item.get("type") == "folder" or "children" in item:
+                title = (item.get("title") or "Ordner").strip()
+                menu = QMenu(title, self)
+                add_menu_entries(menu, item.get("children", []))
+                button = QToolButton(self.bookmarks_bar)
+                button.setText(title)
+                button.setMenu(menu)
+                button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+                button.setMinimumWidth(88)
+                button.setMaximumWidth(220)
+                self.bookmarks_bar.addWidget(button)
+            else:
+                url = item.get("url", "").strip()
+                if not url:
+                    return
+                title = (item.get("title") or url).strip()
+                action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload), title, self)
+                action.setToolTip(url)
+                action.triggered.connect(lambda checked=False, u=url: self.open_bookmark(u))
+                self.bookmarks_bar.addAction(action)
+                button = self.bookmarks_bar.widgetForAction(action)
+                if button is not None:
+                    button.setMinimumWidth(88)
+                    button.setMaximumWidth(220)
+                    button.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+                    button.customContextMenuRequested.connect(lambda pos, u=url, b=button: self.show_bookmark_context_menu(u, b.mapToGlobal(pos)))
+
+        for item in visible:
+            add_visible(item)
+
+        if overflow:
+            more_menu = QMenu(self.tr("Weitere Lesezeichen", "More bookmarks"), self)
+            add_menu_entries(more_menu, overflow)
+            more_button = QToolButton(self.bookmarks_bar)
+            more_button.setText(self.tr("» Weitere", "» More"))
+            more_button.setToolTip(self.tr("Weitere Lesezeichen anzeigen", "Show more bookmarks"))
+            more_button.setMenu(more_menu)
+            more_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+            self.bookmarks_bar.addWidget(more_button)
+
+        # Flexible spacer keeps the management action anchored at the right.
+        spacer = QWidget(self.bookmarks_bar)
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.bookmarks_bar.addWidget(spacer)
+        manage = QAction(self.tr("Lesezeichen verwalten", "Manage bookmarks"), self)
+        manage.setToolTip(self.tr("Lesezeichen anzeigen und verwalten", "View and manage bookmarks"))
         manage.triggered.connect(self.show_bookmarks)
         self.bookmarks_bar.addAction(manage)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "_bookmark_resize_timer"):
+            self._bookmark_resize_timer.start(120)
 
     def open_bookmark(self, url):
         view = self.current_view()
