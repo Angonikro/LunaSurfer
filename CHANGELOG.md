@@ -1,4 +1,16 @@
-LunaSurfer
+LunaSurfer Chngelog
+
+## 0.3.33 2026-11-03
+- Der Download-Verlauf abgeschlossener Downloads bleibt über Programmneustarts hinweg erhalten.
+- Zwei zusätzliche Browser-Designs: Graphit und Ocean.
+- Abgeschlossene Downloads werden in `~/.local/share/lunasurfer/downloads.json` gespeichert und beim nächsten Start wiederhergestellt.
+- Gespeichert werden Dateipfad, Dateigröße und Abschlusszeitpunkt; laufende Qt-WebEngine-Objekte werden nicht serialisiert.
+- Entfernen einzelner Einträge und das Löschen abgeschlossener Downloads aktualisieren die gespeicherte Liste sofort.
+- Zwei neue Browser-Design
+- **Graphit:** neutrales, elegantes Anthrazit-Design.
+- **Ocean:** dunkles Petrol-/Türkis-Design.
+- Beide Designs sind direkt in den Einstellungen auswählbar und werden sofort angewendet. Die bisherigen drei Designs bleiben erhalten.
+- Versionsnummern in VERSION, Fenstertitel, Über-Dialog, README und Debian-Metadaten auf 0.3.33 aktualisiert.
 
 ## 0.3.32 - 2026-11-02
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.32 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.33 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -33,15 +33,16 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 APP_NAME = "LunaSurfer"
 _VERSION_FILE = pathlib.Path(__file__).resolve().with_name("VERSION")
 try:
-    APP_VERSION = _VERSION_FILE.read_text(encoding="utf-8").strip() or "0.3.32"
+    APP_VERSION = _VERSION_FILE.read_text(encoding="utf-8").strip() or "0.3.33"
 except OSError:
-    APP_VERSION = "0.3.32"
+    APP_VERSION = "0.3.33"
 CONFIG_DIR = pathlib.Path.home() / ".config" / "lunasurfer"
 DATA_DIR = pathlib.Path.home() / ".local" / "share" / "lunasurfer"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
 BOOKMARKS_FILE = DATA_DIR / "bookmarks.json"
 HISTORY_FILE = DATA_DIR / "history.json"
 SESSION_FILE = DATA_DIR / "session.json"
+DOWNLOADS_FILE = DATA_DIR / "downloads.json"
 DOWNLOAD_DIR = pathlib.Path.home() / "Downloads"
 
 def read_json(path, default):
@@ -55,6 +56,17 @@ def write_json(path, data):
     temp = path.with_suffix(path.suffix + ".tmp")
     temp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     temp.replace(path)
+
+
+class StoredDownload:
+    """Read-only completed download restored from the persistent history."""
+    def __init__(self, record):
+        self._received = int(record.get("received", 0) or 0)
+        self._total = int(record.get("total", self._received) or self._received)
+    def isFinished(self): return True
+    def receivedBytes(self): return self._received
+    def totalBytes(self): return self._total
+    def cancel(self): return None
 
 
 class ChromiumBookmarksParser(HTMLParser):
@@ -425,6 +437,7 @@ class LunaSurfer(QMainWindow):
         self.profile.setCachePath(str(pathlib.Path.home() / ".cache" / "lunasurfer" / "webengine"))
         self.profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies)
         self.download_items = []
+        self.load_download_history()
         self.privacy_interceptor = PrivacyInterceptor(self)
         self.profile.setUrlRequestInterceptor(self.privacy_interceptor)
         self.profile.downloadRequested.connect(self.on_download)
@@ -586,6 +599,41 @@ class LunaSurfer(QMainWindow):
                 QStatusBar { background: #2b1d48; color: #eadfff; }
                 QToolTip { background: #352451; color: #ffffff; border: 1px solid #aa83df; border-radius: 3px; padding: 3px 6px; font-size: 11px; }
             """
+        elif design == "graphite":
+            # Graphite Blue: deep navy graphite surfaces with a clearly saturated, true-blue accent.
+            css = """
+                QMainWindow { background: #071a36; color: #e8f1ff; }
+                QToolBar { background: #0d2850; border-bottom: 1px solid #24569a; spacing: 8px; padding: 8px 10px; }
+                QToolBar QToolButton { color: #e8f1ff; padding: 7px; border-radius: 9px; min-width: 34px; min-height: 34px; }
+                QToolBar QToolButton:hover { background: #174b86; }
+                QToolBar QToolButton:pressed { background: #176fe5; }
+                QLineEdit { background: #10345f; color: #f4f8ff; border: 1px solid #3979c5; border-radius: 16px; padding: 9px 13px; font-size: 13px; selection-background-color: #247cff; }
+                QLineEdit:focus { border: 1px solid #65adff; background: #123d70; }
+                QTabWidget::pane { border: 0; background: #071a36; }
+                QTabBar::tab { background: #10325b; color: #d5e7ff; padding: 9px 16px; margin-right: 2px; border-top-left-radius: 7px; border-top-right-radius: 7px; }
+                QTabBar::tab:hover { background: #24569a; color: #ffffff; }
+                QTabBar::tab:selected { background: #176fe5; color: #ffffff; border-bottom: 2px solid #8bc5ff; }
+                QTabWidget QToolButton { min-width: 38px; min-height: 30px; }
+                QStatusBar { background: #0d2850; color: #dcecff; border-top: 1px solid #24569a; }
+                QToolTip { background: #10345f; color: #ffffff; border: 1px solid #65adff; border-radius: 5px; padding: 4px 7px; font-size: 11px; }
+                QMenu { background: #10345f; color: #e8f1ff; border: 1px solid #3979c5; padding: 5px; }
+                QMenu::item:selected { background: #176fe5; border-radius: 4px; }
+            """
+        elif design == "ocean":
+            css = """
+                QMainWindow { background: #092b35; color: #e5fbff; }
+                QToolBar { background: #0d3b49; border-bottom: 1px solid #176477; spacing: 8px; padding: 8px 10px; }
+                QToolBar QToolButton { color: #e5fbff; padding: 7px; border-radius: 9px; min-width: 34px; min-height: 34px; }
+                QToolBar QToolButton:hover { background: #15586a; }
+                QToolBar QToolButton:pressed { background: #00a6a6; }
+                QLineEdit { background: #104553; color: #f0feff; border: 1px solid #278397; border-radius: 16px; padding: 9px 13px; font-size: 13px; }
+                QTabWidget::pane { border: 0; background: #092b35; }
+                QTabBar::tab { background: #104553; color: #d6f7fb; padding: 9px 16px; margin-right: 2px; }
+                QTabBar::tab:selected { background: #008c9e; color: white; }
+                QTabWidget QToolButton { min-width: 38px; min-height: 30px; }
+                QStatusBar { background: #0d3b49; color: #d6f7fb; }
+                QToolTip { background: #104553; color: #ffffff; border: 1px solid #4bb4c5; border-radius: 3px; padding: 3px 6px; font-size: 11px; }
+            """
         else:
             css = """
                 QMainWindow { background: #101827; }
@@ -608,6 +656,10 @@ class LunaSurfer(QMainWindow):
                 accent, border, fg = "#7c3fc2", "#b28ae8", "#ffffff"
             elif design == "light":
                 accent, border, fg = "#d7e9fa", "#6f9fc9", "#163d62"
+            elif design == "graphite":
+                accent, border, fg = "#245da0", "#78b7ff", "#ffffff"
+            elif design == "ocean":
+                accent, border, fg = "#008c9e", "#4bb4c5", "#ffffff"
             else:
                 accent, border, fg = "#1769aa", "#5fa8e8", "#ffffff"
             self.new_tab_button.setStyleSheet(f"font-size: 21px; font-weight: bold; color: {fg}; background: {accent}; border: 1px solid {border}; border-radius: 5px; margin: 1px;")
@@ -1321,6 +1373,41 @@ class LunaSurfer(QMainWindow):
             write_json(CONFIG_FILE, self.settings_data); self.update_adblock_button(); dialog.accept()
         save.clicked.connect(do_save); close.clicked.connect(dialog.reject); dialog.exec()
 
+    def load_download_history(self):
+        """Restore completed downloads from ~/.local/share/lunasurfer/downloads.json."""
+        records = read_json(DOWNLOADS_FILE, [])
+        if not isinstance(records, list):
+            records = []
+        for record in records:
+            if not isinstance(record, dict) or not record.get("target"):
+                continue
+            target = pathlib.Path(record["target"]).expanduser()
+            stored = dict(record)
+            self.download_items.append({
+                "download": StoredDownload(stored), "target": target,
+                "last_bytes": int(stored.get("received", 0) or 0),
+                "last_time": time.monotonic(), "speed": 0, "stored": True,
+                "downloaded_at": stored.get("downloaded_at", "")
+            })
+
+    def save_download_history(self):
+        """Persist completed downloads only; never serialize live Qt objects."""
+        records = []
+        for item in self.download_items:
+            download = item.get("download")
+            if not download or not download.isFinished():
+                continue
+            target = item.get("target")
+            if not target:
+                continue
+            received = int(getattr(download, "receivedBytes", lambda: 0)() or 0)
+            total = int(getattr(download, "totalBytes", lambda: 0)() or received)
+            records.append({
+                "target": str(target), "received": received, "total": total,
+                "downloaded_at": item.get("downloaded_at") or time.strftime("%Y-%m-%d %H:%M:%S")
+            })
+        write_json(DOWNLOADS_FILE, records)
+
     def show_download_manager(self):
         dialog = QDialog(self)
         dialog.setWindowTitle(self.tr("Download-Manager", "Download Manager"))
@@ -1457,6 +1544,8 @@ class LunaSurfer(QMainWindow):
             details_text = f"{fmt(received)} / {fmt(total)}" if total and total > 0 else fmt(received)
             if not finished and speed > 0:
                 details_text += f"   ·   {fmt(speed)}/s"
+            elif item.get("downloaded_at"):
+                details_text += f"   ·   {item['downloaded_at']}"
             ui["details"].setText(details_text)
             ui["state"].setText(self.tr("Fertig", "Completed") if finished else f"{percent} %")
             ui["state"].setStyleSheet(
@@ -1584,10 +1673,12 @@ class LunaSurfer(QMainWindow):
             item, idx = actual_selected()
             if item is not None:
                 self.download_items.pop(idx)
+                self.save_download_history()
                 refresh()
 
         def clear_history():
             self.download_items[:] = [entry for entry in self.download_items if not entry["download"].isFinished()]
+            self.save_download_history()
             refresh()
 
         actions = QHBoxLayout()
@@ -1651,6 +1742,11 @@ class LunaSurfer(QMainWindow):
         """Show a small notification when a WebEngine download has finished."""
         def check_finished():
             if download.isFinished():
+                for entry in self.download_items:
+                    if entry.get("download") is download:
+                        entry["downloaded_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                        break
+                self.save_download_history()
                 self.statusBar().showMessage(f"Download fertig: {target.name}", 8000)
                 QMessageBox.information(
                     self,
@@ -1683,6 +1779,7 @@ class LunaSurfer(QMainWindow):
         else:
             self.settings_data["window_geometry"] = None
         write_json(CONFIG_FILE, self.settings_data)
+        self.save_download_history()
         urls = []
         for i in range(self.tabs.count()):
             view = self.tabs.widget(i)
@@ -1792,7 +1889,7 @@ class LunaSurfer(QMainWindow):
         for name,url in engines.items(): engine.addItem(name,url)
         saved_engine=self.settings_data.get("search_engine", "DuckDuckGo"); engine.setCurrentIndex(max(0,engine.findText(saved_engine)))
         theme = QComboBox(); theme.addItem(self.tr("Dunkel", "Dark"), "dark"); theme.addItem(self.tr("Hell", "Light"), "light"); theme.setCurrentIndex(0 if self.settings_data.get("theme", "dark") == "dark" else 1)
-        browser_design = QComboBox(); browser_design.addItem(self.tr("Dunkel (Standard)", "Dark (Standard)"), "dark"); browser_design.addItem(self.tr("Hell (Klassisch)", "Light (Classic)"), "light"); browser_design.addItem(self.tr("Luna (Modern)", "Luna (Modern)"), "luna"); browser_design.setCurrentIndex(max(0, browser_design.findData(self.settings_data.get("browser_design", "dark"))))
+        browser_design = QComboBox(); browser_design.addItem(self.tr("Dunkel (Standard)", "Dark (Standard)"), "dark"); browser_design.addItem(self.tr("Hell (Klassisch)", "Light (Classic)"), "light"); browser_design.addItem(self.tr("Luna (Modern)", "Luna (Modern)"), "luna"); browser_design.addItem(self.tr("Graphit-Blau (Elegant)", "Graphite Blue (Elegant)"), "graphite"); browser_design.addItem(self.tr("Ocean (Türkis-Blau)", "Ocean (Teal Blue)"), "ocean"); browser_design.setCurrentIndex(max(0, browser_design.findData(self.settings_data.get("browser_design", "dark"))))
         show_bookmarks_bar = QCheckBox(self.tr("Lesezeichenleiste unter der Adressleiste anzeigen", "Show bookmarks bar below the address bar")); show_bookmarks_bar.setChecked(self.settings_data.get("show_bookmarks_bar", True))
         download_dir = QLineEdit(str(self.download_dir)); choose_download = QPushButton(self.tr("Ordner auswählen…", "Choose folder…")); row=QHBoxLayout(); row.addWidget(download_dir); row.addWidget(choose_download); choose_download.clicked.connect(lambda:self.choose_download_dir(download_dir))
         zoom=QComboBox()
@@ -1859,7 +1956,7 @@ class LunaSurfer(QMainWindow):
 
     def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de", default_browser=False, browser_design="dark"):
         chosen=pathlib.Path(download_dir.strip() or str(DOWNLOAD_DIR)).expanduser()
-        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"remember_window_size":bool(remember_window_size),"language":language or "de","default_browser":bool(default_browser),"browser_design":browser_design if browser_design in ("dark", "light", "luna") else "dark",**permissions})
+        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"remember_window_size":bool(remember_window_size),"language":language or "de","default_browser":bool(default_browser),"browser_design":browser_design if browser_design in ("dark", "light", "luna", "graphite", "ocean") else "dark",**permissions})
         self.download_dir=chosen; write_json(CONFIG_FILE,self.settings_data); self.set_default_browser(bool(default_browser)); self.apply_language_live()
         self.bookmarks_bar.setVisible(self.settings_data["show_bookmarks_bar"]); self.apply_browser_design(); self.apply_theme_to_all_tabs()
         for i in range(self.tabs.count()):
