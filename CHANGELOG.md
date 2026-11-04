@@ -2,6 +2,7 @@ LunaSurfer Chngelog
 
 ## 0.3.34 2026–11-04
 
+- Kontextmenü der Webseite: „Ausschneiden“, „Kopieren“ und „Einfügen“ ergänzt (deutsch/englisch); die Aktionen verwenden die expliziten QtWebEngine-Bearbeitungsaktionen.
 - Einstellungen: Globale JavaScript-Option unter „Sicherheit und Berechtigungen“ ergänzt (standardmäßig aktiviert); Änderung wird nach dem Speichern auf alle geöffneten Tabs angewendet.
 - Kontextmenü: „Entwicklerwerkzeuge öffnen“ zeigt jetzt den Tastaturkurzbefehl F12 an.
 - F12-Entwicklerwerkzeuge als rechts angedocktes, tabübergreifend verwendetes DevTools-Fenster.

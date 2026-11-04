@@ -355,6 +355,9 @@ class BrowserView(QWebEngineView):
             "reload_cache": "Reload (bypass cache)" if is_english else "Neu laden (Cache umgehen)",
             "devtools": "Open developer tools (F12)" if is_english else "Entwicklerwerkzeuge öffnen (F12)",
             "copy_selection": "Copy selection" if is_english else "Auswahl kopieren",
+            "cut": "Cut" if is_english else "Ausschneiden",
+            "copy": "Copy" if is_english else "Kopieren",
+            "paste": "Paste" if is_english else "Einfügen",
         }
 
         history = self.history()
@@ -394,6 +397,23 @@ class BrowserView(QWebEngineView):
                 labels["copy_selection"],
                 lambda value=selected: QApplication.clipboard().setText(value)
             )
+
+        # Standard editing commands for editable page fields and text selections.
+        # Keep these as explicit WebEngine actions so the custom menu remains
+        # independent of QtWebEngine's crash-prone native context menu.
+        menu.addSeparator()
+        menu.addAction(
+            labels["cut"],
+            lambda: self.page().triggerAction(QWebEnginePage.WebAction.Cut)
+        )
+        menu.addAction(
+            labels["copy"],
+            lambda: self.page().triggerAction(QWebEnginePage.WebAction.Copy)
+        )
+        menu.addAction(
+            labels["paste"],
+            lambda: self.page().triggerAction(QWebEnginePage.WebAction.Paste)
+        )
 
         menu.addSeparator()
         menu.addAction(labels["save_page"], self.save_page_as)
