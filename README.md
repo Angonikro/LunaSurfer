@@ -23,7 +23,7 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 - Kleines Hinweisfenster, sobald ein Download vollständig abgeschlossen ist
 - **+ Schaltfläche in der Tab-Leiste** zum schnellen Öffnen eines neuen Tabs
 - Helles oder dunkles Webseiten-Design
-- Drei unterschiedliche Designs
+- Fünf unterschiedliche Designs
 - Persistentes Browser-Profil und Cookies
 - Widevine-Unterstützung, wenn das CDM auf dem System vorhanden ist
 - In den Einstellungen kann gewählt werden, ob LunaSurfer Fenstergröße und Fensterposition beim Beenden speichern und beim nächsten Start wiederherstellen soll.
