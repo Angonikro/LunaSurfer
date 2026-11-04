@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.33 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.34 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -25,7 +25,7 @@ from PySide6.QtGui import QAction, QKeySequence, QIcon
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QToolBar, QLineEdit, QToolButton,
     QVBoxLayout, QWidget, QMenu, QFileDialog, QMessageBox, QDialog,
-    QFormLayout, QPushButton, QHBoxLayout, QLabel, QCheckBox, QComboBox, QStyle, QInputDialog, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QHeaderView, QProgressBar, QSizePolicy, QScrollArea
+    QFormLayout, QPushButton, QHBoxLayout, QLabel, QCheckBox, QComboBox, QStyle, QInputDialog, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QHeaderView, QProgressBar, QSizePolicy, QScrollArea, QDockWidget, QDialogButtonBox
 )
 from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEngineSettings, QWebEngineUrlRequestInterceptor
 from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -124,6 +124,12 @@ class AddressLineEdit(QLineEdit):
     def __init__(self, window):
         super().__init__()
         self.window_ref = window
+
+    def mouseDoubleClickEvent(self, event):
+        # A double-click anywhere in the address field selects the complete URL,
+        # matching the expected browser address-bar behavior.
+        super().mouseDoubleClickEvent(event)
+        self.selectAll()
 
     def contextMenuEvent(self, event):
         menu = QMenu(self)
@@ -262,7 +268,7 @@ class BrowserView(QWebEngineView):
     def configure_web_page(self):
         page = self.page()
         settings = page.settings()
-        settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, self.window_ref.settings_data.get("javascript_enabled", True))
         # Allow websites to copy text after an explicit user action.  Many modern
         # pages use navigator.clipboard.writeText() for their own Copy buttons.
         clipboard_attr = getattr(QWebEngineSettings.WebAttribute, "JavascriptCanAccessClipboard", None)
@@ -273,47 +279,179 @@ class BrowserView(QWebEngineView):
         page.fullScreenRequested.connect(self.handle_fullscreen)
 
     def contextMenuEvent(self, event):
-        """Show QtWebEngine's full context menu with German labels."""
-        menu = self.createStandardContextMenu()
-        if self.window_ref.settings_data.get("language", "de") == "en":
-            menu.exec(event.globalPos())
+        """Show LunaSurfer's own context menu without QtWebEngine's native menu.
+
+        QtWebEngine's native RenderViewContextMenu has crashed on some Debian/
+        Raspberry Pi builds while recursively building link actions.  Building
+        a small QMenu ourselves avoids createStandardContextMenu() and pageAction()
+        entirely, while keeping the browser's URL-based new-tab action.
+        """
+        try:
+            link_url = QUrl()
+            try:
+                data = self.page().contextMenuData()
+                candidate = data.linkUrl()
+                if candidate and candidate.isValid() and not candidate.isEmpty():
+                    link_url = QUrl(candidate.toString())
+            except (AttributeError, RuntimeError, TypeError):
+                pass
+
+            global_pos = event.globalPos()
+            local_pos = event.pos()
             event.accept()
+
+            # contextMenuData().linkUrl() can be stale on some QtWebEngine builds.
+            # Always hit-test the DOM at the actual pointer position first, and
+            # use Qt's URL only if the DOM lookup finds no anchor.
+            js = """
+                (function(x, y) {
+                    const nodes = document.elementsFromPoint
+                        ? document.elementsFromPoint(x, y)
+                        : [document.elementFromPoint(x, y)];
+                    for (const node of nodes) {
+                        let el = node;
+                        while (el) {
+                            if (el.matches && el.matches('a[href]')) return el.href;
+                            el = el.parentElement;
+                        }
+                    }
+                    return '';
+                })(%d, %d)
+            """ % (local_pos.x(), local_pos.y())
+            fallback_url = link_url.toString()
+            self.page().runJavaScript(
+                js,
+                lambda result, gp=global_pos, fallback=fallback_url:
+                    self._show_context_menu_at(gp, result if result else fallback)
+            )
             return
-        translations = {
-            "back": self.tr("Zurück", "Back"), "forward": self.tr("Vorwärts", "Forward"), "reload": self.tr("Neu laden", "Reload"),
-            "save page": "Seite speichern unter…", "view page source": "Seitenquelltext anzeigen",
-            "undo": "Rückgängig", "redo": "Wiederholen", "cut": "Ausschneiden",
-            "copy": "Kopieren", "paste": "Einfügen", "delete": "Löschen",
-            "select all": "Alles auswählen", "open link in new tab": "Link in neuem Tab öffnen",
-            "open link in new window": "Link in neuem Fenster öffnen",
-            "copy link address": "Link-Adresse kopieren", "save link": "Link speichern unter…",
-            "open image in new tab": "Bild in neuem Tab öffnen", "copy image": "Bild kopieren",
-            "copy image address": "Bild-Adresse kopieren", "save image": "Bild speichern unter…",
-            "open audio in new tab": "Audio in neuem Tab öffnen",
-            "open video in new tab": "Video in neuem Tab öffnen",
-            "play": "Wiedergabe", "pause": "Pause", "mute": "Stummschalten",
-            "unmute": "Ton einschalten", "loop": "Wiederholen", "show controls": "Steuerelemente anzeigen",
-            "save video": "Video speichern unter…", "copy video address": "Video-Adresse kopieren",
-            "save audio": "Audio speichern unter…", "copy audio address": "Audio-Adresse kopieren",
-            "inspect": "Untersuchen", "spellcheck": "Rechtschreibprüfung",
-            "writing direction": "Schreibrichtung", "left to right": "Von links nach rechts",
-            "right to left": "Von rechts nach links", "translate": "Übersetzen"
+        except Exception as exc:
+            try:
+                self.window_ref.statusBar().showMessage(f"Kontextmenü: {exc}", 6000)
+            except Exception:
+                pass
+            # Do not call the QtWebEngine native fallback here: that is the
+            # menu-construction path implicated by the crash backtrace.
+            try:
+                event.accept()
+            except Exception:
+                pass
+
+    def _show_context_menu_at(self, global_pos, clicked_link=""):
+        """Build a lightweight, icon-free menu using only ordinary QMenu actions."""
+        menu = QMenu(self)
+        is_english = self.window_ref.settings_data.get("language", "de") == "en"
+
+        labels = {
+            "back": "Back" if is_english else "Zurück",
+            "forward": "Forward" if is_english else "Vorwärts",
+            "reload": "Reload" if is_english else "Neu laden",
+            "open_link": "Open link in new tab" if is_english else "Link in neuem Tab öffnen",
+            "open_page": "Open page in new tab" if is_english else "Seite in neuem Tab öffnen",
+            "copy_link": "Copy link address" if is_english else "Link-Adresse kopieren",
+            "copy_page": "Copy page address" if is_english else "Seitenadresse kopieren",
+            "save_page": "Save page as…" if is_english else "Seite speichern unter…",
+            "view_source": "View page source" if is_english else "Quelltext anzeigen",
+            "reload_cache": "Reload (bypass cache)" if is_english else "Neu laden (Cache umgehen)",
+            "devtools": "Open developer tools (F12)" if is_english else "Entwicklerwerkzeuge öffnen (F12)",
+            "copy_selection": "Copy selection" if is_english else "Auswahl kopieren",
         }
-        def translate_menu(target):
-            for action in target.actions():
-                if action.menu():
-                    translate_menu(action.menu())
-                    label = action.text().replace("&", "").strip().lower()
-                    if label in translations:
-                        action.setText(translations[label])
-                else:
-                    original = action.text()
-                    label = original.replace("&", "").strip().lower()
-                    if label in translations:
-                        action.setText(translations[label])
-        translate_menu(menu)
-        menu.exec(event.globalPos())
-        event.accept()
+
+        history = self.history()
+        back_action = menu.addAction(labels["back"], self.back)
+        back_action.setEnabled(history.canGoBack())
+        forward_action = menu.addAction(labels["forward"], self.forward)
+        forward_action.setEnabled(history.canGoForward())
+        menu.addAction(labels["reload"], self.reload)
+        menu.addSeparator()
+
+        has_link = bool(clicked_link)
+        if has_link:
+            menu.addAction(
+                labels["open_link"],
+                lambda u=clicked_link: self.window_ref.add_tab(u, switch=True)
+            )
+            menu.addAction(
+                labels["copy_link"],
+                lambda u=clicked_link: QApplication.clipboard().setText(u)
+            )
+        else:
+            menu.addAction(
+                labels["open_page"],
+                lambda u=self.url().toString(): self.window_ref.add_tab(u, switch=True)
+            )
+            menu.addAction(
+                labels["copy_page"],
+                lambda u=self.url().toString(): QApplication.clipboard().setText(u)
+            )
+
+        try:
+            selected = self.page().selectedText()
+        except (AttributeError, RuntimeError):
+            selected = ""
+        if selected:
+            menu.addAction(
+                labels["copy_selection"],
+                lambda value=selected: QApplication.clipboard().setText(value)
+            )
+
+        menu.addSeparator()
+        menu.addAction(labels["save_page"], self.save_page_as)
+        # Use the explicit WebEngine ViewSource action, not the native context menu.
+        menu.addAction(
+            labels["view_source"],
+            lambda: self.page().triggerAction(QWebEnginePage.WebAction.ViewSource)
+        )
+        menu.addAction(labels["reload_cache"], self.reload_bypass_cache)
+        menu.addAction(labels["devtools"], self.window_ref.show_devtools)
+        menu.exec(global_pos)
+
+    def save_page_as(self):
+        """Ask for the exact destination before triggering QtWebEngine's Save Page."""
+        title = (self.title() or "Webseite").strip()
+        safe_title = "".join(ch for ch in title if ch not in '<>:"/\\\\|?*').strip() or "Webseite"
+        suggested = self.window_ref.download_dir / (safe_title[:100] + ".mhtml")
+        is_english = self.window_ref.settings_data.get("language", "de") == "en"
+        dialog = QFileDialog(self.window_ref)
+        dialog.setWindowTitle("Save page as" if is_english else "Seite speichern unter")
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        dialog.setNameFilters(
+            ["Web page (*.mhtml)", "All files (*.*)"] if is_english else
+            ["Webseite (*.mhtml)", "Alle Dateien (*.*)"]
+        )
+        dialog.setDirectory(str(suggested.parent))
+        dialog.selectFile(suggested.name)
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        # The native GTK/Qt chooser ignores LunaSurfer's selected UI language.
+        # Use Qt's widget dialog and explicitly translate its standard buttons.
+        button_box = dialog.findChild(QDialogButtonBox)
+        if button_box is not None:
+            accept_button = button_box.button(QDialogButtonBox.StandardButton.Save)
+            cancel_button = button_box.button(QDialogButtonBox.StandardButton.Cancel)
+            if accept_button is not None:
+                accept_button.setText("Save" if is_english else "Speichern")
+            if cancel_button is not None:
+                cancel_button.setText("Cancel" if is_english else "Abbrechen")
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        selected = dialog.selectedFiles()[0] if dialog.selectedFiles() else ""
+        if not selected:
+            return
+        target = pathlib.Path(selected).expanduser()
+        if not target.suffix:
+            target = target.with_suffix(".mhtml")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        self.window_ref._next_download_path = target
+        self.page().triggerAction(QWebEnginePage.WebAction.SavePage)
+
+    def reload_bypass_cache(self):
+        action = getattr(QWebEnginePage.WebAction, "ReloadAndBypassCache", None)
+        if action is not None:
+            self.page().triggerAction(action)
+        else:
+            self.page().profile().clearHttpCache()
+            self.reload()
 
     def createWindow(self, window_type):
         if self.window_ref.settings_data.get("block_popups", True):
@@ -463,6 +601,25 @@ class LunaSurfer(QMainWindow):
         self.setCentralWidget(self.tabs)
         QTimer.singleShot(0, self.update_new_tab_button_position)
 
+        # Chromium-style developer tools, docked to the right. A single tools
+        # page follows the currently selected browser tab.
+        self.devtools_view = QWebEngineView(self)
+        # Keep the inspector comfortably wide: 590 px is roughly 15.6 cm
+        # at 96 DPI, about 5 cm wider than the previous 400 px setting.
+        self.devtools_view.setMinimumWidth(590)
+        self.devtools_page = QWebEnginePage(self.profile, self.devtools_view)
+        self.devtools_view.setPage(self.devtools_page)
+        self.devtools_dock = QDockWidget(self.tr("Entwicklerwerkzeuge", "Developer tools"), self)
+        self.devtools_dock.setMinimumWidth(590)
+        self.devtools_dock.setObjectName("developerToolsDock")
+        self.devtools_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
+        self.devtools_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable | QDockWidget.DockWidgetFeature.DockWidgetMovable)
+        self.devtools_dock.setWidget(self.devtools_view)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.devtools_dock)
+        self.devtools_dock.hide()
+        self._devtools_inspected_page = None
+        self.devtools_dock.visibilityChanged.connect(self._on_devtools_visibility_changed)
+
         self.navigation_bar = QToolBar("Navigation")
         bar = self.navigation_bar
         bar.setMovable(False)
@@ -533,6 +690,7 @@ class LunaSurfer(QMainWindow):
         menu.addAction("Downloads-Ordner öffnen", self.open_downloads)
         menu.addSeparator()
         menu.addAction(self.tr("Einstellungen", "Settings"), self.show_settings)
+        menu.addAction(self.tr("Entwicklerwerkzeuge (F12)", "Developer tools (F12)"), self.toggle_devtools)
         menu.addAction(self.tr("Über LunaSurfer", "About LunaSurfer"), self.about)
         menu.addSeparator()
         menu.addAction(self.tr("Beenden", "Quit"), self.close)
@@ -682,12 +840,43 @@ class LunaSurfer(QMainWindow):
         self.new_tab_button.move(x, y)
         self.new_tab_button.raise_()
 
+    def _bind_devtools_to_current_page(self):
+        view = self.current_view()
+        if not view:
+            return
+        page = view.page()
+        try:
+            page.setDevToolsPage(self.devtools_page)
+            self._devtools_inspected_page = page
+        except Exception as exc:
+            self.statusBar().showMessage(f"DevTools konnten nicht verbunden werden: {exc}", 6000)
+
+    def _on_devtools_visibility_changed(self, visible):
+        if visible:
+            self._bind_devtools_to_current_page()
+            self.devtools_view.setFocus()
+
+    def show_devtools(self):
+        self._bind_devtools_to_current_page()
+        self.devtools_dock.show()
+        self.devtools_dock.raise_()
+        # Request the wider inspector on the right. The minimum width above
+        # prevents Qt from shrinking it below the requested usable width.
+        self.resizeDocks([self.devtools_dock], [610], Qt.Orientation.Horizontal)
+
+    def toggle_devtools(self):
+        if self.devtools_dock.isVisible():
+            self.devtools_dock.hide()
+        else:
+            self.show_devtools()
+
     def set_shortcuts(self):
         for seq, callback in [
             ("Ctrl+L", lambda: (self.address.setFocus(), self.address.selectAll())),
             ("Ctrl+T", lambda: self.add_tab(self.settings_data["home"])),
             ("Ctrl+W", lambda: self.close_tab(self.tabs.currentIndex())),
             ("Ctrl+R", lambda: self.current_view() and self.current_view().reload()),
+            ("F12", self.toggle_devtools),
             ("Alt+Left", lambda: self.current_view() and self.current_view().back()),
             ("Alt+Right", lambda: self.current_view() and self.current_view().forward()),
         ]:
@@ -866,6 +1055,8 @@ class LunaSurfer(QMainWindow):
     def on_tab_changed(self, index):
         view = self.current_view()
         if view:
+            if self.devtools_dock.isVisible():
+                self._bind_devtools_to_current_page()
             self.address.setText(view.url().toString())
             self.update_navigation()
         elif index >= 0:
@@ -1710,6 +1901,18 @@ class LunaSurfer(QMainWindow):
 
     def on_download(self, download):
         suggested = download.suggestedFileName() or "download"
+        explicit_target = getattr(self, "_next_download_path", None)
+        if explicit_target is not None:
+            self._next_download_path = None
+            target = pathlib.Path(explicit_target)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            download.setDownloadDirectory(str(target.parent))
+            download.setDownloadFileName(target.name)
+            download.accept()
+            self.download_items.append({"download": download, "target": target, "last_bytes": 0, "last_time": time.monotonic(), "speed": 0})
+            self.watch_download_finished(download, target)
+            self.statusBar().showMessage(f"Download gestartet: {target.name}", 5000)
+            return
         if self.settings_data.get("ask_download_location", False):
             selected, _ = QFileDialog.getSaveFileName(self, "Download speichern unter", str(self.download_dir / suggested))
             if not selected:
@@ -1902,6 +2105,7 @@ class LunaSurfer(QMainWindow):
         for de,en in font_sizes: font_size.addItem(self.tr(de,en),de)
         font_size.setCurrentIndex(max(0,font_size.findData(saved_font)))
         block=QCheckBox(self.tr("Pop-ups blockieren", "Block pop-ups")); block.setChecked(self.settings_data.get("block_popups",True))
+        javascript=QCheckBox(self.tr("JavaScript aktivieren", "Enable JavaScript")); javascript.setChecked(self.settings_data.get("javascript_enabled", True))
         permission_boxes={}
         for key,de_label,en_label in [("permission_camera","Kamera","Camera"),("permission_microphone","Mikrofon","Microphone"),("permission_location","Standort","Location"),("permission_notifications","Benachrichtigungen","Notifications")]:
             box=QComboBox(); box.addItem(self.tr("Beim Fragen", "Ask"), "ask"); box.addItem(self.tr("Erlauben", "Allow"), "allow"); box.addItem(self.tr("Blockieren", "Block"), "block"); box.setCurrentIndex(max(0,box.findData(self.settings_data.get(key,"ask")))); permission_boxes[key]=box
@@ -1933,7 +2137,7 @@ class LunaSurfer(QMainWindow):
         add_section(self.tr("Allgemein", "General"))
         form.addRow(self.tr("Sprache:", "Language:"), language); form.addRow(self.tr("Beim Start:", "On startup:"),startup); form.addRow(self.tr("Startseite:", "Homepage:"),home); form.addRow(self.tr("Suchmaschine:", "Search engine:"),engine); form.addRow(self.tr("Browser-Design:", "Browser design:"),browser_design); form.addRow(self.tr("Webseiten-Design:", "Website appearance:"),theme); form.addRow("",show_bookmarks_bar); form.addRow(self.tr("Download-Ordner:", "Download folder:"),row); form.addRow("",ask_download); form.addRow(self.tr("Standard-Zoom:", "Default zoom:"),zoom); form.addRow(self.tr("Standard-Schriftgröße:", "Default font size:"),font_size)
         add_section(self.tr("Sicherheit und Berechtigungen", "Security and permissions"))
-        form.addRow(self.tr("Sicherheit:", "Security:"),block)
+        form.addRow(self.tr("Sicherheit:", "Security:"),block); form.addRow("", javascript)
         for key, box in permission_boxes.items():
             labels = {"permission_camera": ("Kamera", "Camera"), "permission_microphone": ("Mikrofon", "Microphone"), "permission_location": ("Standort", "Location"), "permission_notifications": ("Benachrichtigungen", "Notifications")}
             de_label, en_label = labels[key]
@@ -1942,7 +2146,7 @@ class LunaSurfer(QMainWindow):
         privacy=QHBoxLayout(); a=QPushButton(self.tr("Verlauf löschen", "Clear history")); b=QPushButton(self.tr("Cache löschen", "Clear cache")); c=QPushButton(self.tr("Cookies löschen", "Clear cookies")); [privacy.addWidget(x) for x in (a,b,c)]; add_section(self.tr("Datenschutz und Browserdaten", "Privacy and browser data"))
         form.addRow(self.tr("Browserdaten:", "Browser data:"),privacy); form.addRow("",clear_history_exit); form.addRow("",clear_cache_exit); form.addRow("",clear_cookies_exit); form.addRow("",remember_window_size); form.addRow("",default_browser); a.clicked.connect(self.clear_history); b.clicked.connect(self.clear_cache); c.clicked.connect(self.clear_cookies)
         buttons=QHBoxLayout(); save=QPushButton(self.tr("Speichern", "Save")); cancel=QPushButton(self.tr("Abbrechen", "Cancel")); buttons.addWidget(save); buttons.addWidget(cancel); form.addRow(buttons)
-        save.clicked.connect(lambda:self.save_settings_v39(page,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData(),default_browser.isChecked(),browser_design.currentData()))
+        save.clicked.connect(lambda:self.save_settings_v39(page,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData(),default_browser.isChecked(),browser_design.currentData(),javascript.isChecked()))
         cancel.clicked.connect(lambda: self.close_settings_page(page))
 
     def close_settings_page(self, page):
@@ -1954,11 +2158,15 @@ class LunaSurfer(QMainWindow):
                 self.add_tab(self.settings_data.get("home"))
             QTimer.singleShot(0, self.update_new_tab_button_position)
 
-    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de", default_browser=False, browser_design="dark"):
+    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de", default_browser=False, browser_design="dark", javascript_enabled=True):
         chosen=pathlib.Path(download_dir.strip() or str(DOWNLOAD_DIR)).expanduser()
-        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"remember_window_size":bool(remember_window_size),"language":language or "de","default_browser":bool(default_browser),"browser_design":browser_design if browser_design in ("dark", "light", "luna", "graphite", "ocean") else "dark",**permissions})
+        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"javascript_enabled":bool(javascript_enabled),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"remember_window_size":bool(remember_window_size),"language":language or "de","default_browser":bool(default_browser),"browser_design":browser_design if browser_design in ("dark", "light", "luna", "graphite", "ocean") else "dark",**permissions})
         self.download_dir=chosen; write_json(CONFIG_FILE,self.settings_data); self.set_default_browser(bool(default_browser)); self.apply_language_live()
         self.bookmarks_bar.setVisible(self.settings_data["show_bookmarks_bar"]); self.apply_browser_design(); self.apply_theme_to_all_tabs()
+        for i in range(self.tabs.count()):
+            view = self.tabs.widget(i)
+            if isinstance(view, BrowserView):
+                view.page().settings().setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, self.settings_data["javascript_enabled"])
         for i in range(self.tabs.count()):
             view = self.tabs.widget(i)
             if isinstance(view, BrowserView):

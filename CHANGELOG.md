@@ -1,5 +1,14 @@
 LunaSurfer Chngelog
 
+## 0.3.34 2026–11-04
+
+- Einstellungen: Globale JavaScript-Option unter „Sicherheit und Berechtigungen“ ergänzt (standardmäßig aktiviert); Änderung wird nach dem Speichern auf alle geöffneten Tabs angewendet.
+- Kontextmenü: „Entwicklerwerkzeuge öffnen“ zeigt jetzt den Tastaturkurzbefehl F12 an.
+- F12-Entwicklerwerkzeuge als rechts angedocktes, tabübergreifend verwendetes DevTools-Fenster.
+- Kontextmenü der Webseite erweitert: Seite in neuem Tab öffnen, Seitenadresse kopieren, Cache-umgehendes Neuladen, Quelltext anzeigen und Entwicklerwerkzeuge öffnen.
+- Doppelklick in der Adressleiste makiert die Adresse.
+- Kontextmenü: „Quelltext anzeigen“ wieder ergänzt; die Aktion verwendet direkt `QWebEnginePage.WebAction.ViewSource` und baut kein natives QtWebEngine-Kontextmenü auf.
+
 ## 0.3.33 2026-11-03
 - Der Download-Verlauf abgeschlossener Downloads bleibt über Programmneustarts hinweg erhalten.
 - Zwei zusätzliche Browser-Designs: Graphit und Ocean.
@@ -183,3 +192,18 @@ LunaSurfer Chngelog
 
 - Adblock-Stufen „Super stark“ und „Mega stark“ mit zusätzlichen Werbe-, Analyse-, Tracking- und Telemetrie-Regeln; die Whitelist bleibt verfügbar.
 - IMPORT MERGE ROOT FIX: Beim Import ohne Überschreiben wird die Chromium-Lesezeichenleiste mit der vorhandenen Root-Leiste zusammengeführt und nicht hinter das letzte Lesezeichen gesetzt.
+
+
+## 0.3.34 – Kontextmenü- und Adressleistenkorrekturen
+- Kontextmenü öffnet bei Rechtsklick auf einen Link genau dessen Ziel in einem neuen Tab.
+- Doppelte Aktion „Seitenquelltext anzeigen“ entfernt; der originale QtWebEngine-Eintrag bleibt erhalten.
+- „Seite speichern unter…“ öffnet einen Dateidialog für Dateiname und Speicherpfad.
+- Doppelklick in der Adressleiste markiert die gesamte Adresse.
+- Entwicklerwerkzeuge bleiben rechts angedockt und mit 590 px Mindestbreite erhalten.
+
+
+## 0.3.34 – Kontextmenü-Sprach- und Linkzielkorrektur
+- Native Kontextmenüeinträge werden passend zur LunaSurfer-Sprache übersetzt.
+- Der native Qt-Eintrag „Link in neuem Tab öffnen“ wird durch eine eigene URL-basierte Aktion ersetzt.
+- Linkziel wird zuerst aus den Qt-Kontextdaten gelesen und bei Bedarf an der Rechtsklickposition im DOM ermittelt.
+- Popup-Sperre beeinflusst das explizite Öffnen eines Links in einem neuen Tab nicht.
