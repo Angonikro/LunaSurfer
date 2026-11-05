@@ -1,4 +1,4 @@
-# LunaSurfer 0.3.34
+# LunaSurfer 0.3.35
 
 Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 
@@ -28,6 +28,7 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 - Widevine-Unterstützung, wenn das CDM auf dem System vorhanden ist
 - In den Einstellungen kann gewählt werden, ob LunaSurfer Fenstergröße und Fensterposition beim Beenden speichern und beim nächsten Start wiederherstellen soll.
 - Integrierter Adblocker mit fünf Stufen: Standard, Stark, Sehr stark, Super stark und Mega stark; inklusive eigener Blockiermuster und Whitelist
+- Passwortmanager
 - usw.
 
 ## Lesezeichen bearbeiten und verwalten
@@ -53,7 +54,7 @@ sudo apt install python3-pyside6.qtwidgets python3-pyside6.qtwebenginewidgets xd
 ## Installation
 
 ```bash
-sudo apt install ./lunasurfer_0.3.34_all.deb
+sudo apt install ./lunasurfer_0.3.35_all.deb
 ```
 
 ## Start aus dem Quellcode
@@ -81,3 +82,4 @@ LunaSurfer setzt den Widevine-Pfad zusätzlich beim Start, wenn die CDM-Datei vo
 Widevine ist nicht Bestandteil von LunaSurfer. Die Wiedergabe von DRM-Inhalten hängt von Widevine, QtWebEngine, den verfügbaren Codecs und dem jeweiligen Streaming-Dienst ab.
 
 73 de DO2QG Andreas
+

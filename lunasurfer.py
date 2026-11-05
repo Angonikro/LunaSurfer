@@ -7,6 +7,10 @@ import urllib.parse
 import os
 import subprocess
 import time
+import shutil
+import base64
+import secrets
+import string
 from html.parser import HTMLParser
 from html import escape
 
@@ -20,7 +24,7 @@ if WIDEVINE_CDM.is_file():
     if widevine_flag not in existing_flags:
         os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (existing_flags + " " + widevine_flag).strip()
 
-from PySide6.QtCore import QUrl, QSize, Qt, QTimer, QEvent
+from PySide6.QtCore import QUrl, QSize, Qt, QTimer, QEvent, QObject, Slot
 from PySide6.QtGui import QAction, QKeySequence, QIcon
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QToolBar, QLineEdit, QToolButton,
@@ -29,11 +33,15 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEngineSettings, QWebEngineUrlRequestInterceptor
 from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtWebChannel import QWebChannel
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
+from cryptography.fernet import Fernet, InvalidToken
 
 APP_NAME = "LunaSurfer"
 _VERSION_FILE = pathlib.Path(__file__).resolve().with_name("VERSION")
 try:
-    APP_VERSION = _VERSION_FILE.read_text(encoding="utf-8").strip() or "0.3.33"
+    APP_VERSION = _VERSION_FILE.read_text(encoding="utf-8").strip() or "0.3.35"
 except OSError:
     APP_VERSION = "0.3.33"
 CONFIG_DIR = pathlib.Path.home() / ".config" / "lunasurfer"
@@ -43,7 +51,9 @@ BOOKMARKS_FILE = DATA_DIR / "bookmarks.json"
 HISTORY_FILE = DATA_DIR / "history.json"
 SESSION_FILE = DATA_DIR / "session.json"
 DOWNLOADS_FILE = DATA_DIR / "downloads.json"
+PASSWORDS_FILE = DATA_DIR / "passwords.enc"
 DOWNLOAD_DIR = pathlib.Path.home() / "Downloads"
+CLEAR_WEB_DATA_MARKER = DATA_DIR / ".clear_web_data_on_start"
 
 def read_json(path, default):
     try:
@@ -252,6 +262,35 @@ class PrivacyInterceptor(QWebEngineUrlRequestInterceptor):
             info.block(True)
 
 
+class LoginCaptureBridge(QObject):
+    """Forwards submitted login fields to LunaSurfer's local password manager."""
+    def __init__(self, window, view):
+        super().__init__(view)
+        self.window_ref = window
+        self.view_ref = view
+
+    @Slot(str, str, str, result=str)
+    def capture(self, page_url, username, password):
+        try:
+            return self.window_ref.capture_login_submission(self.view_ref, page_url, username, password)
+        except Exception:
+            return "continue"
+
+    @Slot(str, result=str)
+    def suggestions(self, page_url):
+        try:
+            return self.window_ref.password_suggestions(page_url)
+        except Exception:
+            return "[]"
+
+    @Slot(str, str, str, result=str)
+    def confirmSave(self, page_url, username, password):
+        try:
+            return self.window_ref.confirm_login_save(page_url, username, password)
+        except Exception:
+            return "no"
+
+
 class BrowserView(QWebEngineView):
     def __init__(self, window):
         super().__init__()
@@ -277,6 +316,10 @@ class BrowserView(QWebEngineView):
         settings.setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.FullScreenSupportEnabled, True)
         page.fullScreenRequested.connect(self.handle_fullscreen)
+        self.login_channel = QWebChannel(page)
+        self.login_bridge = LoginCaptureBridge(self.window_ref, self)
+        self.login_channel.registerObject('lunaLoginBridge', self.login_bridge)
+        page.setWebChannel(self.login_channel)
 
     def contextMenuEvent(self, event):
         """Show LunaSurfer's own context menu without QtWebEngine's native menu.
@@ -570,6 +613,7 @@ class LunaSurfer(QMainWindow):
             "clear_history_on_exit": False,
             "clear_cache_on_exit": False,
             "clear_cookies_on_exit": False,
+            "cookie_mode": "all",
             "ask_download_location": False,
             "send_dnt": False,
             "confirm_close_multiple_tabs": True,
@@ -590,10 +634,33 @@ class LunaSurfer(QMainWindow):
                     self.setGeometry(*[int(v) for v in geometry])
                 except (TypeError, ValueError):
                     pass
+        # A full privacy wipe is finalized before QtWebEngine opens its profile.
+        # This safely removes origin storage (Local Storage, IndexedDB, Service Workers, etc.).
+        if CLEAR_WEB_DATA_MARKER.exists():
+            for data_path in (DATA_DIR / "webengine", pathlib.Path.home() / ".cache" / "lunasurfer" / "webengine"):
+                try:
+                    shutil.rmtree(data_path, ignore_errors=True)
+                except Exception:
+                    pass
+            try:
+                CLEAR_WEB_DATA_MARKER.unlink(missing_ok=True)
+            except Exception:
+                pass
+        self._password_fernet = None
+        self._password_entries = []
+        self._password_unlock_prompted = False
+        self._pending_login_save = None
+        self._password_lock_timer = QTimer(self)
+        self._password_lock_timer.setSingleShot(True)
+        self._password_lock_timer.timeout.connect(self.lock_password_manager)
         self.profile = QWebEngineProfile("LunaSurfer", self)
         self.profile.setPersistentStoragePath(str(DATA_DIR / "webengine"))
         self.profile.setCachePath(str(pathlib.Path.home() / ".cache" / "lunasurfer" / "webengine"))
-        self.profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies)
+        self.profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies)
+        self.cookie_store = self.profile.cookieStore()
+        self.cookie_filter_callback = self.filter_cookies
+        self.cookie_store.setCookieFilter(self.cookie_filter_callback)
+        self.apply_cookie_mode()
         self.download_items = []
         self.load_download_history()
         self.privacy_interceptor = PrivacyInterceptor(self)
@@ -907,6 +974,24 @@ class LunaSurfer(QMainWindow):
         """Return the selected application language."""
         return en if self.settings_data.get("language", "de") == "en" else de
 
+    def confirm_action(self, title, message):
+        """Show a confirmation dialog with buttons in the selected UI language."""
+        dialog = QMessageBox(self)
+        dialog.setIcon(QMessageBox.Icon.Question)
+        dialog.setWindowTitle(title)
+        dialog.setText(message)
+        dialog.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        dialog.setDefaultButton(QMessageBox.StandardButton.No)
+        yes_button = dialog.button(QMessageBox.StandardButton.Yes)
+        no_button = dialog.button(QMessageBox.StandardButton.No)
+        if yes_button is not None:
+            yes_button.setText(self.tr("Ja", "Yes"))
+        if no_button is not None:
+            no_button.setText(self.tr("Nein", "No"))
+        return dialog.exec() == QMessageBox.StandardButton.Yes
+
     def bookmark_display_title(self, item, root=False):
         """Return a language-aware title without changing saved bookmark data.
 
@@ -1015,6 +1100,8 @@ class LunaSurfer(QMainWindow):
         self.apply_font_size(view)
         index = self.tabs.addTab(view, self.tr("Neuer Tab", "New tab"))
         if switch: self.tabs.setCurrentIndex(index)
+        view.loadFinished.connect(lambda ok, v=view: self.install_login_capture(v) if ok else None)
+        view.loadFinished.connect(lambda ok, v=view: self.autofill_saved_login(v) if ok else None)
         view.load(QUrl(url or self.settings_data.get("home", "https://duckduckgo.com")))
         return view
 
@@ -2020,11 +2107,377 @@ class LunaSurfer(QMainWindow):
         event.accept()
 
     def clear_history(self):
-        answer = QMessageBox.question(self, "Verlauf löschen", "Möchtest du den gesamten Verlauf wirklich löschen?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
-        if answer == QMessageBox.StandardButton.Yes:
+        if self.confirm_action(
+            self.tr("Verlauf löschen", "Clear history"),
+            self.tr("Möchtest du den gesamten Verlauf wirklich löschen?", "Do you really want to delete the entire browsing history?")
+        ):
             write_json(HISTORY_FILE, [])
             self.statusBar().showMessage("Verlauf wurde gelöscht.", 5000)
             QMessageBox.information(self, "Verlauf gelöscht", "Der Browserverlauf wurde gelöscht.")
+
+    # ---- Encrypted password manager -------------------------------------------------
+    def _password_key(self, master_password, salt):
+        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=600000)
+        return base64.urlsafe_b64encode(kdf.derive(master_password.encode("utf-8")))
+
+    def _password_file_data(self):
+        return read_json(PASSWORDS_FILE, {})
+
+    def _password_setup_or_unlock(self):
+        data = self._password_file_data()
+        if data.get("salt"):
+            master, ok = QInputDialog.getText(self, self.tr("Passwortmanager entsperren", "Unlock password manager"), self.tr("Master-Passwort:", "Master password:"), QLineEdit.EchoMode.Password)
+            if not ok or not master:
+                return False
+            try:
+                salt = base64.b64decode(data["salt"])
+                fernet = Fernet(self._password_key(master, salt))
+                payload = json.loads(fernet.decrypt(data["token"].encode()).decode("utf-8"))
+            except (InvalidToken, ValueError, KeyError, TypeError, json.JSONDecodeError):
+                QMessageBox.warning(self, self.tr("Falsches Passwort", "Incorrect password"), self.tr("Das Master-Passwort ist falsch oder die Passwortdatei beschädigt.", "The master password is incorrect or the password file is damaged."))
+                return False
+            self._password_fernet = fernet
+            self._password_entries = payload if isinstance(payload, list) else []
+        else:
+            first, ok = QInputDialog.getText(self, self.tr("Passwortmanager einrichten", "Set up password manager"), self.tr("Neues Master-Passwort (mindestens 10 Zeichen):", "New master password (at least 10 characters):"), QLineEdit.EchoMode.Password)
+            if not ok: return False
+            if len(first) < 10:
+                QMessageBox.warning(self, self.tr("Zu kurz", "Too short"), self.tr("Bitte mindestens 10 Zeichen verwenden.", "Please use at least 10 characters.")); return False
+            second, ok = QInputDialog.getText(self, self.tr("Master-Passwort bestätigen", "Confirm master password"), self.tr("Master-Passwort erneut eingeben:", "Enter master password again:"), QLineEdit.EchoMode.Password)
+            if not ok or first != second:
+                QMessageBox.warning(self, self.tr("Keine Übereinstimmung", "Passwords do not match"), self.tr("Die Passwörter stimmen nicht überein.", "The passwords do not match.")); return False
+            salt = secrets.token_bytes(16)
+            self._password_fernet = Fernet(self._password_key(first, salt))
+            self._password_entries = []
+            self._save_password_entries(salt)
+        self._password_lock_timer.start(5 * 60 * 1000)
+        return True
+
+    def _save_password_entries(self, salt=None):
+        if not self._password_fernet: return
+        old = self._password_file_data()
+        if salt is None:
+            try: salt = base64.b64decode(old["salt"])
+            except Exception: salt = secrets.token_bytes(16)
+        token = self._password_fernet.encrypt(json.dumps(self._password_entries, ensure_ascii=False).encode()).decode()
+        write_json(PASSWORDS_FILE, {"version": 1, "salt": base64.b64encode(salt).decode(), "token": token})
+
+    def lock_password_manager(self):
+        self._password_fernet = None
+        self._password_entries = []
+
+    def _touch_password_manager(self):
+        if self._password_fernet:
+            self._password_lock_timer.start(5 * 60 * 1000)
+
+    def delete_all_saved_passwords(self):
+        """Delete every saved login while preserving the master-password vault."""
+        data = self._password_file_data()
+        if not data.get("salt") or not data.get("token"):
+            QMessageBox.information(
+                self,
+                self.tr("Keine Passwörter vorhanden", "No passwords stored"),
+                self.tr("Es sind noch keine gespeicherten Passwörter vorhanden.", "There are no saved passwords to delete.")
+            )
+            return
+        # Require the master password even if the vault is currently unlocked.
+        was_unlocked = self._password_fernet is not None
+        if not self._password_setup_or_unlock():
+            return
+        if not self.confirm_action(
+            self.tr("Alle Passwörter löschen", "Delete all passwords"),
+            self.tr("Möchtest du wirklich ALLE gespeicherten Website-Anmeldedaten unwiderruflich löschen? Das Master-Passwort bleibt bestehen.",
+                    "Do you really want to permanently delete ALL saved website logins? The master password will remain.")
+        ):
+            if not was_unlocked:
+                self.lock_password_manager()
+            return
+        self._password_entries = []
+        self._save_password_entries()
+        self._touch_password_manager()
+        QMessageBox.information(
+            self,
+            self.tr("Passwörter gelöscht", "Passwords deleted"),
+            self.tr("Alle gespeicherten Website-Passwörter wurden gelöscht. Das Master-Passwort bleibt bestehen.",
+                    "All saved website passwords have been deleted. The master password remains.")
+        )
+
+    def _password_edit_dialog(self, entry=None):
+        entry = entry or {}
+        dialog = QDialog(self); dialog.setWindowTitle(self.tr("Anmeldedaten", "Login details")); dialog.resize(460, 250)
+        form = QFormLayout(dialog)
+        site = QLineEdit(entry.get("url", "https://")); username = QLineEdit(entry.get("username", "")); password = QLineEdit(entry.get("password", "")); password.setEchoMode(QLineEdit.EchoMode.Password)
+        form.addRow(self.tr("Website-URL", "Website URL"), site); form.addRow(self.tr("Benutzername", "Username"), username); form.addRow(self.tr("Passwort", "Password"), password)
+        reveal = QCheckBox(self.tr("Passwort anzeigen", "Show password")); reveal.toggled.connect(lambda checked: password.setEchoMode(QLineEdit.EchoMode.Normal if checked else QLineEdit.EchoMode.Password)); form.addRow(reveal)
+        gen = QPushButton(self.tr("Sicheres Passwort erzeugen", "Generate secure password"))
+        def generate():
+            alphabet = string.ascii_letters + string.digits + "!@#$%&*+-_"
+            password.setText(''.join(secrets.choice(alphabet) for _ in range(20)))
+        gen.clicked.connect(generate); form.addRow(gen)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel); buttons.accepted.connect(dialog.accept); buttons.rejected.connect(dialog.reject); form.addRow(buttons)
+        if dialog.exec() != QDialog.DialogCode.Accepted: return None
+        parsed = urllib.parse.urlparse(site.text().strip())
+        if parsed.scheme not in ("http", "https") or not parsed.hostname or not username.text() or not password.text():
+            QMessageBox.warning(self, self.tr("Ungültige Eingabe", "Invalid input"), self.tr("Bitte eine gültige http(s)-URL, Benutzernamen und Passwort eingeben.", "Enter a valid http(s) URL, username and password.")); return None
+        return {"url": f"{parsed.scheme}://{parsed.netloc}/", "username": username.text(), "password": password.text()}
+
+    def show_password_manager(self):
+        if not self._password_fernet and not self._password_setup_or_unlock(): return
+        self._touch_password_manager()
+        dialog = QDialog(self); dialog.setWindowTitle(self.tr("LunaSurfer – Passwortmanager", "LunaSurfer – Password manager")); dialog.resize(700, 430)
+        layout = QVBoxLayout(dialog)
+        info = QLabel(self.tr("Passwörter werden lokal verschlüsselt gespeichert. Das Master-Passwort kann nicht wiederhergestellt werden.", "Passwords are encrypted locally. The master password cannot be recovered.")); info.setWordWrap(True); layout.addWidget(info)
+        tree = QTreeWidget(); tree.setHeaderLabels([self.tr("Website", "Website"), self.tr("Benutzername", "Username")]); layout.addWidget(tree)
+        def refresh():
+            tree.clear()
+            for item in self._password_entries:
+                node = QTreeWidgetItem([urllib.parse.urlparse(item["url"]).netloc, item["username"]]); node.setData(0, Qt.ItemDataRole.UserRole, item); tree.addTopLevelItem(node)
+        refresh()
+        buttons = QHBoxLayout(); add = QPushButton(self.tr("Hinzufügen", "Add")); edit = QPushButton(self.tr("Bearbeiten", "Edit")); delete = QPushButton(self.tr("Löschen", "Delete")); lock = QPushButton(self.tr("Jetzt sperren", "Lock now")); buttons.addWidget(add); buttons.addWidget(edit); buttons.addWidget(delete); buttons.addStretch(1); buttons.addWidget(lock); layout.addLayout(buttons)
+        def add_entry():
+            value = self._password_edit_dialog()
+            if value:
+                self._password_entries.append(value); self._save_password_entries(); refresh(); self._touch_password_manager()
+        def edit_entry():
+            node = tree.currentItem()
+            if not node: return
+            old = node.data(0, Qt.ItemDataRole.UserRole); value = self._password_edit_dialog(old)
+            if value:
+                idx = self._password_entries.index(old); self._password_entries[idx] = value; self._save_password_entries(); refresh(); self._touch_password_manager()
+        def delete_entry():
+            node = tree.currentItem()
+            if node and self.confirm_action(self.tr("Passwort löschen", "Delete password"), self.tr("Diesen gespeicherten Login wirklich löschen?", "Really delete this saved login?")):
+                self._password_entries.remove(node.data(0, Qt.ItemDataRole.UserRole)); self._save_password_entries(); refresh(); self._touch_password_manager()
+        add.clicked.connect(add_entry); edit.clicked.connect(edit_entry); delete.clicked.connect(delete_entry)
+        def lock_now():
+            self.lock_password_manager(); dialog.accept()
+        lock.clicked.connect(lock_now)
+        dialog.finished.connect(lambda _=0: self._touch_password_manager())
+        dialog.exec()
+
+    def install_login_capture(self, view):
+        """Install Chromium-like login save and autofill hooks for this page."""
+        script = r"""
+        (() => {
+          if (window.__lunaPasswordHooks) return;
+          window.__lunaPasswordHooks = true;
+          const init = () => {
+            if (!window.qt || !qt.webChannelTransport || !window.QWebChannel) return;
+            new QWebChannel(qt.webChannelTransport, channel => {
+              const bridge = channel.objects.lunaLoginBridge;
+              let suggestionBox = null;
+              const visible = e => e && e.getClientRects().length;
+              const usernameFor = pass => {
+                const form = pass.form || document;
+                const fields = [...form.querySelectorAll('input')];
+                return fields.find(e => e !== pass && visible(e) &&
+                  (/user|email|login|account/i.test((e.name||'')+' '+(e.id||'')+' '+(e.autocomplete||'')) ||
+                   e.type === 'email' || e.type === 'text')) || null;
+              };
+              const hideSuggestions = () => {
+                if (suggestionBox) suggestionBox.remove();
+                suggestionBox = null;
+              };
+              const showSuggestions = (field, pass) => {
+                hideSuggestions();
+                bridge.suggestions(location.href, raw => {
+                  let entries = [];
+                  try { entries = JSON.parse(raw || '[]'); } catch (_) {}
+                  if (!entries.length || !field.isConnected) return;
+                  const box = document.createElement('div');
+                  box.style.cssText = 'position:fixed;z-index:2147483647;background:#202938;color:#fff;border:1px solid #8954d4;border-radius:8px;padding:6px;box-shadow:0 6px 24px #0008;font:14px sans-serif;min-width:230px;';
+                  const rect = field.getBoundingClientRect();
+                  box.style.left = Math.max(6, Math.min(rect.left, innerWidth-270)) + 'px';
+                  box.style.top = Math.min(innerHeight-100, rect.bottom+4) + 'px';
+                  entries.forEach(item => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.textContent = item.username;
+                    b.style.cssText = 'display:block;width:100%;text-align:left;padding:9px;border:0;border-radius:5px;background:transparent;color:#fff;cursor:pointer;';
+                    b.addEventListener('mouseenter', () => b.style.background='#39465c');
+                    b.addEventListener('mouseleave', () => b.style.background='transparent');
+                    b.addEventListener('mousedown', e => e.preventDefault());
+                    b.addEventListener('click', () => {
+                      const set = (el, value) => {
+                        if (!el) return;
+                        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
+                        setter.call(el, value);
+                        el.dispatchEvent(new Event('input',{bubbles:true}));
+                        el.dispatchEvent(new Event('change',{bubbles:true}));
+                      };
+                      set(field, item.username);
+                      set(pass, item.password);
+                      hideSuggestions();
+                      pass && pass.focus();
+                    });
+                    box.appendChild(b);
+                  });
+                  document.body.appendChild(box);
+                  suggestionBox = box;
+                  setTimeout(() => {
+                    const close = e => { if (suggestionBox && !suggestionBox.contains(e.target)) { hideSuggestions(); document.removeEventListener('mousedown',close,true); } };
+                    document.addEventListener('mousedown',close,true);
+                  }, 0);
+                });
+              };
+              // Remember a username entered on an earlier step (e.g. QRZ's
+              // username -> Next -> password flow). sessionStorage is origin-scoped.
+              const rememberUser = field => {
+                if (!field || field.type === 'password') return;
+                const hint = ((field.name||'')+' '+(field.id||'')+' '+(field.autocomplete||'')).toLowerCase();
+                if (/user|email|login|account/.test(hint) || field.type === 'email' || (field.type === 'text' && !document.querySelector('input[type=password]'))) {
+                  const value = (field.value || '').trim();
+                  if (value) { try { sessionStorage.setItem('__luna_login_user', value); } catch (_) {} }
+                }
+              };
+              document.addEventListener('input', event => rememberUser(event.target), true);
+              document.addEventListener('change', event => rememberUser(event.target), true);
+              document.addEventListener('focusin', event => {
+                const field = event.target;
+                if (!(field instanceof HTMLInputElement)) return;
+                if (field.type === 'password') {
+                  showSuggestions(usernameFor(field), field);
+                } else if (/username|email|user/i.test((field.name||'')+' '+(field.id||'')+' '+(field.autocomplete||''))) {
+                  const pass = (field.form || document).querySelector('input[type=password]');
+                  if (pass) showSuggestions(field, pass);
+                }
+              }, true);
+              document.addEventListener('submit', event => {
+                if (window.__lunaResumeSubmit) { window.__lunaResumeSubmit=false; return; }
+                const form = event.target;
+                if (!(form instanceof HTMLFormElement)) return;
+                const pass = [...form.querySelectorAll('input[type=password]')].find(e => e.value);
+                const user = pass && usernameFor(pass);
+                let username = user && user.value ? user.value.trim() : '';
+                if (!username) { try { username = sessionStorage.getItem('__luna_login_user') || ''; } catch (_) {} }
+                if (!pass || !username || !/^https?:/i.test(location.href)) return;
+                event.preventDefault();
+                const pageUrl = location.href, password = pass.value;
+                const submitter = event.submitter;
+                bridge.capture(pageUrl, username, password, result => {
+                  if (result === 'continue') {
+                    window.__lunaResumeSubmit = true;
+                    try { form.requestSubmit(submitter || undefined); } catch (_) { form.submit(); }
+                    // For single-page applications, confirm only if the password field
+                    // is cleared or removed after the server/client accepts the login.
+                    setTimeout(() => {
+                      const still = form.isConnected && form.querySelector('input[type=password]');
+                      if (!still || !still.value) {
+                        bridge.confirmSave(pageUrl, username, password, () => {});
+                        try { sessionStorage.removeItem('__luna_login_user'); } catch (_) {}
+                      }
+                    }, 2200);
+                  }
+                });
+              }, true);
+            });
+          };
+          const load = () => {
+            if (window.QWebChannel) { init(); return; }
+            const s = document.createElement('script');
+            s.src = 'qrc:///qtwebchannel/qwebchannel.js';
+            s.onload = init;
+            (document.head || document.documentElement).appendChild(s);
+          };
+          load();
+        })();
+        """
+        try:
+            view.page().runJavaScript(script)
+        except Exception:
+            pass
+
+    def capture_login_submission(self, view, page_url, username, password):
+        """Temporarily hold a submitted login until success can be detected."""
+        parsed = urllib.parse.urlparse(page_url)
+        current = urllib.parse.urlparse(view.url().toString())
+        if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.netloc.lower() != current.netloc.lower():
+            return "continue"
+        username, password = str(username or "").strip(), str(password or "")
+        if not username or not password:
+            return "continue"
+        self._pending_login_save = {
+            "view": view, "url": f"{parsed.scheme}://{parsed.netloc}/",
+            "username": username, "password": password
+        }
+        # Navigation success is checked after the submit has had time to complete.
+        QTimer.singleShot(2600, lambda v=view: self._check_pending_login_success(v))
+        return "continue"
+
+    def _check_pending_login_success(self, view):
+        pending = getattr(self, "_pending_login_save", None)
+        if not pending or pending.get("view") is not view:
+            return
+        try:
+            view.page().runJavaScript(
+                "(() => { const p=document.querySelector('input[type=password]'); return !p || !p.value; })()",
+                lambda success: self._finish_pending_login_save(pending) if success else None
+            )
+        except Exception:
+            pass
+
+    def _finish_pending_login_save(self, pending):
+        if getattr(self, "_pending_login_save", None) is not pending:
+            return
+        self._pending_login_save = None
+        self.confirm_login_save(pending["url"], pending["username"], pending["password"])
+
+    def confirm_login_save(self, page_url, username, password):
+        """Show save/update prompt only after the submitted login appears successful."""
+        parsed = urllib.parse.urlparse(page_url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            return "no"
+        if not self.settings_data.get("password_auto_save", True):
+            return "no"
+        if not self._password_fernet and not self._password_setup_or_unlock():
+            return "no"
+        origin = f"{parsed.scheme}://{parsed.netloc}/"
+        existing = next((e for e in self._password_entries
+                         if e.get("url", "").lower() == origin.lower()
+                         and e.get("username", "").lower() == username.lower()), None)
+        if existing and existing.get("password") == password:
+            return "no"
+        title = self.tr("Passwort aktualisieren?", "Update password?") if existing else self.tr("Passwort speichern?", "Save password?")
+        message = self.tr(
+            f"Das Passwort für {username} auf {parsed.hostname} {'aktualisieren' if existing else 'speichern'}?",
+            f"{'Update' if existing else 'Save'} the password for {username} on {parsed.hostname}?"
+        )
+        answer = QMessageBox.question(
+            self, title, message,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return "no"
+        value = {"url": origin, "username": username, "password": password}
+        if existing:
+            existing.update(value)
+        else:
+            self._password_entries.append(value)
+        self._save_password_entries()
+        self._touch_password_manager()
+        self.statusBar().showMessage(self.tr("Anmeldedaten verschlüsselt gespeichert.", "Login details saved securely."), 5000)
+        return "yes"
+
+    def password_suggestions(self, page_url):
+        """Return exact-origin saved credentials only after the user focuses a login field."""
+        parsed = urllib.parse.urlparse(page_url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            return "[]"
+        # Focusing a login field must never trigger a master-password dialog.
+        # Suggestions are available only while the vault is already unlocked.
+        if not self._password_fernet:
+            return "[]"
+        origin = f"{parsed.scheme}://{parsed.netloc}/"
+        matches = [e for e in self._password_entries
+                   if e.get("url", "").lower() == origin.lower()]
+        self._touch_password_manager()
+        return json.dumps(matches, ensure_ascii=False)
+
+    def autofill_saved_login(self, view):
+        """No silent autofill: saved logins are offered when the user focuses a login field."""
+        return
+
 
     def show_settings(self):
         # Settings live in a normal browser tab, like Chromium's chrome://settings.
@@ -2134,6 +2587,16 @@ class LunaSurfer(QMainWindow):
         clear_history_exit=QCheckBox(self.tr("Verlauf beim Beenden automatisch löschen", "Automatically clear history on exit")); clear_history_exit.setChecked(self.settings_data.get("clear_history_on_exit",False))
         clear_cache_exit=QCheckBox(self.tr("Cache beim Beenden automatisch löschen", "Automatically clear cache on exit")); clear_cache_exit.setChecked(self.settings_data.get("clear_cache_on_exit",False))
         clear_cookies_exit=QCheckBox(self.tr("Cookies beim Beenden automatisch löschen", "Automatically clear cookies on exit")); clear_cookies_exit.setChecked(self.settings_data.get("clear_cookies_on_exit",False))
+        cookie_mode = QComboBox()
+        cookie_modes = [
+            ("Alle Cookies erlauben", "Allow all cookies", "all"),
+            ("Drittanbieter-Cookies blockieren", "Block third-party cookies", "third"),
+            ("Alle Cookies blockieren", "Block all cookies", "none"),
+            ("Nur Sitzungscookies erlauben", "Allow session cookies only", "session"),
+        ]
+        for de_label, en_label, value in cookie_modes:
+            cookie_mode.addItem(self.tr(de_label, en_label), value)
+        cookie_mode.setCurrentIndex(max(0, cookie_mode.findData(self.settings_data.get("cookie_mode", "all"))))
         remember_window_size=QCheckBox(self.tr("Fenstergröße und Position beim Beenden merken", "Remember window size and position on exit")); remember_window_size.setChecked(self.settings_data.get("remember_window_size",True))
         default_browser=QCheckBox(self.tr("LunaSurfer als Standardbrowser verwenden", "Use LunaSurfer as default browser")); default_browser.setChecked(self.settings_data.get("default_browser",False))
         def add_section(title):
@@ -2158,15 +2621,29 @@ class LunaSurfer(QMainWindow):
         form.addRow(self.tr("Sprache:", "Language:"), language); form.addRow(self.tr("Beim Start:", "On startup:"),startup); form.addRow(self.tr("Startseite:", "Homepage:"),home); form.addRow(self.tr("Suchmaschine:", "Search engine:"),engine); form.addRow(self.tr("Browser-Design:", "Browser design:"),browser_design); form.addRow(self.tr("Webseiten-Design:", "Website appearance:"),theme); form.addRow("",show_bookmarks_bar); form.addRow(self.tr("Download-Ordner:", "Download folder:"),row); form.addRow("",ask_download); form.addRow(self.tr("Standard-Zoom:", "Default zoom:"),zoom); form.addRow(self.tr("Standard-Schriftgröße:", "Default font size:"),font_size)
         add_section(self.tr("Sicherheit und Berechtigungen", "Security and permissions"))
         form.addRow(self.tr("Sicherheit:", "Security:"),block); form.addRow("", javascript)
+        password_auto_save = QCheckBox(self.tr("Passwörter nach erfolgreicher Anmeldung zum Speichern anbieten", "Offer to save passwords after successful sign-in"))
+        password_auto_save.setChecked(self.settings_data.get("password_auto_save", True))
+        password_manager_button = QPushButton(self.tr("Passwortmanager öffnen…", "Open password manager…"))
+        password_manager_button.setToolTip(self.tr("Gespeicherte Website-Anmeldedaten verschlüsselt verwalten", "Manage encrypted saved website logins"))
+        password_manager_button.clicked.connect(self.show_password_manager)
+        delete_passwords_button = QPushButton(self.tr("Alle Passwörter löschen…", "Delete all passwords…"))
+        delete_passwords_button.setToolTip(self.tr("Alle gespeicherten Website-Anmeldedaten löschen; das Master-Passwort bleibt bestehen", "Delete all saved website logins; the master password remains"))
+        delete_passwords_button.clicked.connect(self.delete_all_saved_passwords)
+        form.addRow(self.tr("Passwörter:", "Passwords:"), password_manager_button)
+        form.addRow("", delete_passwords_button)
+        form.addRow("", password_auto_save)
         for key, box in permission_boxes.items():
             labels = {"permission_camera": ("Kamera", "Camera"), "permission_microphone": ("Mikrofon", "Microphone"), "permission_location": ("Standort", "Location"), "permission_notifications": ("Benachrichtigungen", "Notifications")}
             de_label, en_label = labels[key]
             form.addRow(self.tr(de_label, en_label) + ":", box)
         form.addRow("",dnt); form.addRow(self.tr("Browser-Verhalten:", "Browser behavior:"),confirm_tabs)
-        privacy=QHBoxLayout(); a=QPushButton(self.tr("Verlauf löschen", "Clear history")); b=QPushButton(self.tr("Cache löschen", "Clear cache")); c=QPushButton(self.tr("Cookies löschen", "Clear cookies")); [privacy.addWidget(x) for x in (a,b,c)]; add_section(self.tr("Datenschutz und Browserdaten", "Privacy and browser data"))
-        form.addRow(self.tr("Browserdaten:", "Browser data:"),privacy); form.addRow("",clear_history_exit); form.addRow("",clear_cache_exit); form.addRow("",clear_cookies_exit); form.addRow("",remember_window_size); form.addRow("",default_browser); a.clicked.connect(self.clear_history); b.clicked.connect(self.clear_cache); c.clicked.connect(self.clear_cookies)
+        privacy=QHBoxLayout(); a=QPushButton(self.tr("Verlauf löschen", "Clear history")); b=QPushButton(self.tr("Cache löschen", "Clear cache")); c=QPushButton(self.tr("Cookies löschen", "Clear cookies")); [privacy.addWidget(x) for x in (a,b,c)]
+        clear_all = QPushButton(self.tr("Alles löschen", "Clear everything"))
+        clear_all.setStyleSheet("QPushButton { background-color: #b3261e; color: white; font-weight: 600; padding: 8px 14px; border-radius: 5px; } QPushButton:hover { background-color: #d13b32; }")
+        add_section(self.tr("Datenschutz und Browserdaten", "Privacy and browser data"))
+        form.addRow(self.tr("Cookie-Modus:", "Cookie mode:"), cookie_mode); form.addRow(self.tr("Browserdaten:", "Browser data:"),privacy); form.addRow("", clear_all); form.addRow("",clear_history_exit); form.addRow("",clear_cache_exit); form.addRow("",clear_cookies_exit); form.addRow("",remember_window_size); form.addRow("",default_browser); a.clicked.connect(self.clear_history); b.clicked.connect(self.clear_cache); c.clicked.connect(self.clear_cookies); clear_all.clicked.connect(self.clear_all_browser_data)
         buttons=QHBoxLayout(); save=QPushButton(self.tr("Speichern", "Save")); cancel=QPushButton(self.tr("Abbrechen", "Cancel")); buttons.addWidget(save); buttons.addWidget(cancel); form.addRow(buttons)
-        save.clicked.connect(lambda:self.save_settings_v39(page,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData(),default_browser.isChecked(),browser_design.currentData(),javascript.isChecked()))
+        save.clicked.connect(lambda:self.save_settings_v39(page,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData(),default_browser.isChecked(),browser_design.currentData(),javascript.isChecked(),cookie_mode.currentData(),password_auto_save.isChecked()))
         cancel.clicked.connect(lambda: self.close_settings_page(page))
 
     def close_settings_page(self, page):
@@ -2178,10 +2655,10 @@ class LunaSurfer(QMainWindow):
                 self.add_tab(self.settings_data.get("home"))
             QTimer.singleShot(0, self.update_new_tab_button_position)
 
-    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de", default_browser=False, browser_design="dark", javascript_enabled=True):
+    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de", default_browser=False, browser_design="dark", javascript_enabled=True, cookie_mode="all", password_auto_save=True):
         chosen=pathlib.Path(download_dir.strip() or str(DOWNLOAD_DIR)).expanduser()
-        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"javascript_enabled":bool(javascript_enabled),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"remember_window_size":bool(remember_window_size),"language":language or "de","default_browser":bool(default_browser),"browser_design":browser_design if browser_design in ("dark", "light", "luna", "graphite", "ocean") else "dark",**permissions})
-        self.download_dir=chosen; write_json(CONFIG_FILE,self.settings_data); self.set_default_browser(bool(default_browser)); self.apply_language_live()
+        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"javascript_enabled":bool(javascript_enabled),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"cookie_mode":cookie_mode if cookie_mode in ("all","third","none","session") else "all","remember_window_size":bool(remember_window_size),"language":language or "de","default_browser":bool(default_browser),"browser_design":browser_design if browser_design in ("dark", "light", "luna", "graphite", "ocean") else "dark","password_auto_save":bool(password_auto_save),**permissions})
+        self.download_dir=chosen; write_json(CONFIG_FILE,self.settings_data); self.apply_cookie_mode(); self.set_default_browser(bool(default_browser)); self.apply_language_live()
         self.bookmarks_bar.setVisible(self.settings_data["show_bookmarks_bar"]); self.apply_browser_design(); self.apply_theme_to_all_tabs()
         for i in range(self.tabs.count()):
             view = self.tabs.widget(i)
@@ -2216,25 +2693,75 @@ class LunaSurfer(QMainWindow):
         if selected: field.setText(selected)
 
     def clear_cache(self):
-        answer = QMessageBox.question(
-            self, "Cache löschen",
-            "Möchtest du den Browser-Cache wirklich löschen?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
-        )
-        if answer == QMessageBox.StandardButton.Yes:
+        if self.confirm_action(
+            self.tr("Cache löschen", "Clear cache"),
+            self.tr("Möchtest du den Browser-Cache wirklich löschen?", "Do you really want to clear the browser cache?")
+        ):
             self.profile.clearHttpCache()
             self.statusBar().showMessage("Browser-Cache wurde gelöscht.", 5000)
             QMessageBox.information(self, "Cache gelöscht", "Der Browser-Cache wurde gelöscht.")
 
-    def clear_cookies(self):
-        answer = QMessageBox.question(
-            self, "Cookies löschen",
-            "Möchtest du wirklich alle gespeicherten Cookies löschen?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+    def clear_all_browser_data(self):
+        title = self.tr("Alle Browserdaten löschen", "Clear all browser data")
+        message = self.tr(
+            "Möchtest du wirklich alle Browserdaten löschen?\n\nVerlauf, Cache, Cookies, Anmeldesitzungen, Local Storage, IndexedDB und weitere Website-Daten werden entfernt. Du wirst auf Webseiten abgemeldet.\n\nLesezeichen und gespeicherte Passwörter bleiben erhalten. Die vollständige Löschung wird beim nächsten Neustart von LunaSurfer abgeschlossen.",
+            "Do you really want to clear all browser data?\n\nHistory, cache, cookies, sign-in sessions, Local Storage, IndexedDB and other website data will be removed. You will be signed out of websites.\n\nBookmarks and saved passwords will be kept. The full cleanup will finish the next time LunaSurfer starts."
         )
-        if answer == QMessageBox.StandardButton.Yes:
+        if not self.confirm_action(title, message):
+            return
+
+        # Clear immediately available data and mark the persistent WebEngine profile
+        # for a complete wipe before it is reopened on the next application start.
+        write_json(HISTORY_FILE, [])
+        write_json(SESSION_FILE, [])
+        try:
+            self.profile.clearHttpCache()
+            self.profile.clearAllVisitedLinks()
+            self.profile.cookieStore().deleteAllCookies()
+        except Exception:
+            pass
+        for index in range(self.tabs.count()):
+            view = self.tabs.widget(index)
+            if isinstance(view, QWebEngineView):
+                script = """(async () => {
+                    try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+                    try { const dbs = await indexedDB.databases(); await Promise.all(dbs.map(db => db.name ? new Promise(resolve => { const req = indexedDB.deleteDatabase(db.name); req.onsuccess = req.onerror = req.onblocked = () => resolve(); }) : Promise.resolve())); } catch (e) {}
+                    try { if (window.caches) { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); } } catch (e) {}
+                    try { if (navigator.serviceWorker) { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(r => r.unregister())); } } catch (e) {}
+                })();"""
+                try:
+                    view.page().runJavaScript(script)
+                except Exception:
+                    pass
+        try:
+            CLEAR_WEB_DATA_MARKER.parent.mkdir(parents=True, exist_ok=True)
+            CLEAR_WEB_DATA_MARKER.write_text("1\n", encoding="utf-8")
+        except Exception as exc:
+            QMessageBox.warning(self, title, self.tr(f"Die vollständige Löschung konnte nicht vorgemerkt werden: {exc}", f"Could not schedule the complete cleanup: {exc}"))
+            return
+        self.statusBar().showMessage(self.tr("Browserdaten gelöscht; vollständige Bereinigung nach Neustart.", "Browser data cleared; full cleanup will finish after restart."), 8000)
+        QMessageBox.information(self, title, self.tr("Die Browserdaten werden gelöscht. Bitte LunaSurfer neu starten, damit auch alle gespeicherten Website-Daten vollständig entfernt werden. Lesezeichen und gespeicherte Passwörter bleiben erhalten.", "Browser data is being cleared. Please restart LunaSurfer to remove all stored website data completely. Bookmarks and saved passwords will be kept."))
+
+    def filter_cookies(self, request):
+        """Apply the selected first/third-party cookie policy."""
+        mode = self.settings_data.get("cookie_mode", "all")
+        if mode == "none":
+            return False
+        if mode == "third":
+            return not bool(request.thirdParty)
+        return True
+
+    def apply_cookie_mode(self):
+        """Apply persistence behavior; cookie filtering is handled by CookieStore."""
+        mode = self.settings_data.get("cookie_mode", "all")
+        policy = QWebEngineProfile.PersistentCookiesPolicy.NoPersistentCookies if mode == "session" else QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies
+        self.profile.setPersistentCookiesPolicy(policy)
+
+    def clear_cookies(self):
+        if self.confirm_action(
+            self.tr("Cookies löschen", "Clear cookies"),
+            self.tr("Möchtest du wirklich alle gespeicherten Cookies löschen?", "Do you really want to delete all stored cookies?")
+        ):
             self.profile.cookieStore().deleteAllCookies()
             self.statusBar().showMessage("Alle Cookies wurden gelöscht.", 5000)
             QMessageBox.information(self, "Cookies gelöscht", "Alle gespeicherten Cookies wurden gelöscht.")

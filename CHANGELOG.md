@@ -1,4 +1,21 @@
-LunaSurfer Chngelog
+Changelog
+
+## 0.3.35 2026–11-05
+- Einstellungen: Neue Funktion „Alles löschen“ ergänzt; die bisherigen Einzelfunktionen für Verlauf, Cache und Cookies bleiben erhalten.
+- „Alles löschen“ entfernt Verlauf, Cache, Cookies und Anmeldesitzungen sowie persistente Website-Daten wie Local Storage, IndexedDB und Service-Worker-Daten.
+- Die vollständige Profilbereinigung wird sicher beim nächsten Programmstart abgeschlossen.
+- Lesezeichen und gespeicherte Passwörter bleiben erhalten.
+- Deutsch/Englisch inklusive Sicherheitsabfrage und Neustart-Hinweis.
+- Bestätigungsdialoge für Verlauf, Cache und Cookies verwenden jetzt sprachabhängige Texte und Schaltflächen (Deutsch: Ja/Nein, Englisch: Yes/No).
+- Auswählbare Cookie-Modi hinzugefügt: Alle zulassen, Drittanbieter blockieren, Alle blockieren oder Nur-Sitzung-Persistenz. 
+- Die Cookie-Richtlinie wird in den Einstellungen gespeichert und über den Cookie-Store von Qt WebEngine angewendet.
+- Der Passwortmanager ist in den Einstellungen unter „Sicherheit und Berechtigungen“ über „Passwortmanager öffnen…“ erreichbar. Gespeicherte Zugangsdaten werden lokal mit einem Master-Passwort verschlüsselt gespeichert.
+- Nachdem eine übermittelte Anmeldung erfolgreich erscheint, fragt LunaSurfer, ob die Anmeldeinformationen gespeichert werden sollen. 
+- Wenn das gleiche Konto bereits existiert und sein Passwort geändert wurde, fragt LunaSurfer, ob es aktualisiert werden soll. 
+- Durch die Fokussierung auf ein Benutzername- oder Passwortfeld werden gespeicherte Anmeldeinformationen für genau diesen Website-Ursprung angezeigt. Wenn Sie ein Konto auswählen, wird das Formular ausgefüllt. 
+- Passwörter bleiben lokal verschlüsselt im LunaSurfer-Datenverzeichnis des Benutzers. 
+- Verwalten Sie gespeicherte Konten unter Einstellungen → Sicherheit und Berechtigungen → Passwörter. 
+- Erfordert „python3-pyside6.qtwebchannel“ und „python3-cryptography“.
 
 ## 0.3.34 2026–11-04
 
@@ -208,3 +225,7 @@ LunaSurfer Chngelog
 - Der native Qt-Eintrag „Link in neuem Tab öffnen“ wird durch eine eigene URL-basierte Aktion ersetzt.
 - Linkziel wird zuerst aus den Qt-Kontextdaten gelesen und bei Bedarf an der Rechtsklickposition im DOM ermittelt.
 - Popup-Sperre beeinflusst das explizite Öffnen eines Links in einem neuen Tab nicht.
+## 0.3.35 – Passwortmanager-Korrektur
+- Master-Passwort wird beim bloßen Fokussieren eines Login-Feldes nicht mehr abgefragt.
+- Option zum Anbieten des Passwortspeicherns nach erfolgreicher Anmeldung in den Einstellungen.
+- Mehrstufige Login-Formulare können den zuvor eingegebenen Benutzernamen derselben Website übernehmen.
