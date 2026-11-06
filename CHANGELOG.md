@@ -1,5 +1,23 @@
 Changelog
 
+## 0.3.37 – SCHWARZMODUS
+- Neue separate Einstellung „Webseiten-Farbgebung“ mit den Optionen „Original“ und „Schwarzmodus“. Und Webseiten-Lesbarkeit.
+- Im Schwarzmodus werden Webseitenflächen schwarz dargestellt und Texte, Links, Eingabefelder sowie Bedienelemente auf eine dunkle Oberfläche abgestimmt.
+- Der Schwarzmodus ist unabhängig von „Webseiten-Lesbarkeit“ und den vorhandenen Kontraststufen.
+- Bilder, Videos, Canvas-Inhalte, SVG-Grafiken und eingebettete Medien werden nicht durch Farbfilter verändert; vorhandene Bildhintergründe bleiben erhalten.
+- Die automatische Chromium-Dunkelfärbung wird im Schwarzmodus deaktiviert, damit die eigene schwarze Farbpalette greift.
+- Die Auswahl wird gespeichert und auf bestehende sowie neue Tabs angewendet; Unterframes werden ebenfalls berücksichtigt.
+- Fingerprint-, Canvas-, WebGL- und AudioContext-Schutz unverändert übernommen.
+
+## 0.3.37
+- Neue Einstellung „Webseiten-Lesbarkeit“ unter Einstellungen → Allgemein.
+- Drei alternative Stufen: Sanfter Kontrast, Weicher Kontrast und Entspannter Kontrast.
+- Die Text- und Linkfarben werden stufenweise leicht transparent mit dem jeweiligen Webseiten-Hintergrund gemischt, um harte Hell-Dunkel-Unterschiede zu reduzieren.
+- Die Original-Farbgestaltung und der jeweilige Webseiten-Hintergrund bleiben erhalten; es wird keine globale Abdunklung oder Aufhellung angewendet.
+- Bilder, Videos, Canvas-Inhalte und SVG-Grafiken/Diagramme werden nicht gezielt verändert.
+- Die Auswahl wird gespeichert und auf bereits geöffnete Tabs sowie neu geladene Webseiten angewendet.
+- Fingerprint-, Canvas-, WebGL- und AudioContext-Schutz unverändert übernommen.
+
 ## 0.3.36
 - *Webseiten-Berechtigungen*
 - Verwaltung gespeicherter Webseiten-Berechtigungen unter Einstellungen → Berechtigungen.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.36 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.37 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -888,6 +888,8 @@ class LunaSurfer(QMainWindow):
             "remember_window_size": True,
             "window_geometry": None,
             "font_size": "Mittel",
+            "website_readability": "normal",
+            "website_color_mode": "normal",
             "language": "de",
             "default_browser": False,
             "adblock_enabled": True,
@@ -897,6 +899,9 @@ class LunaSurfer(QMainWindow):
             "fingerprint_enabled": True,
             "fingerprint_strength": "standard"
         })
+        self.settings_data.setdefault("website_color_mode", "normal")
+        if self.settings_data.get("website_color_mode") not in ("normal", "black"):
+            self.settings_data["website_color_mode"] = "normal"
         self.settings_data.setdefault("fingerprint_enabled", True)
         self.settings_data.setdefault("fingerprint_strength", "standard")
         if self.settings_data.get("remember_window_size", True):
@@ -1503,13 +1508,28 @@ class LunaSurfer(QMainWindow):
             privacy_script.setSourceCode(FINGERPRINT_PROTECTION_JS.replace("__LUNASURFER_FP_LEVEL__", str(level)).replace("__LUNASURFER_FP_SESSION_SEED__", str(FINGERPRINT_SESSION_SEED)))
             page.scripts().insert(privacy_script)
         self.apply_page_theme(view)
-        self.apply_font_size(view)
+        readability_script = QWebEngineScript()
+        readability_script.setName("LunaSurferWebsiteReadability")
+        readability_script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
+        readability_script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
+        readability_script.setRunsOnSubFrames(False)
+        readability_script.setSourceCode(self.readability_script())
+        page.scripts().insert(readability_script)
+        color_script = QWebEngineScript()
+        color_script.setName("LunaSurferWebsiteColorMode")
+        color_script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
+        color_script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
+        color_script.setRunsOnSubFrames(True)
+        color_script.setSourceCode(self.website_color_script())
+        page.scripts().insert(color_script)
         self.apply_font_size(view)
         index = self.tabs.addTab(view, self.tr("Neuer Tab", "New tab"))
         if switch: self.tabs.setCurrentIndex(index)
         view.loadFinished.connect(lambda ok, v=view: self.install_login_capture(v) if ok else None)
         view.loadFinished.connect(lambda ok, v=view: self.autofill_saved_login(v) if ok else None)
         view.loadFinished.connect(lambda ok, v=view: self.apply_fingerprint_to_view(v) if ok else None)
+        view.loadFinished.connect(lambda ok, v=view: self.apply_readability_to_view(v) if ok else None)
+        view.loadFinished.connect(lambda ok, v=view: self.apply_website_color_to_view(v) if ok else None)
         view.load(QUrl(url or self.settings_data.get("home", "https://duckduckgo.com")))
         return view
 
@@ -1518,7 +1538,10 @@ class LunaSurfer(QMainWindow):
         settings = view.page().settings()
         force_dark = getattr(QWebEngineSettings.WebAttribute, "ForceDarkMode", None)
         if force_dark is not None:
-            settings.setAttribute(force_dark, self.settings_data.get("theme", "dark") == "dark")
+            # The dedicated black website mode uses its own CSS palette. Disable
+            # Chromium auto-darkening there so image/video colors remain untouched.
+            black_mode = self.settings_data.get("website_color_mode", "normal") == "black"
+            settings.setAttribute(force_dark, (self.settings_data.get("theme", "dark") == "dark") and not black_mode)
 
     def apply_font_size(self, view):
         # Apply both WebEngine's font defaults and a visible page scale. Many
@@ -1537,12 +1560,154 @@ class LunaSurfer(QMainWindow):
         # Keep the selected size active after a page has finished loading.
         self.apply_font_size(view)
 
+    def readability_script(self, mode=None):
+        """Return a conservative readability stylesheet injector for web pages.
+
+        It changes text contrast only; it deliberately leaves page backgrounds,
+        images, video, canvas and SVG charts/graphics untouched.
+        """
+        mode = mode or self.settings_data.get("website_readability", "normal")
+        return r"""(() => {
+          const mode = __MODE__;
+          const id = 'lunasurfer-readable-text-style';
+          const install = () => {
+            const root = document.documentElement;
+            if (!root) return;
+            root.removeAttribute('data-luna-readability');
+            const old = document.getElementById(id);
+            if (old) old.remove();
+            if (mode === 'normal') return;
+            root.setAttribute('data-luna-readability', mode);
+            const style = document.createElement('style');
+            style.id = id;
+            const softness = mode === 'relaxed' ? '68%' : (mode === 'softer' ? '80%' : '90%');
+            style.textContent = `
+              /* Reduce text opacity against each site's own background. No page-wide
+                 filter, forced palette, or changes to image/video/canvas/SVG content. */
+              html[data-luna-readability] :where(p, span, li, td, th, label, small, summary, blockquote, dt, dd, figcaption, time, h1, h2, h3, h4, h5, h6, button, input, select, textarea) {
+                color: color-mix(in srgb, currentColor ${softness}, transparent) !important;
+              }
+              html[data-luna-readability] :where(a, a:visited) {
+                color: color-mix(in srgb, currentColor ${softness}, transparent) !important;
+                text-decoration-color: currentColor !important;
+              }
+            `;
+            (document.head || root).appendChild(style);
+          };
+          install();
+          if (!window.__lunaReadabilityObserver) {
+            window.__lunaReadabilityObserver = new MutationObserver(() => {
+              if (!document.getElementById(id) && mode !== 'normal') install();
+            });
+            window.__lunaReadabilityObserver.observe(document.documentElement, {childList: true, subtree: true});
+          }
+        })();""".replace('__MODE__', json.dumps(mode))
+
+    def apply_readability_to_view(self, view):
+        mode = self.settings_data.get("website_readability", "normal")
+        view.page().runJavaScript(self.readability_script(mode))
+
+    def website_color_script(self, mode=None):
+        """Apply a black page palette without filtering image/video/graphic pixels."""
+        mode = mode or self.settings_data.get("website_color_mode", "normal")
+        return r"""(() => {
+          const mode = __MODE__;
+          const id = 'lunasurfer-black-website-style';
+          const install = () => {
+            const root = document.documentElement;
+            if (!root) return;
+            const old = document.getElementById(id);
+            if (old) old.remove();
+            root.removeAttribute('data-luna-black-site');
+            if (mode !== 'black') return;
+            root.setAttribute('data-luna-black-site', 'true');
+            const style = document.createElement('style');
+            style.id = id;
+            style.textContent = `
+              html[data-luna-black-site],
+              html[data-luna-black-site] body {
+                background-color: #000000 !important;
+                color: #f2f2f2 !important;
+                color-scheme: dark !important;
+              }
+              html[data-luna-black-site] body :not(img):not(video):not(canvas):not(svg):not(svg *):not(iframe):not(picture):not(source):not(input):not(textarea):not(select):not(button):not(option):not(optgroup):not(a):not(a *) {
+                color: #eeeeee !important;
+                background-color: transparent !important;
+                border-color: #414141 !important;
+                box-shadow: none !important;
+              }
+              html[data-luna-black-site] body a,
+              html[data-luna-black-site] body a * ,
+              html[data-luna-black-site] body a:visited {
+                color: #8ab4f8 !important;
+                background-color: transparent !important;
+                text-decoration-color: currentColor !important;
+              }
+              html[data-luna-black-site] body input,
+              html[data-luna-black-site] body textarea,
+              html[data-luna-black-site] body select,
+              html[data-luna-black-site] body button,
+              html[data-luna-black-site] body option,
+              html[data-luna-black-site] body optgroup {
+                color: #f5f5f5 !important;
+                background-color: #111111 !important;
+                border: 1px solid #555555 !important;
+                color-scheme: dark !important;
+              }
+              html[data-luna-black-site] :where(input, textarea)::placeholder {
+                color: #aaaaaa !important;
+                opacity: 1 !important;
+              }
+              html[data-luna-black-site] :where(pre, code, kbd, samp) {
+                background-color: #101010 !important;
+                color: #eeeeee !important;
+              }
+              html[data-luna-black-site] ::selection {
+                background: #444444 !important;
+                color: #ffffff !important;
+              }
+            `;
+            (document.head || root).appendChild(style);
+          };
+          install();
+          if (!window.__lunaBlackWebsiteObserver && document.documentElement) {
+            window.__lunaBlackWebsiteObserver = new MutationObserver(() => {
+              if (mode === 'black' && !document.getElementById(id)) install();
+            });
+            window.__lunaBlackWebsiteObserver.observe(document.documentElement, {childList: true, subtree: true});
+          }
+        })();""".replace('__MODE__', json.dumps(mode))
+
+    def apply_website_color_to_view(self, view):
+        mode = self.settings_data.get("website_color_mode", "normal")
+        view.page().runJavaScript(self.website_color_script(mode))
+
     def apply_theme_to_all_tabs(self):
         for index in range(self.tabs.count()):
             view = self.tabs.widget(index)
             if isinstance(view, BrowserView):
                 self.apply_page_theme(view)
                 self.apply_font_size(view)
+                scripts = view.page().scripts()
+                for old_script in scripts.find("LunaSurferWebsiteReadability"):
+                    scripts.remove(old_script)
+                readability_script = QWebEngineScript()
+                readability_script.setName("LunaSurferWebsiteReadability")
+                readability_script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
+                readability_script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
+                readability_script.setRunsOnSubFrames(False)
+                readability_script.setSourceCode(self.readability_script())
+                scripts.insert(readability_script)
+                for old_script in scripts.find("LunaSurferWebsiteColorMode"):
+                    scripts.remove(old_script)
+                color_script = QWebEngineScript()
+                color_script.setName("LunaSurferWebsiteColorMode")
+                color_script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
+                color_script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
+                color_script.setRunsOnSubFrames(True)
+                color_script.setSourceCode(self.website_color_script())
+                scripts.insert(color_script)
+                self.apply_website_color_to_view(view)
                 view.reload()
 
     def close_tab(self, index):
@@ -3226,6 +3391,16 @@ class LunaSurfer(QMainWindow):
         saved_font=self.settings_data.get("font_size", "Mittel")
         for de,en in font_sizes: font_size.addItem(self.tr(de,en),de)
         font_size.setCurrentIndex(max(0,font_size.findData(saved_font)))
+        readability = QComboBox()
+        readability.addItem(self.tr("Normal – Webseiten unverändert", "Normal – leave websites unchanged"), "normal")
+        readability.addItem(self.tr("Sanfter Kontrast", "Gentle contrast"), "soft")
+        readability.addItem(self.tr("Weicher Kontrast", "Softer contrast"), "softer")
+        readability.addItem(self.tr("Entspannter Kontrast", "Relaxed contrast"), "relaxed")
+        readability.setCurrentIndex(max(0, readability.findData(self.settings_data.get("website_readability", "normal"))))
+        website_color = QComboBox()
+        website_color.addItem(self.tr("Original – Webseitenfarben beibehalten", "Original – keep website colors"), "normal")
+        website_color.addItem(self.tr("Schwarzmodus – schwarze Hintergründe", "Black mode – black backgrounds"), "black")
+        website_color.setCurrentIndex(max(0, website_color.findData(self.settings_data.get("website_color_mode", "normal"))))
         block=QCheckBox(self.tr("Pop-ups blockieren", "Block pop-ups")); block.setChecked(self.settings_data.get("block_popups",True))
         javascript=QCheckBox(self.tr("JavaScript aktivieren", "Enable JavaScript")); javascript.setChecked(self.settings_data.get("javascript_enabled", True))
         permission_boxes={}
@@ -3267,7 +3442,7 @@ class LunaSurfer(QMainWindow):
             # clipping of headings such as 'Sicherheit und Berechtigungen'.
             form.addRow(label)
         add_section(self.tr("Allgemein", "General"))
-        form.addRow(self.tr("Sprache:", "Language:"), language); form.addRow(self.tr("Beim Start:", "On startup:"),startup); form.addRow(self.tr("Startseite:", "Homepage:"),home); form.addRow(self.tr("Suchmaschine:", "Search engine:"),engine); form.addRow(self.tr("Browser-Design:", "Browser design:"),browser_design); form.addRow(self.tr("Webseiten-Design:", "Website appearance:"),theme); form.addRow("",show_bookmarks_bar); form.addRow(self.tr("Download-Ordner:", "Download folder:"),row); form.addRow("",ask_download); form.addRow(self.tr("Standard-Zoom:", "Default zoom:"),zoom); form.addRow(self.tr("Standard-Schriftgröße:", "Default font size:"),font_size)
+        form.addRow(self.tr("Sprache:", "Language:"), language); form.addRow(self.tr("Beim Start:", "On startup:"),startup); form.addRow(self.tr("Startseite:", "Homepage:"),home); form.addRow(self.tr("Suchmaschine:", "Search engine:"),engine); form.addRow(self.tr("Browser-Design:", "Browser design:"),browser_design); form.addRow(self.tr("Webseiten-Design:", "Website appearance:"),theme); form.addRow("",show_bookmarks_bar); form.addRow(self.tr("Download-Ordner:", "Download folder:"),row); form.addRow("",ask_download); form.addRow(self.tr("Standard-Zoom:", "Default zoom:"),zoom); form.addRow(self.tr("Standard-Schriftgröße:", "Default font size:"),font_size); form.addRow(self.tr("Webseiten-Lesbarkeit:", "Website readability:"), readability); form.addRow(self.tr("Webseiten-Farbgebung:", "Website colors:"), website_color)
         add_section(self.tr("Sicherheit und Berechtigungen", "Security and permissions"))
         form.addRow(self.tr("Sicherheit:", "Security:"),block); form.addRow("", javascript)
         password_auto_save = QCheckBox(self.tr("Passwörter nach erfolgreicher Anmeldung zum Speichern anbieten", "Offer to save passwords after successful sign-in"))
@@ -3302,7 +3477,7 @@ class LunaSurfer(QMainWindow):
         add_section(self.tr("Datenschutz und Browserdaten", "Privacy and browser data"))
         form.addRow(self.tr("Cookie-Modus:", "Cookie mode:"), cookie_mode); form.addRow(self.tr("Browserdaten:", "Browser data:"),privacy); form.addRow("", clear_all); form.addRow("",clear_history_exit); form.addRow("",clear_cache_exit); form.addRow("",clear_cookies_exit); form.addRow("",remember_window_size); form.addRow("",default_browser); a.clicked.connect(self.clear_history); b.clicked.connect(self.clear_cache); c.clicked.connect(self.clear_cookies); clear_all.clicked.connect(self.clear_all_browser_data)
         buttons=QHBoxLayout(); save=QPushButton(self.tr("Speichern", "Save")); cancel=QPushButton(self.tr("Abbrechen", "Cancel")); buttons.addWidget(save); buttons.addWidget(cancel); form.addRow(buttons)
-        save.clicked.connect(lambda:self.save_settings_v39(page,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData(),default_browser.isChecked(),browser_design.currentData(),javascript.isChecked(),cookie_mode.currentData(),password_auto_save.isChecked()))
+        save.clicked.connect(lambda:self.save_settings_v39(page,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData(),default_browser.isChecked(),browser_design.currentData(),javascript.isChecked(),cookie_mode.currentData(),password_auto_save.isChecked(),readability.currentData(),website_color.currentData()))
         cancel.clicked.connect(lambda: self.close_settings_page(page))
 
     def close_settings_page(self, page):
@@ -3314,9 +3489,9 @@ class LunaSurfer(QMainWindow):
                 self.add_tab(self.settings_data.get("home"))
             QTimer.singleShot(0, self.update_new_tab_button_position)
 
-    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de", default_browser=False, browser_design="dark", javascript_enabled=True, cookie_mode="all", password_auto_save=True):
+    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de", default_browser=False, browser_design="dark", javascript_enabled=True, cookie_mode="all", password_auto_save=True, website_readability="normal", website_color_mode="normal"):
         chosen=pathlib.Path(download_dir.strip() or str(DOWNLOAD_DIR)).expanduser()
-        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"javascript_enabled":bool(javascript_enabled),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"cookie_mode":cookie_mode if cookie_mode in ("all","third","none","session") else "all","remember_window_size":bool(remember_window_size),"language":language or "de","default_browser":bool(default_browser),"browser_design":browser_design if browser_design in ("dark", "light", "luna", "graphite", "ocean") else "dark","password_auto_save":bool(password_auto_save),**permissions})
+        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"javascript_enabled":bool(javascript_enabled),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"cookie_mode":cookie_mode if cookie_mode in ("all","third","none","session") else "all","remember_window_size":bool(remember_window_size),"language":language or "de","default_browser":bool(default_browser),"browser_design":browser_design if browser_design in ("dark", "light", "luna", "graphite", "ocean") else "dark","password_auto_save":bool(password_auto_save),"website_readability": website_readability if website_readability in ("normal", "soft", "softer", "relaxed") else "normal", "website_color_mode": website_color_mode if website_color_mode in ("normal", "black") else "normal",**permissions})
         self.download_dir=chosen; write_json(CONFIG_FILE,self.settings_data); self.apply_cookie_mode(); self.set_default_browser(bool(default_browser)); self.apply_language_live()
         self.bookmarks_bar.setVisible(self.settings_data["show_bookmarks_bar"]); self.apply_browser_design(); self.apply_theme_to_all_tabs()
         for i in range(self.tabs.count()):

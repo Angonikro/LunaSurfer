@@ -1,4 +1,4 @@
-# LunaSurfer 0.3.36
+# LunaSurfer 0.3.37
 
 Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 
@@ -23,6 +23,8 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 - Kleines Hinweisfenster, sobald ein Download vollständig abgeschlossen ist
 - **+ Schaltfläche in der Tab-Leiste** zum schnellen Öffnen eines neuen Tabs
 - Helles oder dunkles Webseiten-Design
+- Separater Webseiten-Schwarzmodus mit schwarzen Hintergründen und heller Schrift; Bilder, Videos, Canvas und SVG bleiben farblich unverändert
+- Unabhängige Einstellung für Webseiten-Lesbarkeit und Farbgebung
 - Fünf unterschiedliche Designs
 - Persistentes Browser-Profil und Cookies
 - Widevine-Unterstützung, wenn das CDM auf dem System vorhanden ist
@@ -54,7 +56,7 @@ sudo apt install python3-pyside6.qtwidgets python3-pyside6.qtwebenginewidgets xd
 ## Installation
 
 ```bash
-sudo apt install ./lunasurfer_0.3.36_all.deb
+sudo apt install ./lunasurfer_0.3.37_all.deb
 ```
 
 ## Start aus dem Quellcode
