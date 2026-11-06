@@ -1,5 +1,33 @@
 Changelog
 
+## 0.3.38 – PASSWORTMANAGER / LOGIN-AUTOFILL-VERBESSERUNG / WEBSEITEN-ÜBERSETZUNG + USER-AGENT-VERWALTUNG / Verschlüsselter Export und Import
+- Neuer Schlüssel-Button direkt in der Browser-Symbolleiste zum Öffnen und Entsperren des Passwortmanagers.
+- Tastenkürzel Strg+Umschalt+L zum schnellen Öffnen des Passwortmanagers.
+- Gespeicherte Zugangsdaten werden nach dem Entsperren beim Fokussieren von Benutzername- oder Passwortfeldern angeboten.
+- Beim Auswählen eines Kontos werden Benutzername und Passwort mit nativen Eingabe-Events gesetzt, damit auch moderne, kontrollierte Webformulare die Werte übernehmen.
+- Mehrstufige Login-Seiten werden unterstützt: Ein zuvor eingegebener Benutzername bleibt sitzungs- und ursprungsgebunden verfügbar; auf der Passwortseite kann das passende gespeicherte Konto ausgewählt werden.
+- Zugangsdaten werden weiterhin nur für exakt passende Website-Ursprünge angeboten. Es erfolgt kein stilles automatisches Ausfüllen und keine automatische Anmeldung.
+- Bestehende Verschlüsselung, Master-Passwort-Sperre und Speicherfunktion bleiben erhalten.
+- Automatische Sperre nach fünf Minuten.
+- Neue Übersetzen-Schaltfläche direkt neben der Adressleiste.
+- Ganze Webseiten können über Google Übersetzer in Deutsch, Englisch, Französisch, Italienisch, Niederländisch, Spanisch, Portugiesisch, Polnisch, Russisch, Türkisch, Japanisch oder Chinesisch angezeigt werden.
+- Die Ausgangsadresse wird pro Tab gemerkt; über „Originalseite anzeigen“ kann zur Originalseite zurückgekehrt werden.
+- Die Übersetzung wird über den externen Google-Übersetzungsdienst geladen; dafür ist eine Internetverbindung erforderlich und die Seitenadresse wird an Google übermittelt.
+- Neue User-Agent-Verwaltung unter Einstellungen → Sicherheit und Berechtigungen.
+- Auswahl zwischen Datenschutz-Standard (bisheriger reduzierter Chrome-122-UA), nativem QtWebEngine-User-Agent und einem eigenen User-Agent.
+- Eigener User-Agent wird validiert (kein leerer Wert) und dauerhaft in den Einstellungen gespeichert.
+- Vorschau des aktuell ausgewählten User-Agent direkt in den Einstellungen.
+- Änderungen werden sofort auf das gemeinsame Browserprofil angewendet; geöffnete Webseiten werden aktualisiert.
+- Client Hints der Fingerprint-Schutzfunktion werden passend zur ausgewählten Chromium-User-Agent-Version reduziert; Engine und tatsächliche Browserfunktionen werden nicht vorgetäuscht oder geändert.
+- Bestehende Fingerprint-, Canvas-, WebGL- und AudioContext-Schutzfunktionen bleiben ansonsten erhalten.
+- Verschlüsselter Export und Import
+- Export des Tresors als .lsv.
+- Eigenes Export-Passwort.
+- Verschlüsselter Export mit PBKDF2 und Fernet.
+- Import auf einem anderen Gerät.
+- Bestehende Logins werden aktualisiert, neue hinzugefügt.
+- Dateiberechtigungen: Verzeichnis 700, Passwortdatei 600.
+
 ## 0.3.37 – SCHWARZMODUS
 - Neue separate Einstellung „Webseiten-Farbgebung“ mit den Optionen „Original“ und „Schwarzmodus“. Und Webseiten-Lesbarkeit.
 - Im Schwarzmodus werden Webseitenflächen schwarz dargestellt und Texte, Links, Eingabefelder sowie Bedienelemente auf eine dunkle Oberfläche abgestimmt.
@@ -271,3 +299,59 @@ Changelog
 - Geschützten User-Agent bereits beim Erstellen des Browserprofils setzen, damit auch der erste Seitenaufruf die reduzierte Kennung verwendet.
 - Beim Deaktivieren des Fingerprint-Schutzes wird weiterhin der native QtWebEngine-User-Agent wiederhergestellt.
 - Canvas-, WebGL- und AudioContext-Schutz unverändert.
+
+## 0.3.38 – PASSWORD_MANAGER_UNLOCK_OPTION
+- Added a privacy setting controlling whether the password manager must already be unlocked before autofill.
+- When the requirement is disabled, LunaSurfer asks for the master password only after the user focuses a login field; passive page scans never open an unlock prompt.
+- The encrypted vault remains encrypted on disk and the master password is still required to decrypt it.
+
+## 0.3.38 – PASSWORD_MANAGER_RETURN_URL_DETECTION
+- Passwortmanager erkennt jetzt allgemeine HTTP(S)-Rücksprungadressen in URL-Query-Parametern von Anmeldediensten (auch URL-kodiert und verschachtelt).
+- Die erkannte Ursprungsseite wird mit dem gespeicherten Login abgeglichen; keine fest codierten Joyn-/7Pass-Sonderfälle.
+- Fremddomain-Vorschläge bleiben an die fokussierte Login-Eingabe und eine ausdrückliche Auswahl gebunden.
+
+## 0.3.38 - GOOGLE_PASSWORD_SAVE_DIAGNOSTICS
+- Added privacy-safe diagnostics for Google password capture, success detection, save prompt decisions, and timeout reasons.
+- Diagnostic log: ~/.cache/lunasurfer/password-manager-debug.log (credentials are never written).
+- Preserved redirect-aware password matching and Joyn/7Pass support.
+## 0.3.38 – JOYN_EMAIL_FIELD_CROSS_FORM_FIX
+- Improved username/e-mail field detection when authentication providers render e-mail and password fields in separate forms or containers.
+- Search the local password form first, then visible document-wide fields; prioritize autocomplete, semantic names, and email inputs.
+- Extended focus detection to aria-label and document-wide password lookup. Existing Google, QRZ, redirect matching, and encrypted vault logic remain unchanged.
+
+## 0.3.38 – JOYN_USERNAME_FIRST_STEP_AUTOFILL_FIX
+- Login suggestions are now offered on the username/e-mail step even when the provider has not created a password field yet.
+- Selecting a saved credential fills the e-mail/username only on the first step and retains it in sessionStorage for the following password step.
+- Recognition includes semantic field hints and generic authentication-host/path detection; no Joyn-specific domain mapping was added.
+- Google, QRZ, redirect matching, and encrypted vault handling remain unchanged.
+
+### JOYN_EMAIL_FIRST_STEP_SUGGESTION_FIX
+- Show saved login suggestions when the first-step e-mail field receives focus, even when no password field exists yet.
+- Include placeholder text in username-field detection and record a privacy-safe focus diagnostic.
+- Selecting a suggestion fills the e-mail field only; password filling remains on the later password step.
+
+## 0.3.38 - JOYN_RELYING_PARTY_FILTER_FIX
+- Prefer explicit authentication return/continue destinations (including 7Pass `cd10`) when selecting saved credentials.
+- Prevent unrelated credentials, such as a Google account, from appearing in Joyn's shared 7Pass login form.
+- Preserve multi-step username/password handoff and existing Google/QRZ behavior.
+
+
+## 0.3.38 – JOYN_AUTH_HOST_CREDENTIAL_MATCH_FIX
+- Match saved credentials against both an explicit relying-party URL and the current authentication host.
+- Supports Joyn entries saved under signin.7pass.de or joyn.de while excluding unrelated Google credentials.
+- Preserves multi-step username/password autofill behavior.
+
+## 0.3.38 - JOYN_EXACT_RELYING_PARTY_SCOPE_FIX
+- Treat explicit 7Pass return destinations such as `cd10=https://www.joyn.de` as the exclusive credential scope.
+- Do not include the shared `signin.7pass.de` host as a broad fallback when a relying party is present; this prevents unrelated Google credentials saved on the same provider host from appearing in Joyn.
+- Keep provider-host credentials eligible only when their saved `related_sites` explicitly associates them with the relying party.
+- Preserve first-step email suggestions and the multi-step password handoff.
+
+## 0.3.38 – JOYN_SERVICE_BINDING_FIX
+- Persist selected auth-provider credentials against the relying party URL.
+
+
+## 0.3.38 – PASSWORD SAVE SITE ISOLATION FIX
+- Password updates now match the exact canonical website key and username only.
+- A shared email address or unrelated/stale related URL can no longer update another site’s saved login.
+- Existing cross-site authentication metadata is preserved without using it to select an entry for update.
