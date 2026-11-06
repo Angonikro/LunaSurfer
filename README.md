@@ -52,7 +52,7 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 
 ```bash
 sudo apt update
-sudo apt install python3-pyside6.qtwidgets python3-pyside6.qtwebenginewidgets xdg-utils
+sudo apt install python3 python3-pyside6.qtwidgets python3-pyside6.qtwebenginewidgets python3-pyside6.qtwebchannel python3-cryptography xdg-utils
 ```
 
 ## Installation
