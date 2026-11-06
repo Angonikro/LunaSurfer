@@ -3063,6 +3063,10 @@ class LunaSurfer(QMainWindow):
                     continue
                 visible.append((index, item))
 
+            # Newest downloads are stored at the end of download_items;
+            # show them first without changing their stable backing indices.
+            visible.reverse()
+
             # Keep the existing QListWidgetItems and card widgets while the
             # visible download set is unchanged. This preserves scroll position
             # and avoids flicker every time the 800 ms timer fires.
@@ -3393,6 +3397,72 @@ class LunaSurfer(QMainWindow):
         selected = dialog.selectedFiles()
         return selected[0] if selected else ""
 
+    def change_master_password(self):
+        """Re-encrypt the complete in-memory vault with a fresh master key and salt."""
+        data = self._password_file_data()
+        old_password, ok = QInputDialog.getText(
+            self, self.tr("Master-Passwort ändern", "Change master password"),
+            self.tr("Aktuelles Master-Passwort:", "Current master password:"),
+            QLineEdit.EchoMode.Password)
+        if not ok or not old_password:
+            return
+        try:
+            old_salt = base64.b64decode(data["salt"], validate=True)
+            old_cipher = Fernet(self._password_key(old_password, old_salt))
+            verified_entries = json.loads(old_cipher.decrypt(data["token"].encode("ascii")).decode("utf-8"))
+            if not isinstance(verified_entries, list):
+                raise ValueError("Invalid vault contents")
+        except Exception:
+            QMessageBox.warning(self, self.tr("Falsches Passwort", "Incorrect password"),
+                self.tr("Das aktuelle Master-Passwort ist falsch oder der Tresor beschädigt.",
+                        "The current master password is incorrect or the vault is damaged."))
+            return
+
+        first, ok = QInputDialog.getText(
+            self, self.tr("Neues Master-Passwort", "New master password"),
+            self.tr("Neues Master-Passwort (mindestens 10 Zeichen):",
+                    "New master password (at least 10 characters):"),
+            QLineEdit.EchoMode.Password)
+        if not ok:
+            return
+        if len(first) < 10:
+            QMessageBox.warning(self, self.tr("Zu kurz", "Too short"),
+                self.tr("Bitte mindestens 10 Zeichen verwenden.", "Please use at least 10 characters."))
+            return
+        second, ok = QInputDialog.getText(
+            self, self.tr("Master-Passwort bestätigen", "Confirm master password"),
+            self.tr("Neues Master-Passwort erneut eingeben:",
+                    "Enter the new master password again:"),
+            QLineEdit.EchoMode.Password)
+        if not ok or first != second:
+            QMessageBox.warning(self, self.tr("Keine Übereinstimmung", "Passwords do not match"),
+                self.tr("Die Passwörter stimmen nicht überein.", "The passwords do not match."))
+            return
+
+        try:
+            new_salt = secrets.token_bytes(16)
+            new_cipher = Fernet(self._password_key(first, new_salt))
+            token = new_cipher.encrypt(json.dumps(
+                verified_entries, ensure_ascii=False).encode("utf-8")).decode("ascii")
+            # write_json uses a temporary file and atomic replace; the old vault
+            # remains intact if encryption or writing fails.
+            write_json(PASSWORDS_FILE, {
+                "version": 1,
+                "salt": base64.b64encode(new_salt).decode("ascii"),
+                "token": token
+            })
+            self._secure_password_storage_permissions()
+            self._password_fernet = new_cipher
+            self._password_entries = verified_entries
+            QMessageBox.information(self, self.tr("Master-Passwort geändert", "Master password changed"),
+                self.tr("Der Tresor wurde mit dem neuen Master-Passwort verschlüsselt. "
+                        "Bewahre es sicher auf; es kann nicht wiederhergestellt werden.",
+                        "The vault has been re-encrypted with the new master password. "
+                        "Keep it safe; it cannot be recovered."))
+            self._touch_password_manager()
+        except Exception as exc:
+            QMessageBox.critical(self, self.tr("Ändern fehlgeschlagen", "Change failed"), str(exc))
+
     def export_password_vault(self):
         """Export a portable encrypted backup protected by a separate passphrase."""
         if not self._password_fernet and not self._password_setup_or_unlock():
@@ -3591,10 +3661,12 @@ class LunaSurfer(QMainWindow):
         delete = QPushButton(self.tr("Löschen", "Delete"))
         export_btn = QPushButton(self.tr("Verschlüsselt exportieren…", "Export encrypted…"))
         import_btn = QPushButton(self.tr("Verschlüsselt importieren…", "Import encrypted…"))
+        change_master_btn = QPushButton(self.tr("Master-Passwort ändern…", "Change master password…"))
         lock = QPushButton(self.tr("Jetzt sperren", "Lock now"))
-        for button in (add, edit, delete, export_btn, import_btn):
+        for button in (add, edit, delete, export_btn, import_btn, change_master_btn):
             buttons.addWidget(button)
         buttons.addStretch(1); buttons.addWidget(lock); layout.addLayout(buttons)
+        change_master_btn.clicked.connect(self.change_master_password)
         export_btn.clicked.connect(self.export_password_vault)
         import_btn.clicked.connect(self.import_password_vault)
         def add_entry():

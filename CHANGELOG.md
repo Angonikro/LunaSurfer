@@ -1,5 +1,15 @@
 Changelog
 
+## 0.3.39 – MASTER-PASSWORT ÄNDERN / DOWNLOAD-MANAGER: NEUESTE DOWNLOADS OBEN
+- Download-Manager sortiert die Einträge jetzt so, dass der zuletzt gestartete Download ganz oben steht.
+- Gilt für laufende und abgeschlossene Downloads sowie für die wiederhergestellte Download-Historie.
+- Die interne Zuordnung der Einträge bleibt unverändert; Aktionen wie Öffnen, Abbrechen und Entfernen bleiben korrekt.
+- Im Passwortmanager gibt es jetzt „Master-Passwort ändern…“.
+- Vor der Änderung wird das aktuelle Master-Passwort geprüft; das neue Passwort muss mindestens 10 Zeichen haben und bestätigt werden.
+- Der vollständige Tresor wird mit einem frischen Salt und einem daraus abgeleiteten Schlüssel neu verschlüsselt. Gespeicherte Website-Logins bleiben erhalten.
+- Die Tresordatei wird atomar ersetzt; die Dateiberechtigungen bleiben auf den Benutzer beschränkt.
+- Dialoge sind Deutsch/Englisch lokalisiert.
+
 ## 0.3.38 – PASSWORTMANAGER / LOGIN-AUTOFILL-VERBESSERUNG / WEBSEITEN-ÜBERSETZUNG + USER-AGENT-VERWALTUNG / Verschlüsselter Export und Import
 - Neuer Schlüssel-Button direkt in der Browser-Symbolleiste zum Öffnen und Entsperren des Passwortmanagers.
 - Tastenkürzel Strg+Umschalt+L zum schnellen Öffnen des Passwortmanagers.
