@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.34 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.36 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -24,14 +24,14 @@ if WIDEVINE_CDM.is_file():
     if widevine_flag not in existing_flags:
         os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (existing_flags + " " + widevine_flag).strip()
 
-from PySide6.QtCore import QUrl, QSize, Qt, QTimer, QEvent, QObject, Slot
+from PySide6.QtCore import QUrl, QSize, Qt, QTimer, QEvent, QObject, Slot, QTranslator, QLocale, QLibraryInfo
 from PySide6.QtGui import QAction, QKeySequence, QIcon
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QToolBar, QLineEdit, QToolButton,
     QVBoxLayout, QWidget, QMenu, QFileDialog, QMessageBox, QDialog,
-    QFormLayout, QPushButton, QHBoxLayout, QLabel, QCheckBox, QComboBox, QStyle, QInputDialog, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QHeaderView, QProgressBar, QSizePolicy, QScrollArea, QDockWidget, QDialogButtonBox
+    QFormLayout, QPushButton, QHBoxLayout, QLabel, QCheckBox, QComboBox, QStyle, QInputDialog, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QHeaderView, QProgressBar, QSizePolicy, QScrollArea, QDockWidget, QDialogButtonBox, QGroupBox
 )
-from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEngineSettings, QWebEngineUrlRequestInterceptor
+from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEngineSettings, QWebEngineUrlRequestInterceptor, QWebEngineScript
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWebChannel import QWebChannel
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -66,6 +66,272 @@ def write_json(path, data):
     temp = path.with_suffix(path.suffix + ".tmp")
     temp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     temp.replace(path)
+
+
+
+# Privacy mitigation injected before page scripts run. Noise is stable per
+# origin (so a site remains functional) but differs between sites.
+FINGERPRINT_SESSION_SEED = secrets.randbits(32)
+
+FINGERPRINT_PROTECTION_JS = r"""
+(() => {
+  'use strict';
+  try {
+    const level = __LUNASURFER_FP_LEVEL__;
+    const state = window.__lunaSurferFingerprintState ||
+      (window.__lunaSurferFingerprintState = {enabled: true, level});
+    state.enabled = true;
+    state.level = level;
+    if (state.installed) return;
+    state.installed = true;
+
+    const host = String(location.hostname || 'local').toLowerCase();
+    let seed = 2166136261;
+    for (let i = 0; i < host.length; i++) {
+      seed ^= host.charCodeAt(i);
+      seed = Math.imul(seed, 16777619);
+    }
+    const noise = (tag) => {
+      let x = (seed ^ (tag >>> 0)) >>> 0;
+      x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
+      return x >>> 0;
+    };
+    const protectedAt = (minimum) => state.enabled && state.level >= minimum;
+    const wrapMethod = (object, name, wrapper) => {
+      try {
+        if (!object || typeof object[name] !== 'function') return;
+        const raw = object[name];
+        Object.defineProperty(object, name, {
+          configurable: true, writable: true, value: function(...args) {
+            return wrapper.call(this, raw, args);
+          }
+        });
+      } catch (_) {}
+    };
+    const dynamicGetter = (object, name, minimum, safeValue) => {
+      try {
+        const d = Object.getOwnPropertyDescriptor(object, name);
+        if (!d || !d.configurable) return;
+        const originalGet = d.get;
+        const originalValue = d.value;
+        Object.defineProperty(object, name, {
+          configurable: true, enumerable: d.enumerable,
+          get() {
+            if (protectedAt(minimum)) return typeof safeValue === 'function' ? safeValue.call(this) : safeValue;
+            return originalGet ? originalGet.call(this) : originalValue;
+          }
+        });
+      } catch (_) {}
+    };
+
+    // Brave-inspired hardware farbling: values are stable for this site in
+    // this browser session, but differ across first-party hosts and sessions.
+    // Keep values within common desktop buckets to avoid implausible readings.
+    const sessionSalt = (__LUNASURFER_FP_SESSION_SEED__ >>> 0);
+    const siteChoice = (tag, choices) =>
+      choices[noise((tag ^ sessionSalt) >>> 0) % choices.length];
+
+    // Dynamic getters can be switched on/off immediately in already-open pages.
+    // Canvas, WebGL and WebAudio code below is intentionally left unchanged.
+    dynamicGetter(Navigator.prototype, 'hardwareConcurrency', 1,
+      () => siteChoice(0x48434f52, [2, 4, 8]));
+    // Keep device memory in one common desktop bucket instead of exposing
+    // the real 8 GB value or varying it between sites.
+    dynamicGetter(Navigator.prototype, 'deviceMemory', 3, 4);
+    // Match Chromium's common Linux desktop platform token and the reduced UA.
+    dynamicGetter(Navigator.prototype, 'platform', 1, 'Linux x86_64');
+    dynamicGetter(Navigator.prototype, 'doNotTrack', 3, '1');
+    dynamicGetter(Navigator.prototype, 'connection', 3, undefined);
+    dynamicGetter(Navigator.prototype, 'battery', 3, undefined);
+    try {
+      const battery = Object.getOwnPropertyDescriptor(Navigator.prototype, 'getBattery');
+      if (battery && battery.configurable) {
+        const rawGetBattery = battery.value;
+        Object.defineProperty(Navigator.prototype, 'getBattery', {
+          configurable: true, writable: true, value: function(...args) {
+            if (protectedAt(3)) return Promise.reject(new DOMException('Not supported', 'NotSupportedError'));
+            return rawGetBattery.apply(this, args);
+          }
+        });
+      }
+    } catch (_) {}
+
+    // Canvas: alter only data extracted by scripts, not the displayed canvas.
+    const canvasProto = window.HTMLCanvasElement && HTMLCanvasElement.prototype;
+    const contextProto = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype;
+    const rawGetImageData = contextProto && contextProto.getImageData;
+    const perturbImage = (img) => {
+      try {
+        const data = img && img.data;
+        if (!data || data.length < 4) return img;
+        const count = Math.floor(data.length / 4);
+        for (let p = 0; p < count; p++) {
+          const base = p * 4;
+          for (let c = 0; c < 3; c++) {
+            const bits = noise(0x51f15e ^ ((p * 0x9e3779b9) >>> 0) ^ (c * 0x45d9f3b)) & 3;
+            data[base + c] = (data[base + c] & 0xFC) | bits;
+          }
+        }
+      } catch (_) {}
+      return img;
+    };
+    wrapMethod(contextProto, 'getImageData', function(raw, args) {
+      const result = raw.apply(this, args);
+      return protectedAt(1) ? perturbImage(result) : result;
+    });
+    const alterCanvasCopy = (canvas) => {
+      try {
+        const copy = document.createElement('canvas');
+        copy.width = canvas.width; copy.height = canvas.height;
+        const ctx = copy.getContext('2d');
+        if (!ctx || !rawGetImageData || !copy.width || !copy.height) return canvas;
+        ctx.drawImage(canvas, 0, 0);
+        const w = Math.min(copy.width, 1024), h = Math.min(copy.height, 1024);
+        const pixels = rawGetImageData.call(ctx, 0, 0, w, h);
+        perturbImage(pixels);
+        ctx.putImageData(pixels, 0, 0);
+        return copy;
+      } catch (_) { return canvas; }
+    };
+    wrapMethod(canvasProto, 'toDataURL', function(raw, args) {
+      return raw.apply(protectedAt(1) ? alterCanvasCopy(this) : this, args);
+    });
+    wrapMethod(canvasProto, 'toBlob', function(raw, args) {
+      return raw.apply(protectedAt(1) ? alterCanvasCopy(this) : this, args);
+    });
+
+    // WebGL: mask identifying strings and perturb readback only.
+    const maskWebGL = (proto) => {
+      wrapMethod(proto, 'getParameter', function(raw, args) {
+        if (protectedAt(2)) {
+          const param = args[0];
+          if (param === 0x9245 || param === 0x1F00) return 'WebKit';
+          if (param === 0x9246 || param === 0x1F01) return 'WebGL';
+        }
+        return raw.apply(this, args);
+      });
+      wrapMethod(proto, 'getExtension', function(raw, args) {
+        if (protectedAt(2) && String(args[0]).toLowerCase() === 'webgl_debug_renderer_info') return null;
+        return raw.apply(this, args);
+      });
+      wrapMethod(proto, 'getSupportedExtensions', function(raw, args) {
+        const list = raw.apply(this, args);
+        return protectedAt(2) && Array.isArray(list)
+          ? list.filter(x => String(x).toLowerCase() !== 'webgl_debug_renderer_info') : list;
+      });
+      wrapMethod(proto, 'readPixels', function(raw, args) {
+        const result = raw.apply(this, args);
+        try {
+          const format = args[4], type = args[5], pixels = args[6];
+          if (protectedAt(2) && format === 0x1908 && type === 0x1401 &&
+              pixels && ArrayBuffer.isView(pixels) && pixels.length >= 4) {
+            for (let p = 0; p < Math.floor(pixels.length / 4); p++) {
+              const base = p * 4;
+              for (let c = 0; c < 3; c++) {
+                const bits = noise(0x6a09e667 ^ ((p * 0x9e3779b9) >>> 0) ^ (c * 0xbb67ae85)) & 3;
+                pixels[base + c] = (pixels[base + c] & 0xFC) | bits;
+              }
+            }
+          }
+        } catch (_) {}
+        return result;
+      });
+    };
+    if (window.WebGLRenderingContext) maskWebGL(WebGLRenderingContext.prototype);
+    if (window.WebGL2RenderingContext) maskWebGL(WebGL2RenderingContext.prototype);
+
+    // Brave-inspired WebAudio farbling. Brave's native implementation derives
+    // a stable key from the session and eTLD+1 and protects AudioBuffer and
+    // AnalyserNode readback APIs. This JS compatibility layer uses a tiny,
+    // deterministic amplitude factor so the waveform shape is preserved.
+    const audioSessionSeed = (__LUNASURFER_FP_SESSION_SEED__ >>> 0);
+    const hostParts = host.split('.').filter(Boolean);
+    const siteKey = hostParts.length > 1 ? hostParts.slice(-2).join('.') : host;
+    let siteHash = 2166136261;
+    for (let i = 0; i < siteKey.length; i++) {
+      siteHash ^= siteKey.charCodeAt(i);
+      siteHash = Math.imul(siteHash, 16777619);
+    }
+    let audioSeed = (siteHash ^ audioSessionSeed ^ 0x7f4a7c15) >>> 0;
+    audioSeed ^= audioSeed >>> 16; audioSeed = Math.imul(audioSeed, 0x7feb352d);
+    audioSeed ^= audioSeed >>> 15; audioSeed = Math.imul(audioSeed, 0x846ca68b);
+    audioSeed ^= audioSeed >>> 16;
+    // ±0.01%: enough to perturb exact hashes while avoiding audible noise.
+    const audioScale = 1 + ((((audioSeed >>> 0) / 4294967295) * 2) - 1) * 0.0001;
+    const farbledAudioArrays = new WeakSet();
+    const farbleAudioArray = (array, once = true) => {
+      if (!protectedAt(1) || !array || !ArrayBuffer.isView(array) || (once && farbledAudioArrays.has(array))) return array;
+      try {
+        if (array instanceof Float32Array) {
+          for (let i = 0; i < array.length; i++) array[i] *= audioScale;
+        } else if (array instanceof Uint8Array || array instanceof Uint8ClampedArray) {
+          for (let i = 0; i < array.length; i++) {
+            array[i] = Math.max(0, Math.min(255, Math.round(128 + (array[i] - 128) * audioScale)));
+          }
+        } else if (array instanceof Float64Array) {
+          for (let i = 0; i < array.length; i++) array[i] *= audioScale;
+        }
+          if (once) farbledAudioArrays.add(array);
+      } catch (_) {}
+      return array;
+    };
+
+    const audioBufferProto = window.AudioBuffer && AudioBuffer.prototype;
+    wrapMethod(audioBufferProto, 'getChannelData', function(raw, args) {
+      const result = raw.apply(this, args);
+      return farbleAudioArray(result);
+    });
+    wrapMethod(audioBufferProto, 'copyFromChannel', function(raw, args) {
+      const result = raw.apply(this, args);
+      farbleAudioArray(args[0], false);
+      return result;
+    });
+
+    const analyserProto = window.AnalyserNode && AnalyserNode.prototype;
+    for (const method of ['getFloatTimeDomainData', 'getByteTimeDomainData',
+                          'getFloatFrequencyData', 'getByteFrequencyData']) {
+      wrapMethod(analyserProto, method, function(raw, args) {
+        const result = raw.apply(this, args);
+        farbleAudioArray(args[0], false);
+        return result;
+      });
+    }
+
+    // Reduce high-entropy UA Client Hints at every protection level.
+    if (window.NavigatorUAData && NavigatorUAData.prototype) {
+      wrapMethod(NavigatorUAData.prototype, 'getHighEntropyValues', function(raw, args) {
+        return raw.apply(this, args).then(values => {
+          if (!protectedAt(1)) return values;
+          const hints = args[0] || [];
+          const safe = Object.assign({}, values);
+          if (hints.includes('architecture')) safe.architecture = 'x86';
+          if (hints.includes('bitness')) safe.bitness = '64';
+          if (hints.includes('model')) safe.model = '';
+          if (hints.includes('platform')) safe.platform = 'Linux';
+          if (hints.includes('platformVersion')) safe.platformVersion = '0.0.0';
+          if (hints.includes('wow64')) safe.wow64 = false;
+          // Match the reduced Chrome/122 User-Agent rather than exposing
+          // patch/build numbers through high-entropy Client Hints.
+          const reducedBrands = [
+            {brand: 'Chromium', version: '122'},
+            {brand: 'Not(A:Brand', version: '99'}
+          ];
+          if (hints.includes('brands')) safe.brands = reducedBrands;
+          if (hints.includes('fullVersionList')) {
+            safe.fullVersionList = [
+              {brand: 'Chromium', version: '122.0.0.0'},
+              {brand: 'Not(A:Brand', version: '99.0.0.0'}
+            ];
+          }
+          if (hints.includes('uaFullVersion')) safe.uaFullVersion = '122.0.0.0';
+          if (hints.includes('formFactors')) safe.formFactors = ['Desktop'];
+          return safe;
+        });
+      });
+    }
+  } catch (_) {}
+})();
+"""
 
 
 class StoredDownload:
@@ -316,6 +582,8 @@ class BrowserView(QWebEngineView):
         settings.setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.FullScreenSupportEnabled, True)
         page.fullScreenRequested.connect(self.handle_fullscreen)
+        # Handle camera, microphone, location and notification permissions in LunaSurfer.
+        page.permissionRequested.connect(self.window_ref.handle_permission_request)
         self.login_channel = QWebChannel(page)
         self.login_bridge = LoginCaptureBridge(self.window_ref, self)
         self.login_channel.registerObject('lunaLoginBridge', self.login_bridge)
@@ -625,8 +893,12 @@ class LunaSurfer(QMainWindow):
             "adblock_enabled": True,
             "adblock_whitelist": [],
             "adblock_custom_blocklist": [],
-            "adblock_strength": "standard"
+            "adblock_strength": "standard",
+            "fingerprint_enabled": True,
+            "fingerprint_strength": "standard"
         })
+        self.settings_data.setdefault("fingerprint_enabled", True)
+        self.settings_data.setdefault("fingerprint_strength", "standard")
         if self.settings_data.get("remember_window_size", True):
             geometry = self.settings_data.get("window_geometry")
             if isinstance(geometry, (list, tuple)) and len(geometry) == 4:
@@ -654,6 +926,12 @@ class LunaSurfer(QMainWindow):
         self._password_lock_timer.setSingleShot(True)
         self._password_lock_timer.timeout.connect(self.lock_password_manager)
         self.profile = QWebEngineProfile("LunaSurfer", self)
+        self._native_user_agent = self.profile.httpUserAgent()
+        if self.settings_data.get("fingerprint_enabled", True):
+            self.profile.setHttpUserAgent(
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            )
         self.profile.setPersistentStoragePath(str(DATA_DIR / "webengine"))
         self.profile.setCachePath(str(pathlib.Path.home() / ".cache" / "lunasurfer" / "webengine"))
         self.profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies)
@@ -759,7 +1037,7 @@ class LunaSurfer(QMainWindow):
         bar.addWidget(self.download_button)
 
         self.adblock_action = QAction("🛡", self)
-        self.adblock_action.setToolTip(self.tr("Werbeblocker", "Ad blocker"))
+        self.adblock_action.setToolTip(self.tr("Schutz & Privatsphäre", "Protection & privacy"))
         self.adblock_action.triggered.connect(self.show_adblock_settings)
         self.adblock_button = QToolButton(self); self.adblock_button.setDefaultAction(self.adblock_action)
         self.adblock_button.setText("🛡"); self.adblock_button.setFixedSize(34, 34)
@@ -974,6 +1252,76 @@ class LunaSurfer(QMainWindow):
         """Return the selected application language."""
         return en if self.settings_data.get("language", "de") == "en" else de
 
+    def handle_permission_request(self, permission):
+        """Ask the user for website permissions and optionally remember the decision."""
+        try:
+            origin = permission.origin().toString()
+            raw_type = str(permission.permissionType()).lower()
+            # Qt 6.8 enum names include AudioCapture, VideoCapture, Geolocation,
+            # and Notifications. Match by stable suffix to tolerate enum formatting.
+            if "audiocapture" in raw_type:
+                key, label = "permission_microphone", self.tr("Mikrofon", "Microphone")
+            elif "videocapture" in raw_type:
+                key, label = "permission_camera", self.tr("Kamera", "Camera")
+            elif "geolocation" in raw_type:
+                key, label = "permission_location", self.tr("Standort", "Location")
+            elif "notification" in raw_type:
+                key, label = "permission_notifications", self.tr("Benachrichtigungen", "Notifications")
+            else:
+                # Do not silently grant permission types not managed by the settings.
+                permission.deny()
+                return
+
+            host = QUrl(origin).host() or origin
+            remembered = self.settings_data.setdefault("remembered_permissions", {})
+            site_permissions = remembered.get(origin, {})
+            saved_choice = site_permissions.get(key)
+            global_choice = self.settings_data.get(key, "ask")
+
+            choice = global_choice if global_choice in ("allow", "block") else saved_choice
+            if choice == "allow":
+                permission.grant()
+                return
+            if choice == "block":
+                permission.deny()
+                return
+
+            dialog = QMessageBox(self)
+            dialog.setIcon(QMessageBox.Icon.Question)
+            dialog.setWindowTitle(self.tr("Berechtigungsanfrage", "Permission request"))
+            dialog.setText(self.tr(
+                f"{host} möchte auf folgende Funktion zugreifen:\n{label}",
+                f"{host} wants to access the following feature:\n{label}"
+            ))
+            remember_box = QCheckBox(self.tr(
+                "Diese Entscheidung für diese Webseite merken",
+                "Remember this decision for this website"
+            ), dialog)
+            dialog.setCheckBox(remember_box)
+            allow_button = dialog.addButton(self.tr("Erlauben", "Allow"), QMessageBox.ButtonRole.AcceptRole)
+            block_button = dialog.addButton(self.tr("Blockieren", "Block"), QMessageBox.ButtonRole.RejectRole)
+            dialog.exec()
+            allowed = dialog.clickedButton() == allow_button
+            if remember_box.isChecked():
+                remembered.setdefault(origin, {})[key] = "allow" if allowed else "block"
+                self.settings_data["remembered_permissions"] = remembered
+                write_json(CONFIG_FILE, self.settings_data)
+            if allowed:
+                permission.grant()
+            else:
+                permission.deny()
+        except Exception as exc:
+            try:
+                permission.deny()
+            except Exception:
+                pass
+            try:
+                self.statusBar().showMessage(self.tr(
+                    f"Berechtigungsfehler: {exc}", f"Permission error: {exc}"
+                ), 8000)
+            except Exception:
+                pass
+
     def confirm_action(self, title, message):
         """Show a confirmation dialog with buttons in the selected UI language."""
         dialog = QMessageBox(self)
@@ -1090,11 +1438,70 @@ class LunaSurfer(QMainWindow):
         w = self.tabs.currentWidget()
         return w if isinstance(w, BrowserView) else None
 
+    def apply_fingerprint_to_view(self, view):
+        """Synchronize the current document after navigation completes."""
+        if not isinstance(view, BrowserView):
+            return
+        if self.settings_data.get("fingerprint_enabled", True):
+            levels = {"standard": 1, "strong": 2, "maximum": 3}
+            level = levels.get(self.settings_data.get("fingerprint_strength", "standard"), 1)
+            view.page().runJavaScript(FINGERPRINT_PROTECTION_JS.replace("__LUNASURFER_FP_LEVEL__", str(level)).replace("__LUNASURFER_FP_SESSION_SEED__", str(FINGERPRINT_SESSION_SEED)))
+        else:
+            view.page().runJavaScript("if (window.__lunaSurferFingerprintState) window.__lunaSurferFingerprintState.enabled = false;")
+
+    def apply_fingerprint_protection_live(self):
+        """Update fingerprint defenses in every existing and future page without restarting."""
+        enabled = bool(self.settings_data.get("fingerprint_enabled", True))
+        levels = {"standard": 1, "strong": 2, "maximum": 3}
+        level = levels.get(self.settings_data.get("fingerprint_strength", "standard"), 1)
+        if hasattr(self, "profile"):
+            if enabled:
+                self.profile.setHttpUserAgent(
+                    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+                )
+            else:
+                self.profile.setHttpUserAgent(getattr(self, "_native_user_agent", ""))
+        source = FINGERPRINT_PROTECTION_JS.replace("__LUNASURFER_FP_LEVEL__", str(level)).replace("__LUNASURFER_FP_SESSION_SEED__", str(FINGERPRINT_SESSION_SEED))
+        disable_source = "if (window.__lunaSurferFingerprintState) window.__lunaSurferFingerprintState.enabled = false;"
+        for index in range(self.tabs.count()):
+            view = self.tabs.widget(index)
+            if not isinstance(view, BrowserView):
+                continue
+            page = view.page()
+            scripts = page.scripts()
+            for old_script in scripts.find("LunaSurferFingerprintProtection"):
+                scripts.remove(old_script)
+            if enabled:
+                script = QWebEngineScript()
+                script.setName("LunaSurferFingerprintProtection")
+                script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
+                script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
+                script.setRunsOnSubFrames(True)
+                script.setSourceCode(source)
+                scripts.insert(script)
+                # Also patch the currently loaded document immediately.
+                page.runJavaScript(source)
+            else:
+                # Existing wrappers become pass-through immediately; no reload.
+                page.runJavaScript(disable_source)
+
     def add_tab(self, url=None, switch=True):
         view = BrowserView(self)
         page = QWebEnginePage(self.profile, view)
         view.setPage(page)
         view.configure_web_page()
+        # Install protection before the first page script executes.
+        if self.settings_data.get("fingerprint_enabled", True):
+            levels = {"standard": 1, "strong": 2, "maximum": 3}
+            level = levels.get(self.settings_data.get("fingerprint_strength", "standard"), 1)
+            privacy_script = QWebEngineScript()
+            privacy_script.setName("LunaSurferFingerprintProtection")
+            privacy_script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
+            privacy_script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
+            privacy_script.setRunsOnSubFrames(True)
+            privacy_script.setSourceCode(FINGERPRINT_PROTECTION_JS.replace("__LUNASURFER_FP_LEVEL__", str(level)).replace("__LUNASURFER_FP_SESSION_SEED__", str(FINGERPRINT_SESSION_SEED)))
+            page.scripts().insert(privacy_script)
         self.apply_page_theme(view)
         self.apply_font_size(view)
         self.apply_font_size(view)
@@ -1102,6 +1509,7 @@ class LunaSurfer(QMainWindow):
         if switch: self.tabs.setCurrentIndex(index)
         view.loadFinished.connect(lambda ok, v=view: self.install_login_capture(v) if ok else None)
         view.loadFinished.connect(lambda ok, v=view: self.autofill_saved_login(v) if ok else None)
+        view.loadFinished.connect(lambda ok, v=view: self.apply_fingerprint_to_view(v) if ok else None)
         view.load(QUrl(url or self.settings_data.get("home", "https://duckduckgo.com")))
         return view
 
@@ -1647,29 +2055,270 @@ class LunaSurfer(QMainWindow):
     def update_adblock_button(self):
         enabled = self.settings_data.get("adblock_enabled", True)
         self.adblock_button.setText("🛡" if enabled else "⊘")
-        self.adblock_button.setToolTip(self.tr("Werbeblocker aktiv – klicken für Einstellungen", "Ad blocker active – click for settings") if enabled else self.tr("Werbeblocker deaktiviert – klicken für Einstellungen", "Ad blocker disabled – click for settings"))
+        self.adblock_button.setToolTip(self.tr("Schutz-Einstellungen: Werbeblocker und Fingerprint", "Protection settings: ad blocker and fingerprint"))
+
+    def show_permission_manager(self):
+        """View and edit remembered per-website camera, microphone, location and notification decisions."""
+        remembered = self.settings_data.setdefault("remembered_permissions", {})
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.tr("Gespeicherte Webseiten-Berechtigungen", "Saved website permissions"))
+        dialog.resize(720, 460)
+        dialog.setStyleSheet("""
+            QDialog { background: #0b1d36; color: #f2f6ff; }
+            QLabel { color: #f2f6ff; }
+            QTreeWidget { background: #102a49; color: #f2f6ff; border: 1px solid #34577d; }
+            QHeaderView::section { background: #17385f; color: #ffffff; padding: 6px; border: 1px solid #34577d; }
+            QComboBox { background: #17385f; color: #ffffff; padding: 5px; border: 1px solid #5488bd; }
+            QPushButton { background: #24496f; color: #ffffff; border: 1px solid #6b9ac8; border-radius: 5px; padding: 6px 12px; }
+            QPushButton:hover { background: #176fe5; }
+        """)
+        layout = QVBoxLayout(dialog)
+        intro = QLabel(self.tr(
+            "Hier kannst du gespeicherte Entscheidungen pro Webseite ändern oder entfernen. Änderungen werden sofort gespeichert.",
+            "Change or remove remembered decisions for each website. Changes are saved immediately."
+        ))
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+        tree = QTreeWidget(dialog)
+        tree.setColumnCount(4)
+        tree.setHeaderLabels([
+            self.tr("Webseite", "Website"),
+            self.tr("Berechtigung", "Permission"),
+            self.tr("Entscheidung", "Decision"),
+            self.tr("Aktion", "Action")
+        ])
+        tree.setRootIsDecorated(False)
+        tree.setAlternatingRowColors(True)
+        tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        tree.header().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        tree.header().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+
+        labels = {
+            "permission_camera": self.tr("Kamera", "Camera"),
+            "permission_microphone": self.tr("Mikrofon", "Microphone"),
+            "permission_location": self.tr("Standort", "Location"),
+            "permission_notifications": self.tr("Benachrichtigungen", "Notifications")
+        }
+        for origin in sorted(list(remembered.keys()), key=str.casefold):
+            site_values = remembered.get(origin, {})
+            if not isinstance(site_values, dict):
+                continue
+            for key in labels:
+                decision = site_values.get(key)
+                if decision not in ("allow", "block"):
+                    continue
+                item = QTreeWidgetItem([origin, labels[key], "", ""])
+                item.setData(0, Qt.ItemDataRole.UserRole, (origin, key))
+                tree.addTopLevelItem(item)
+                choice = QComboBox(tree)
+                choice.addItem(self.tr("Erlauben", "Allow"), "allow")
+                choice.addItem(self.tr("Blockieren", "Block"), "block")
+                choice.setCurrentIndex(max(0, choice.findData(decision)))
+                def save_choice(value, site=origin, perm=key):
+                    self.settings_data.setdefault("remembered_permissions", {}).setdefault(site, {})[perm] = value
+                    write_json(CONFIG_FILE, self.settings_data)
+                choice.currentIndexChanged.connect(lambda _idx, combo=choice, fn=save_choice: fn(combo.currentData()))
+                tree.setItemWidget(item, 2, choice)
+                remove = QPushButton(self.tr("Entfernen", "Remove"), tree)
+                def remove_permission(_checked=False, row=item, site=origin, perm=key):
+                    values = self.settings_data.setdefault("remembered_permissions", {}).get(site, {})
+                    values.pop(perm, None)
+                    if not values:
+                        self.settings_data["remembered_permissions"].pop(site, None)
+                    write_json(CONFIG_FILE, self.settings_data)
+                    index = tree.indexOfTopLevelItem(row)
+                    if index >= 0:
+                        tree.takeTopLevelItem(index)
+                remove.clicked.connect(remove_permission)
+                tree.setItemWidget(item, 3, remove)
+        layout.addWidget(tree, 1)
+        buttons = QHBoxLayout()
+        clear_all = QPushButton(self.tr("Alle gespeicherten Berechtigungen löschen", "Clear all saved permissions"))
+        close = QPushButton(self.tr("Schließen", "Close"))
+        buttons.addWidget(clear_all)
+        buttons.addStretch(1)
+        buttons.addWidget(close)
+        layout.addLayout(buttons)
+        def clear_permissions():
+            if not self.confirm_action(
+                self.tr("Alle Berechtigungen löschen", "Clear all permissions"),
+                self.tr("Möchtest du wirklich alle gespeicherten Webseiten-Berechtigungen löschen?",
+                        "Do you really want to clear all saved website permissions?")
+            ):
+                return
+            self.settings_data["remembered_permissions"] = {}
+            write_json(CONFIG_FILE, self.settings_data)
+            tree.clear()
+        clear_all.clicked.connect(clear_permissions)
+        close.clicked.connect(dialog.accept)
+        dialog.exec()
 
     def show_adblock_settings(self):
-        dialog = QDialog(self); dialog.setWindowTitle(self.tr("Werbeblocker", "Ad blocker")); dialog.resize(520, 360)
-        layout = QVBoxLayout(dialog)
-        enabled = QCheckBox(self.tr("Werbeblocker aktivieren", "Enable ad blocker")); enabled.setChecked(self.settings_data.get("adblock_enabled", True)); layout.addWidget(enabled)
-        layout.addWidget(QLabel(self.tr("Blockierstärke:", "Blocking strength:")))
-        strength = QComboBox(); strength.addItem(self.tr("Standard", "Standard"), "standard"); strength.addItem(self.tr("Stark", "Strong"), "strong"); strength.addItem(self.tr("Sehr stark", "Very strong"), "very_strong"); strength.addItem(self.tr("Super stark", "Super strong"), "super_strong"); strength.addItem(self.tr("Mega stark", "Mega strong"), "mega_strong")
-        current_strength = self.settings_data.get("adblock_strength", "standard"); strength.setCurrentIndex(max(0, strength.findData(current_strength))); layout.addWidget(strength)
-        layout.addWidget(QLabel(self.tr("Eigene Blockiermuster (eine Domain oder ein Muster pro Zeile):", "Custom block patterns (one domain or pattern per line):")))
-        patterns = QLineEdit("; ".join(self.settings_data.get("adblock_custom_blocklist", []))); patterns.setPlaceholderText("z. B. example-ads.com")
-        layout.addWidget(patterns)
-        layout.addWidget(QLabel(self.tr("Whitelist-Domains (mit Semikolon trennen):", "Whitelist domains (separate with semicolons):")))
-        whitelist = QLineEdit("; ".join(self.settings_data.get("adblock_whitelist", []))); layout.addWidget(whitelist)
-        info = QLabel(self.tr("Der integrierte Blocker filtert bekannte Werbe- und Tracking-Domains. Super stark blockiert zusätzlich eine breitere Auswahl an Werbe-, Analyse- und Tracking-Endpunkten. Mega stark ist für gezielte maximale Blockierung gedacht und filtert zusätzlich URL-/Pfad-Muster für Werbung, Tracking, Telemetrie, Pixel und Attribution. Dadurch können einzelne Webseiten deutlich stärker beeinträchtigt werden. Änderungen gelten für neue Anfragen sofort.", "The built-in blocker filters known advertising and tracking domains. Super strong additionally blocks a broader selection of advertising, analytics and tracking endpoints. Mega strong is intended for targeted maximum blocking and additionally filters URL/path patterns for advertising, tracking, telemetry, pixels and attribution. This can affect individual websites much more strongly. Changes apply to new requests immediately.")); info.setWordWrap(True); layout.addWidget(info)
-        buttons = QHBoxLayout(); save = QPushButton(self.tr("Speichern", "Save")); close = QPushButton(self.tr("Abbrechen", "Cancel")); buttons.addStretch(1); buttons.addWidget(save); buttons.addWidget(close); layout.addLayout(buttons)
+        """Open the combined ad-blocker and fingerprint-protection panel."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.tr("Schutz & Privatsphäre", "Protection & privacy"))
+        dialog.resize(620, 540)
+        # Explicit high-contrast styling: the application theme previously
+        # left QLabel/QCheckBox text to the desktop palette, which could make
+        # dark text appear on the dark privacy-panel background.
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #0b1d36;
+                color: #f2f6ff;
+            }
+            QDialog QLabel, QDialog QCheckBox {
+                color: #f2f6ff;
+                background: transparent;
+                font-size: 10pt;
+            }
+            QDialog QLabel {
+                padding-top: 3px;
+                padding-bottom: 3px;
+            }
+            QDialog QCheckBox {
+                spacing: 8px;
+                font-weight: 600;
+            }
+            QDialog QLineEdit, QDialog QComboBox {
+                background-color: #17385f;
+                color: #ffffff;
+                selection-background-color: #2878d0;
+                selection-color: #ffffff;
+                border: 1px solid #5488bd;
+                border-radius: 6px;
+                padding: 6px 8px;
+                min-height: 22px;
+            }
+            QDialog QComboBox QAbstractItemView {
+                background-color: #17385f;
+                color: #ffffff;
+                selection-background-color: #2878d0;
+                selection-color: #ffffff;
+                border: 1px solid #5488bd;
+            }
+            QDialog QTabWidget::pane {
+                background-color: #0b1d36;
+                border: 1px solid #34577d;
+                top: -1px;
+            }
+            QDialog QTabBar::tab {
+                background-color: #17385f;
+                color: #e8f1ff;
+                padding: 9px 13px;
+                border: 1px solid #34577d;
+                border-bottom: none;
+            }
+            QDialog QTabBar::tab:selected {
+                background-color: #176fe5;
+                color: #ffffff;
+                font-weight: 700;
+            }
+            QDialog QPushButton {
+                background-color: #24496f;
+                color: #ffffff;
+                border: 1px solid #6b9ac8;
+                border-radius: 5px;
+                padding: 6px 14px;
+                min-width: 76px;
+            }
+            QDialog QPushButton:hover {
+                background-color: #176fe5;
+            }
+            QDialog QPushButton:pressed {
+                background-color: #104b9b;
+            }
+        """)
+        outer = QVBoxLayout(dialog)
+        tabs = QTabWidget(dialog)
+
+        # Ad blocker tab
+        ad_tab = QWidget(dialog)
+        ad_layout = QVBoxLayout(ad_tab)
+        enabled = QCheckBox(self.tr("Werbeblocker aktivieren", "Enable ad blocker"))
+        enabled.setChecked(self.settings_data.get("adblock_enabled", True))
+        ad_layout.addWidget(enabled)
+        ad_layout.addWidget(QLabel(self.tr("Blockierstärke:", "Blocking strength:")))
+        strength = QComboBox()
+        for label_de, label_en, value in [
+            ("Standard", "Standard", "standard"),
+            ("Stark", "Strong", "strong"),
+            ("Sehr stark", "Very strong", "very_strong"),
+            ("Super stark", "Super strong", "super_strong"),
+            ("Mega stark", "Mega strong", "mega_strong"),
+        ]:
+            strength.addItem(self.tr(label_de, label_en), value)
+        current_strength = self.settings_data.get("adblock_strength", "standard")
+        strength.setCurrentIndex(max(0, strength.findData(current_strength)))
+        ad_layout.addWidget(strength)
+        ad_layout.addWidget(QLabel(self.tr(
+            "Eigene Blockiermuster (mit Semikolon trennen):",
+            "Custom block patterns (separate with semicolons):")))
+        patterns = QLineEdit("; ".join(self.settings_data.get("adblock_custom_blocklist", [])))
+        patterns.setPlaceholderText("z. B. example-ads.com")
+        ad_layout.addWidget(patterns)
+        ad_layout.addWidget(QLabel(self.tr(
+            "Whitelist-Domains (mit Semikolon trennen):",
+            "Whitelist domains (separate with semicolons):")))
+        whitelist = QLineEdit("; ".join(self.settings_data.get("adblock_whitelist", [])))
+        ad_layout.addWidget(whitelist)
+        ad_info = QLabel(self.tr(
+            "Der Werbeblocker filtert bekannte Werbe- und Tracking-Domains. Höhere Stufen blockieren mehr, können aber einzelne Webseiten beeinträchtigen.",
+            "The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites."))
+        ad_info.setWordWrap(True)
+        ad_layout.addWidget(ad_info)
+        ad_layout.addStretch(1)
+        tabs.addTab(ad_tab, self.tr("Werbeblocker", "Ad blocker"))
+
+        # Fingerprint protection tab
+        fp_tab = QWidget(dialog)
+        fp_layout = QVBoxLayout(fp_tab)
+        fp_enabled = QCheckBox(self.tr("Fingerprint-Schutz aktivieren", "Enable fingerprint protection"))
+        fp_enabled.setChecked(self.settings_data.get("fingerprint_enabled", True))
+        fp_layout.addWidget(fp_enabled)
+        fp_layout.addWidget(QLabel(self.tr("Schutzstufe:", "Protection level:")))
+        fp_strength = QComboBox()
+        for label_de, label_en, value in [
+            ("Standard", "Standard", "standard"),
+            ("Stark", "Strong", "strong"),
+            ("Maximum", "Maximum", "maximum"),
+        ]:
+            fp_strength.addItem(self.tr(label_de, label_en), value)
+        current_fp = self.settings_data.get("fingerprint_strength", "standard")
+        fp_strength.setCurrentIndex(max(0, fp_strength.findData(current_fp)))
+        fp_layout.addWidget(fp_strength)
+        fp_info = QLabel(self.tr(
+            "Standard: Canvas-, Audio- und grundlegender Hardware-Schutz. Stark: zusätzlich WebGL-Maskierung. Maximum: zusätzliche Abschirmung von Hardwareangaben und Browser-Client-Hints. Änderungen werden sofort angewendet; ein Neustart ist nicht nötig.",
+            "Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required."))
+        fp_info.setWordWrap(True)
+        fp_layout.addWidget(fp_info)
+        fp_layout.addStretch(1)
+        tabs.addTab(fp_tab, self.tr("Fingerprint-Schutz", "Fingerprint protection"))
+
+        outer.addWidget(tabs)
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+        save = QPushButton(self.tr("Speichern", "Save"))
+        cancel = QPushButton(self.tr("Abbrechen", "Cancel"))
+        buttons.addWidget(save)
+        buttons.addWidget(cancel)
+        outer.addLayout(buttons)
+
         def do_save():
             self.settings_data["adblock_enabled"] = enabled.isChecked()
             self.settings_data["adblock_strength"] = strength.currentData()
             self.settings_data["adblock_custom_blocklist"] = [x.strip() for x in patterns.text().split(";") if x.strip()]
             self.settings_data["adblock_whitelist"] = [x.strip() for x in whitelist.text().split(";") if x.strip()]
-            write_json(CONFIG_FILE, self.settings_data); self.update_adblock_button(); dialog.accept()
-        save.clicked.connect(do_save); close.clicked.connect(dialog.reject); dialog.exec()
+            self.settings_data["fingerprint_enabled"] = fp_enabled.isChecked()
+            self.settings_data["fingerprint_strength"] = fp_strength.currentData()
+            write_json(CONFIG_FILE, self.settings_data)
+            self.update_adblock_button()
+            self.apply_fingerprint_protection_live()
+            dialog.accept()
+
+        save.clicked.connect(do_save)
+        cancel.clicked.connect(dialog.reject)
+        dialog.exec()
 
     def load_download_history(self):
         """Restore completed downloads from ~/.local/share/lunasurfer/downloads.json."""
@@ -2632,6 +3281,16 @@ class LunaSurfer(QMainWindow):
         form.addRow(self.tr("Passwörter:", "Passwords:"), password_manager_button)
         form.addRow("", delete_passwords_button)
         form.addRow("", password_auto_save)
+        manage_permissions = QPushButton(self.tr(
+            "Gespeicherte Webseiten-Berechtigungen bearbeiten…",
+            "Edit saved website permissions…"
+        ))
+        manage_permissions.setToolTip(self.tr(
+            "Gespeicherte Entscheidungen für einzelne Webseiten verwalten",
+            "Manage saved permission decisions for individual websites"
+        ))
+        manage_permissions.clicked.connect(self.show_permission_manager)
+        form.addRow(self.tr("Webseiten-Berechtigungen:", "Website permissions:"), manage_permissions)
         for key, box in permission_boxes.items():
             labels = {"permission_camera": ("Kamera", "Camera"), "permission_microphone": ("Mikrofon", "Microphone"), "permission_location": ("Standort", "Location"), "permission_notifications": ("Benachrichtigungen", "Notifications")}
             de_label, en_label = labels[key]
@@ -2785,9 +3444,24 @@ class LunaSurfer(QMainWindow):
         QMessageBox.about(self, self.tr("Über LunaSurfer", "About LunaSurfer"), f"{APP_NAME} {APP_VERSION}\nQt 6 + QtWebEngine mit auswählbarem hellem/dunklem Webseiten-Design und optionaler Widevine-CDM-Einbindung.\nGoldisoft · 2026")
 
 def main():
+    # Force Qt's own file chooser widgets instead of the desktop-native GTK
+    # dialog, which may display English labels independently of LunaSurfer.
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_DontUseNativeDialogs, True)
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("Goldisoft")
+    # Install the matching Qt widget translations before creating the window.
+    # The browser's saved language setting controls the dialog language too.
+    try:
+        saved_language = read_json(CONFIG_FILE, {}).get("language", "de")
+    except Exception:
+        saved_language = "de"
+    qt_translator = QTranslator(app)
+    translations_path = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
+    qt_language = "en" if saved_language == "en" else "de"
+    if qt_translator.load(f"qtbase_{qt_language}", translations_path):
+        app.installTranslator(qt_translator)
+    QLocale.setDefault(QLocale(qt_language))
     window = LunaSurfer()
     # Desktop launchers pass the requested URL via %U.  Load it after the
     # startup tab has been created so the requested page replaces the homepage.

@@ -1,5 +1,22 @@
 Changelog
 
+## 0.3.36
+- *Webseiten-Berechtigungen*
+- Verwaltung gespeicherter Webseiten-Berechtigungen unter Einstellungen → Berechtigungen.
+- Unterstützung für Kamera, Mikrofon, Standort und Benachrichtigungen.
+- Bei Berechtigungsanfragen kann entschieden werden, ob die Auswahl für die jeweilige Webseite gespeichert werden soll.
+- Gespeicherte Berechtigungen können verwaltet werden.
+- *Datenschutz und Sicherheit *
+- Fingerprint-Schutz deutlich verbessert.
+- Canvas-Fingerprinting wird randomisiert.
+- WebGL-Fingerprinting wird randomisiert.
+- AudioContext-Fingerprinting wird randomisiert.
+- Hardware-Fingerprinting verbessert (CPU-Kerne und Gerätespeicher).
+- User-Agent angepasst und Browserinformationen besser verschleiert.
+- Plattforminformationen angepasst.
+- Fingerprint-Schutz kann während des laufenden Betriebs ein- und ausgeschaltet werden, ohne Browserneustart.
+- Bereits geöffnete Tabs können nach einer Änderung aktualisiert werden.
+
 ## 0.3.35 2026–11-05
 - Einstellungen: Neue Funktion „Alles löschen“ ergänzt; die bisherigen Einzelfunktionen für Verlauf, Cache und Cookies bleiben erhalten.
 - „Alles löschen“ entfernt Verlauf, Cache, Cookies und Anmeldesitzungen sowie persistente Website-Daten wie Local Storage, IndexedDB und Service-Worker-Daten.
@@ -229,3 +246,10 @@ Changelog
 - Master-Passwort wird beim bloßen Fokussieren eines Login-Feldes nicht mehr abgefragt.
 - Option zum Anbieten des Passwortspeicherns nach erfolgreicher Anmeldung in den Einstellungen.
 - Mehrstufige Login-Formulare können den zuvor eingegebenen Benutzernamen derselben Website übernehmen.
+
+
+## 0.3.36 – USER_AGENT_REDUCTION
+- Geschützten User-Agent auf das reduzierte, Chromium-kompatible Format `Chrome/122.0.0.0` umgestellt; unnötig detaillierte Build- und Patchnummern entfallen.
+- Geschützten User-Agent bereits beim Erstellen des Browserprofils setzen, damit auch der erste Seitenaufruf die reduzierte Kennung verwendet.
+- Beim Deaktivieren des Fingerprint-Schutzes wird weiterhin der native QtWebEngine-User-Agent wiederhergestellt.
+- Canvas-, WebGL- und AudioContext-Schutz unverändert.
