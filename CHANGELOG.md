@@ -1,5 +1,13 @@
 Changelog
 
+# LunaSurfer 0.3.42 – Argon2id-Verstärkung
+
+- Neue Tresore verwenden Argon2id mit 128 MiB Speicher, 4 Durchläufen und Parallelität 1.
+- Bestehende Argon2id-Tresore mit älteren Parametern werden nach erfolgreichem Entsperren mit frischem Salt neu verschlüsselt.
+- PBKDF2-Tresore bleiben importierbar und werden nach erfolgreichem Entsperren migriert.
+- Bestehendes Master-Passwort und gespeicherte Einträge bleiben bei der Migration erhalten.
+- Master-Passwort-Wechsel liest die tatsächlich gespeicherten KDF-Metadaten und speichert neue Argon2id-Metadaten vollständig.
+
 # LunaSurfer 0.3.41 – ARGON2ID-PASSWORTTRESOR
 - Neue Passworttresore verwenden Argon2id (64 MiB Speicher, 3 Durchläufe, Parallelität 1) zur Schlüsselableitung; die eigentliche Fernet-Verschlüsselung bleibt erhalten.
 - Bestehende PBKDF2-HMAC-SHA256-Tresore werden nach erfolgreichem Entsperren automatisch mit frischem Salt auf Argon2id migriert.

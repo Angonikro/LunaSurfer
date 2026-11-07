@@ -3473,8 +3473,8 @@ class LunaSurfer(QMainWindow):
     # New vaults use Argon2id. Existing version-1 vaults without a KDF marker
     # remain readable as PBKDF2-HMAC-SHA256 and are migrated after successful unlock.
     PASSWORD_KDF = "argon2id"
-    ARGON2_TIME_COST = 3
-    ARGON2_MEMORY_COST = 65536  # KiB (64 MiB)
+    ARGON2_TIME_COST = 4
+    ARGON2_MEMORY_COST = 131072  # KiB (128 MiB)
     ARGON2_PARALLELISM = 1
 
     def _password_key(self, master_password, salt, kdf_name="argon2id", params=None):
@@ -3543,9 +3543,16 @@ class LunaSurfer(QMainWindow):
                 return False
             self._password_fernet = fernet
             self._password_entries = payload if isinstance(payload, list) else []
-            if old_kdf != self.PASSWORD_KDF:
-                # Re-encrypt only after successful legacy decryption. A fresh salt
-                # and Argon2id-derived key upgrade the vault without losing entries.
+            # Upgrade legacy KDFs and older Argon2id settings only after a
+            # successful unlock, preserving the existing master password/entries.
+            current_params = self._password_kdf_metadata()["kdf_params"]
+            stored_params = data.get("kdf_params") or {}
+            needs_upgrade = (
+                old_kdf != self.PASSWORD_KDF
+                or any(int(stored_params.get(key, -1)) != value
+                       for key, value in current_params.items())
+            )
+            if needs_upgrade:
                 new_salt = secrets.token_bytes(16)
                 self._password_fernet = Fernet(self._password_key(master, new_salt))
                 self._save_password_entries(new_salt)
@@ -3630,7 +3637,12 @@ class LunaSurfer(QMainWindow):
             return
         try:
             old_salt = base64.b64decode(data["salt"], validate=True)
-            old_cipher = Fernet(self._password_key(old_password, old_salt))
+            old_kdf = data.get("kdf", "pbkdf2-sha256")
+            old_params = data.get("kdf_params") or ({"iterations": 600000}
+                if old_kdf in ("pbkdf2-sha256", "PBKDF2-HMAC-SHA256") else {})
+            if old_kdf == "PBKDF2-HMAC-SHA256":
+                old_kdf = "pbkdf2-sha256"
+            old_cipher = Fernet(self._password_key(old_password, old_salt, old_kdf, old_params))
             verified_entries = json.loads(old_cipher.decrypt(data["token"].encode("ascii")).decode("utf-8"))
             if not isinstance(verified_entries, list):
                 raise ValueError("Invalid vault contents")
@@ -3668,11 +3680,13 @@ class LunaSurfer(QMainWindow):
                 verified_entries, ensure_ascii=False).encode("utf-8")).decode("ascii")
             # write_json uses a temporary file and atomic replace; the old vault
             # remains intact if encryption or writing fails.
-            write_json(PASSWORDS_FILE, {
-                "version": 1,
+            envelope = {
+                "version": 2,
                 "salt": base64.b64encode(new_salt).decode("ascii"),
                 "token": token
-            })
+            }
+            envelope.update(self._password_kdf_metadata())
+            write_json(PASSWORDS_FILE, envelope)
             self._secure_password_storage_permissions()
             self._password_fernet = new_cipher
             self._password_entries = verified_entries
