@@ -1,7 +1,7 @@
 Changelog
 
 # LunaSurfer 0.3.40
-- Unterdrücken Sie nach dem Abbrechen einer automatischen Aufforderung zum Entsperren des Passwort-Managers weitere automatische Aufforderungen für 60 Sekunden. Die manuelle Öffnung bleibt sofort verfügbar.
+- Unterdrücken Sie nach dem Abbrechen einer automatischen Aufforderung zum Entsperren des Passwort-Managers, weitere automatische Aufforderungen für 60 Sekunden. Die manuelle Öffnung bleibt sofort verfügbar.
 
 ## 0.3.39 – MASTER-PASSWORT ÄNDERN / DOWNLOAD-MANAGER: NEUESTE DOWNLOADS OBEN
 - Download-Manager sortiert die Einträge jetzt so, dass der zuletzt gestartete Download ganz oben steht.
