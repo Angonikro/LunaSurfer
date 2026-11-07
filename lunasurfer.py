@@ -70,6 +70,15 @@ def write_json(path, data):
     temp.replace(path)
 
 
+def safe_download_filename(value):
+    """Reduce a server-supplied download name to a safe single filename."""
+    name = str(value or "download").replace("\\", "/").split("/")[-1]
+    name = re.sub(r"[\x00-\x1f\x7f]", "", name).strip().rstrip(". ")
+    if name in ("", ".", ".."):
+        name = "download"
+    return name[:180]
+
+
 
 # Privacy mitigation injected before page scripts run. Noise is stable per
 # origin (so a site remains functional) but differs between sites.
@@ -554,11 +563,41 @@ class PrivacyInterceptor(QWebEngineUrlRequestInterceptor):
 
 
 class LoginCaptureBridge(QObject):
-    """Forwards submitted login fields to LunaSurfer's local password manager."""
+    """Private-world bridge for the top-level document's password helper."""
     def __init__(self, window, view):
         super().__init__(view)
         self.window_ref = window
         self.view_ref = view
+
+    def _request_is_current_top_level_origin(self, page_url):
+        """Reject requests unless their origin is the page's actual top-level origin.
+
+        The bridge is installed in Qt's ApplicationWorld and the helper script is
+        restricted to the main frame. This server-side check is an additional
+        fail-closed boundary; a URL supplied by JavaScript is never trusted alone.
+        """
+        try:
+            requested = urllib.parse.urlparse(str(page_url or ""))
+            current_url = self.view_ref.page().url().toString()
+            current = urllib.parse.urlparse(current_url)
+
+            def origin(parsed):
+                scheme = (parsed.scheme or "").lower()
+                if scheme not in ("http", "https") or not parsed.hostname:
+                    return None
+                if parsed.username is not None or parsed.password is not None:
+                    return None
+                host = parsed.hostname.encode("idna").decode("ascii").lower().rstrip(".")
+                port = parsed.port
+                if port is None:
+                    port = 443 if scheme == "https" else 80
+                return scheme, host, port
+
+            wanted = origin(requested)
+            actual = origin(current)
+            return bool(wanted and actual and wanted == actual)
+        except (ValueError, UnicodeError, RuntimeError, AttributeError):
+            return False
 
     @Slot(str, str)
     def diagnostic(self, event, details=""):
@@ -570,6 +609,8 @@ class LoginCaptureBridge(QObject):
     @Slot(str, str, str, result=str)
     def capture(self, page_url, username, password):
         try:
+            if not self._request_is_current_top_level_origin(page_url):
+                return "continue"
             return self.window_ref.capture_login_submission(self.view_ref, page_url, username, password)
         except Exception:
             return "continue"
@@ -577,14 +618,28 @@ class LoginCaptureBridge(QObject):
     @Slot(str, bool, result=str)
     def suggestions(self, page_url, interactive):
         try:
+            if not self._request_is_current_top_level_origin(page_url):
+                return "[]"
             related_url = getattr(self.view_ref, "_password_flow_origin_url", "")
-            return self.window_ref.password_suggestions(page_url, interactive, related_url)
+            raw = self.window_ref.password_suggestions(page_url, interactive, related_url)
+            # Never serialize full vault records to the page helper. It receives
+            # only the two values needed to fill the selected login form.
+            entries = json.loads(raw or "[]")
+            minimal = [
+                {"username": str(item.get("username", "")),
+                 "password": str(item.get("password", ""))}
+                for item in entries
+                if isinstance(item, dict) and item.get("username") and item.get("password")
+            ]
+            return json.dumps(minimal, ensure_ascii=False)
         except Exception:
             return "[]"
 
     @Slot(str, str)
     def bindCredentialToRelyingParty(self, page_url, username):
         try:
+            if not self._request_is_current_top_level_origin(page_url):
+                return
             related_url = getattr(self.view_ref, "_password_flow_origin_url", "")
             self.window_ref.bind_password_entry_to_relying_party(page_url, username, related_url)
         except Exception:
@@ -593,6 +648,8 @@ class LoginCaptureBridge(QObject):
     @Slot(str, str, str, result=str)
     def confirmSave(self, page_url, username, password):
         try:
+            if not self._request_is_current_top_level_origin(page_url):
+                return "no"
             related_url = getattr(self.view_ref, "_password_flow_origin_url", "")
             return self.window_ref.confirm_login_save(page_url, username, password, related_url)
         except Exception:
@@ -604,6 +661,17 @@ class BookmarkOverflowMenu(QMenu):
     def __init__(self, title, parent, window_ref):
         super().__init__(title, parent)
         self.window_ref = window_ref
+        self.setStyleSheet("""
+            QMenu {
+                background: #1d2430; color: #e8edf5;
+                border: 1px solid #354155; border-radius: 8px;
+                padding: 6px;
+            }
+            QMenu::item { min-height: 30px; padding: 6px 28px 6px 12px; border-radius: 5px; }
+            QMenu::item:selected { background: #303b4c; color: #ffffff; }
+            QMenu::separator { height: 1px; background: #354155; margin: 5px 8px; }
+            QMenu::indicator { width: 14px; height: 14px; }
+        """)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.RightButton:
@@ -639,7 +707,20 @@ class BrowserView(QWebEngineView):
         # pages use navigator.clipboard.writeText() for their own Copy buttons.
         clipboard_attr = getattr(QWebEngineSettings.WebAttribute, "JavascriptCanAccessClipboard", None)
         if clipboard_attr is not None:
-            settings.setAttribute(clipboard_attr, True)
+            settings.setAttribute(clipboard_attr, False)
+        # Explicitly deny risky cross-boundary content capabilities. These are
+        # normally disabled by Qt, but setting them here protects against future
+        # defaults or profile-level changes.
+        for attribute_name in (
+            "LocalContentCanAccessFileUrls",
+            "LocalContentCanAccessRemoteUrls",
+            "AllowRunningInsecureContent",
+            "HyperlinkAuditingEnabled",
+            "PluginsEnabled",
+        ):
+            attribute = getattr(QWebEngineSettings.WebAttribute, attribute_name, None)
+            if attribute is not None:
+                settings.setAttribute(attribute, False)
         settings.setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.FullScreenSupportEnabled, True)
         page.fullScreenRequested.connect(self.handle_fullscreen)
@@ -648,7 +729,9 @@ class BrowserView(QWebEngineView):
         self.login_channel = QWebChannel(page)
         self.login_bridge = LoginCaptureBridge(self.window_ref, self)
         self.login_channel.registerObject('lunaLoginBridge', self.login_bridge)
-        page.setWebChannel(self.login_channel)
+        # Keep the privileged bridge out of the website's MainWorld. Page scripts
+        # cannot inspect or invoke objects installed in ApplicationWorld.
+        page.setWebChannel(self.login_channel, QWebEngineScript.ScriptWorldId.ApplicationWorld)
 
     def contextMenuEvent(self, event):
         """Show LunaSurfer's own context menu without QtWebEngine's native menu.
@@ -1015,8 +1098,9 @@ class LunaSurfer(QMainWindow):
             "clear_history_on_exit": False,
             "clear_cache_on_exit": False,
             "clear_cookies_on_exit": False,
-            "cookie_mode": "all",
+            "cookie_mode": "third",
             "ask_download_location": False,
+            "warn_executable_downloads": True,
             "send_dnt": False,
             "confirm_close_multiple_tabs": True,
             "remember_window_size": True,
@@ -3123,6 +3207,7 @@ class LunaSurfer(QMainWindow):
             received = getattr(download, "receivedBytes", lambda: 0)()
             total = getattr(download, "totalBytes", lambda: 0)()
             finished = download.isFinished()
+            paused = bool(getattr(download, "isPaused", lambda: False)()) if not finished else False
             if not finished:
                 last_bytes = item.get("last_bytes", received)
                 last_time = item.get("last_time", now)
@@ -3155,11 +3240,35 @@ class LunaSurfer(QMainWindow):
             elif item.get("downloaded_at"):
                 details_text += f"   ·   {item['downloaded_at']}"
             ui["details"].setText(details_text)
-            ui["state"].setText(self.tr("Fertig", "Completed") if finished else f"{percent} %")
+            state_text = self.tr("Fertig", "Completed") if finished else (self.tr("Pausiert", "Paused") if paused else f"{percent} %")
+            ui["state"].setText(state_text)
             ui["state"].setStyleSheet(
-                ("background:#153d32; color:#5ce0a8;" if finished else "background:#173954; color:#73c7ff;")
+                ("background:#153d32; color:#5ce0a8;" if finished else ("background:#51401f; color:#ffd27a;" if paused else "background:#173954; color:#73c7ff;"))
                 + "border:0; border-radius:8px; padding:7px 9px; font-size:11px; font-weight:800;"
             )
+            if ui.get("pause") is not None:
+                ui["pause"].setText(self.tr("▶ Fortsetzen", "▶ Resume") if paused else self.tr("Ⅱ Pause", "Ⅱ Pause"))
+                ui["pause"].setEnabled(not finished)
+                ui["pause"].setStyleSheet("background:#254b3d; border:1px solid #398c6c; color:#9af0c7; border-radius:8px; padding:7px 9px; font-weight:700;" if paused else "background:#263f59; border:1px solid #47749c; color:#a8d9ff; border-radius:8px; padding:7px 9px; font-weight:700;")
+            selected_index = lst.currentItem().data(Qt.ItemDataRole.UserRole) if lst.currentItem() else None
+            row_index = next((i for i, entry in enumerate(self.download_items) if entry is item), None)
+            selected = row_index == selected_index
+            ui["card"].setStyleSheet(
+                "QWidget#downloadCard { background:#294968; border:3px solid #70c5ff; border-radius:12px; }" if selected else
+                "QWidget#downloadCard { background:#202733; border:1px solid #303c4d; border-radius:12px; }"
+            )
+
+        def toggle_download(download):
+            if download.isFinished():
+                return
+            try:
+                if bool(getattr(download, "isPaused", lambda: False)()):
+                    download.resume()
+                else:
+                    download.pause()
+            except Exception as exc:
+                QMessageBox.warning(dialog, self.tr("Download", "Download"), str(exc))
+            refresh()
 
         def make_row(item, now):
             target = item["target"]
@@ -3202,11 +3311,16 @@ class LunaSurfer(QMainWindow):
             progress_col.addWidget(details)
             outer.addLayout(progress_col, 2)
 
+            pause_btn = QPushButton(self.tr("Ⅱ Pause", "Ⅱ Pause"))
+            pause_btn.setMinimumWidth(112)
+            pause_btn.clicked.connect(lambda checked=False, d=item["download"]: toggle_download(d))
+            outer.addWidget(pause_btn)
+
             state = QLabel()
             state.setAlignment(Qt.AlignmentFlag.AlignCenter)
             state.setMinimumWidth(88)
             outer.addWidget(state)
-            item["_download_ui"] = {"bar": bar, "details": details, "state": state}
+            item["_download_ui"] = {"bar": bar, "details": details, "state": state, "pause": pause_btn, "card": card}
             update_row(item, now)
             return card
 
@@ -3307,6 +3421,18 @@ class LunaSurfer(QMainWindow):
         layout.addLayout(actions)
 
         refresh()
+        def update_selection_style(*_args):
+            for row in range(lst.count()):
+                qitem = lst.item(row)
+                widget = lst.itemWidget(qitem)
+                if widget is None:
+                    continue
+                chosen = qitem is lst.currentItem()
+                widget.setStyleSheet(
+                    "QWidget#downloadCard { background:#294968; border:3px solid #70c5ff; border-radius:12px; }" if chosen else
+                    "QWidget#downloadCard { background:#202733; border:1px solid #303c4d; border-radius:12px; }"
+                )
+        lst.currentItemChanged.connect(update_selection_style)
         timer = QTimer(dialog)
         timer.timeout.connect(refresh)
         timer.start(800)
@@ -3321,11 +3447,122 @@ class LunaSurfer(QMainWindow):
         dialog.exec()
 
     def on_download(self, download):
-        suggested = download.suggestedFileName() or "download"
+        suggested = safe_download_filename(download.suggestedFileName() or "download")
+        risky_extensions = {
+            ".appimage", ".apk", ".bat", ".bin", ".cmd", ".deb", ".dmg",
+            ".dll", ".dylib", ".exe", ".jar", ".msi", ".pkg", ".ps1",
+            ".py", ".pyz", ".rpm", ".run", ".sh", ".so", ".desktop",
+        }
+        if pathlib.Path(suggested).suffix.lower() in risky_extensions and self.settings_data.get("warn_executable_downloads", True):
+            try:
+                source_host = download.url().host() or download.url().toString()
+            except Exception:
+                source_host = ""
+
+            # Eigener Sicherheitsdialog im LunaSurfer-Graphitdesign.
+            warning = QDialog(self)
+            warning.setWindowTitle(self.tr("Sicherheitswarnung beim Download", "Download security warning"))
+            warning.setModal(True)
+            warning.setMinimumWidth(490)
+            warning.setStyleSheet("""
+                QDialog { background: #171d28; color: #e8eef8; }
+                QLabel { color: #e8eef8; }
+                QLabel#warningIcon {
+                    background: #3a2b18; color: #ffbd59; border: 1px solid #785326;
+                    border-radius: 12px; font-size: 25px; font-weight: 700;
+                    min-width: 48px; max-width: 48px; min-height: 48px; max-height: 48px;
+                }
+                QLabel#warningTitle { font-size: 17px; font-weight: 700; color: #f4f7fc; }
+                QLabel#warningFile {
+                    background: #202b3b; border: 1px solid #344b69; border-radius: 7px;
+                    padding: 9px 11px; color: #9dccff; font-weight: 600;
+                }
+                QLabel#warningSource { color: #9eacc0; }
+                QCheckBox { color: #cbd6e5; spacing: 9px; padding: 5px 0; }
+                QCheckBox::indicator {
+                    width: 17px; height: 17px; border-radius: 4px;
+                    border: 1px solid #60738d; background: #202b3b;
+                }
+                QCheckBox::indicator:checked { background: #2684e8; border-color: #55a5ff; }
+                QPushButton {
+                    background: #26364c; color: #eaf2fc; border: 1px solid #405a7b;
+                    border-radius: 7px; padding: 9px 17px; min-width: 112px;
+                    font-weight: 600;
+                }
+                QPushButton:hover { background: #324a68; border-color: #6ca8ed; }
+                QPushButton#acceptDownload {
+                    background: #176fc5; border-color: #318fe8; color: white;
+                }
+                QPushButton#acceptDownload:hover { background: #2385e2; }
+            """)
+
+            layout = QVBoxLayout(warning)
+            layout.setContentsMargins(22, 20, 22, 18)
+            layout.setSpacing(13)
+
+            header = QHBoxLayout()
+            header.setSpacing(13)
+            icon_label = QLabel("!")
+            icon_label.setObjectName("warningIcon")
+            icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            header.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignTop)
+
+            heading_column = QVBoxLayout()
+            heading_column.setSpacing(4)
+            heading = QLabel(self.tr("Diese Datei kann gefährlich sein", "This file may be dangerous"))
+            heading.setObjectName("warningTitle")
+            heading_column.addWidget(heading)
+            intro = QLabel(self.tr(
+                "Die Datei kann Programme oder Skripte ausführen. Lade sie nur herunter, wenn du der Quelle vertraust.",
+                "This file can run programs or scripts. Only download it if you trust the source."
+            ))
+            intro.setWordWrap(True)
+            intro.setMinimumWidth(365)
+            heading_column.addWidget(intro)
+            header.addLayout(heading_column, 1)
+            layout.addLayout(header)
+
+            file_label = QLabel(suggested)
+            file_label.setObjectName("warningFile")
+            file_label.setWordWrap(True)
+            file_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            layout.addWidget(file_label)
+
+            source_label = QLabel(self.tr("Download-Quelle: ", "Download source: ") + (source_host or self.tr("Unbekannt", "Unknown")))
+            source_label.setObjectName("warningSource")
+            source_label.setWordWrap(True)
+            layout.addWidget(source_label)
+
+            disable_warning = QCheckBox(self.tr(
+                "Diese Sicherheitswarnung künftig nicht mehr anzeigen",
+                "Do not show this security warning again"
+            ))
+            layout.addWidget(disable_warning)
+
+            buttons = QHBoxLayout()
+            buttons.addStretch(1)
+            cancel_button = QPushButton(self.tr("Abbrechen", "Cancel"))
+            accept_button = QPushButton(self.tr("Trotzdem herunterladen", "Download anyway"))
+            accept_button.setObjectName("acceptDownload")
+            cancel_button.clicked.connect(warning.reject)
+            accept_button.clicked.connect(warning.accept)
+            buttons.addWidget(cancel_button)
+            buttons.addWidget(accept_button)
+            layout.addLayout(buttons)
+
+            answer = warning.exec()
+            if answer != QDialog.DialogCode.Accepted:
+                download.cancel()
+                self.statusBar().showMessage(self.tr("Download abgebrochen.", "Download cancelled."), 5000)
+                return
+            if disable_warning.isChecked():
+                self.settings_data["warn_executable_downloads"] = False
+                write_json(CONFIG_FILE, self.settings_data)
         explicit_target = getattr(self, "_next_download_path", None)
         if explicit_target is not None:
             self._next_download_path = None
             target = pathlib.Path(explicit_target)
+            target = target.parent / safe_download_filename(target.name)
             target.parent.mkdir(parents=True, exist_ok=True)
             download.setDownloadDirectory(str(target.parent))
             download.setDownloadFileName(target.name)
@@ -3340,6 +3577,7 @@ class LunaSurfer(QMainWindow):
                 download.cancel()
                 return
             target = pathlib.Path(selected)
+            target = target.parent / safe_download_filename(target.name)
             target.parent.mkdir(parents=True, exist_ok=True)
             download.setDownloadDirectory(str(target.parent))
             download.setDownloadFileName(target.name)
@@ -4308,21 +4546,24 @@ class LunaSurfer(QMainWindow):
                     channel_file.close()
             except Exception:
                 channel_source = ""
-            capture_source = (channel_source + "\n;\n" if channel_source else "") + script
+            if not channel_source:
+                self._password_debug_log("capture_script_disabled", "reason=qwebchannel_resource_unavailable")
+                return
+            capture_source = channel_source + "\n;\n" + script
             capture_script = QWebEngineScript()
             capture_script.setName("LunaSurferPasswordManagerCapture")
             capture_script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentReady)
-            capture_script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
-            capture_script.setRunsOnSubFrames(True)
+            capture_script.setWorldId(QWebEngineScript.ScriptWorldId.ApplicationWorld)
+            capture_script.setRunsOnSubFrames(False)
             capture_script.setSourceCode(capture_source)
             collection.insert(capture_script)
             self._password_debug_log(
                 "capture_script_registered",
-                "injection=document_ready subframes=true qwebchannel_embedded=" + str(bool(channel_source)).lower()
+                "injection=document_ready world=application subframes=false qwebchannel_embedded=true"
             )
             # Also start on the already-loaded document; the persistent script
             # handles all subsequent navigations automatically.
-            page.runJavaScript(capture_source)
+            page.runJavaScript(capture_source, QWebEngineScript.ScriptWorldId.ApplicationWorld)
         except Exception as exc:
             self._password_debug_log("capture_script_register_error", type(exc).__name__)
 
@@ -4662,7 +4903,8 @@ class LunaSurfer(QMainWindow):
         """Re-trigger the page-side autofill scan after each completed navigation."""
         try:
             view.page().runJavaScript(
-                "if (window.__lunaPasswordRescan) window.__lunaPasswordRescan();"
+                "if (window.__lunaPasswordRescan) window.__lunaPasswordRescan();",
+                QWebEngineScript.ScriptWorldId.ApplicationWorld
             )
         except Exception:
             pass
@@ -4957,6 +5199,8 @@ class LunaSurfer(QMainWindow):
         for value in (50,67,75,80,90,100,110,125,150,175,200): zoom.addItem(f"{value} %",value)
         zoom.setCurrentIndex(max(0,zoom.findData(int(self.settings_data.get("default_zoom",100)))))
         ask_download=QCheckBox(self.tr("Bei jedem Download nach dem Speicherort fragen", "Ask where to save each download")); ask_download.setChecked(self.settings_data.get("ask_download_location",False))
+        warn_executable_downloads = QCheckBox(self.tr("Sicherheitswarnung bei ausführbaren Downloads anzeigen", "Show security warning for executable downloads"))
+        warn_executable_downloads.setChecked(self.settings_data.get("warn_executable_downloads", True))
         show_download_complete_popup = QCheckBox(self.tr("Popup nach Abschluss eines Downloads anzeigen", "Show popup when a download finishes"))
         show_download_complete_popup.setChecked(self.settings_data.get("show_download_complete_popup", True))
         font_size=QComboBox()
@@ -5015,7 +5259,7 @@ class LunaSurfer(QMainWindow):
             # clipping of headings such as 'Sicherheit und Berechtigungen'.
             form.addRow(label)
         add_section(self.tr("Allgemein", "General"))
-        form.addRow(self.tr("Sprache:", "Language:"), language); form.addRow(self.tr("Beim Start:", "On startup:"),startup); form.addRow(self.tr("Startseite:", "Homepage:"),home); form.addRow(self.tr("Suchmaschine:", "Search engine:"),engine); form.addRow(self.tr("Übersetzungsanbieter:", "Translation provider:"), translation_provider); form.addRow("", translation_help); form.addRow(self.tr("Browser-Design:", "Browser design:"),browser_design); form.addRow(self.tr("Webseiten-Design:", "Website appearance:"),theme); form.addRow("",show_bookmarks_bar); add_section(self.tr("Downloads", "Downloads")); form.addRow(self.tr("Download-Ordner:", "Download folder:"),row); form.addRow("",ask_download); form.addRow("",show_download_complete_popup); form.addRow(self.tr("Standard-Zoom:", "Default zoom:"),zoom); form.addRow(self.tr("Standard-Schriftgröße:", "Default font size:"),font_size); form.addRow(self.tr("Webseiten-Lesbarkeit:", "Website readability:"), readability); form.addRow(self.tr("Webseiten-Farbgebung:", "Website colors:"), website_color)
+        form.addRow(self.tr("Sprache:", "Language:"), language); form.addRow(self.tr("Beim Start:", "On startup:"),startup); form.addRow(self.tr("Startseite:", "Homepage:"),home); form.addRow(self.tr("Suchmaschine:", "Search engine:"),engine); form.addRow(self.tr("Übersetzungsanbieter:", "Translation provider:"), translation_provider); form.addRow("", translation_help); form.addRow(self.tr("Browser-Design:", "Browser design:"),browser_design); form.addRow(self.tr("Webseiten-Design:", "Website appearance:"),theme); form.addRow("",show_bookmarks_bar); add_section(self.tr("Downloads", "Downloads")); form.addRow(self.tr("Download-Ordner:", "Download folder:"),row); form.addRow("",ask_download); form.addRow("",warn_executable_downloads); form.addRow("",show_download_complete_popup); form.addRow(self.tr("Standard-Zoom:", "Default zoom:"),zoom); form.addRow(self.tr("Standard-Schriftgröße:", "Default font size:"),font_size); form.addRow(self.tr("Webseiten-Lesbarkeit:", "Website readability:"), readability); form.addRow(self.tr("Webseiten-Farbgebung:", "Website colors:"), website_color)
         add_section(self.tr("Sicherheit und Berechtigungen", "Security and permissions"))
         form.addRow(self.tr("Sicherheit:", "Security:"),block); form.addRow("", javascript)
         add_section(self.tr("User-Agent-Verwaltung", "User-Agent management"))
@@ -5091,7 +5335,7 @@ class LunaSurfer(QMainWindow):
         add_section(self.tr("Datenschutz und Browserdaten", "Privacy and browser data"))
         form.addRow(self.tr("Cookie-Modus:", "Cookie mode:"), cookie_mode); form.addRow(self.tr("Browserdaten:", "Browser data:"),privacy); form.addRow("", clear_all); form.addRow("",clear_history_exit); form.addRow("",clear_cache_exit); form.addRow("",clear_cookies_exit); form.addRow("",remember_window_size); form.addRow("",default_browser); a.clicked.connect(self.clear_history); b.clicked.connect(self.clear_cache); c.clicked.connect(self.clear_cookies); clear_all.clicked.connect(self.clear_all_browser_data)
         buttons=QHBoxLayout(); save=QPushButton(self.tr("Speichern", "Save")); cancel=QPushButton(self.tr("Abbrechen", "Cancel")); buttons.addWidget(save); buttons.addWidget(cancel); form.addRow(buttons)
-        save.clicked.connect(lambda:self.save_settings_v39(page,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData(),default_browser.isChecked(),browser_design.currentData(),javascript.isChecked(),cookie_mode.currentData(),password_auto_save.isChecked(),password_unlock_required.isChecked(),readability.currentData(),website_color.currentData(),ua_mode.currentData(),ua_custom.text(),translation_provider.currentData(),show_download_complete_popup.isChecked()))
+        save.clicked.connect(lambda:self.save_settings_v39(page,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData(),default_browser.isChecked(),browser_design.currentData(),javascript.isChecked(),cookie_mode.currentData(),password_auto_save.isChecked(),password_unlock_required.isChecked(),readability.currentData(),website_color.currentData(),ua_mode.currentData(),ua_custom.text(),translation_provider.currentData(),show_download_complete_popup.isChecked(),warn_executable_downloads.isChecked()))
         cancel.clicked.connect(lambda: self.close_settings_page(page))
 
     def close_settings_page(self, page):
@@ -5103,14 +5347,14 @@ class LunaSurfer(QMainWindow):
                 self.add_tab(self.settings_data.get("home"))
             QTimer.singleShot(0, self.update_new_tab_button_position)
 
-    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de", default_browser=False, browser_design="dark", javascript_enabled=True, cookie_mode="all", password_auto_save=True, password_unlock_required=True, website_readability="normal", website_color_mode="normal", user_agent_mode="privacy", user_agent_custom="", translation_provider="google", show_download_complete_popup=True):
+    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de", default_browser=False, browser_design="dark", javascript_enabled=True, cookie_mode="all", password_auto_save=True, password_unlock_required=True, website_readability="normal", website_color_mode="normal", user_agent_mode="privacy", user_agent_custom="", translation_provider="google", show_download_complete_popup=True, warn_executable_downloads=True):
         if user_agent_mode == "custom" and not str(user_agent_custom).strip():
             QMessageBox.warning(self, self.tr("User-Agent fehlt", "User-Agent missing"), self.tr("Bitte einen vollständigen User-Agent eintragen oder einen anderen Modus auswählen.", "Enter a complete User-Agent or select another mode."))
             return
         chosen=pathlib.Path(download_dir.strip() or str(DOWNLOAD_DIR)).expanduser()
         previous_translation_provider = self.settings_data.get("translation_provider", "google")
         selected_translation_provider = translation_provider if translation_provider in ("google", "mymemory") else "google"
-        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"javascript_enabled":bool(javascript_enabled),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"cookie_mode":cookie_mode if cookie_mode in ("all","third","none","session") else "all","remember_window_size":bool(remember_window_size),"language":language or "de","default_browser":bool(default_browser),"browser_design":browser_design if browser_design in ("dark", "light", "luna", "graphite", "ocean") else "dark","password_auto_save":bool(password_auto_save),"password_unlock_required":bool(password_unlock_required),"website_readability": website_readability if website_readability in ("normal", "soft", "softer", "relaxed") else "normal", "website_color_mode": website_color_mode if website_color_mode in ("normal", "black") else "normal", "user_agent_mode": user_agent_mode if user_agent_mode in ("privacy", "native", "custom") else "privacy", "user_agent_custom": str(user_agent_custom).strip(), "translation_provider": selected_translation_provider,"show_download_complete_popup":bool(show_download_complete_popup),**permissions})
+        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"javascript_enabled":bool(javascript_enabled),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"cookie_mode":cookie_mode if cookie_mode in ("all","third","none","session") else "all","remember_window_size":bool(remember_window_size),"language":language or "de","default_browser":bool(default_browser),"browser_design":browser_design if browser_design in ("dark", "light", "luna", "graphite", "ocean") else "dark","password_auto_save":bool(password_auto_save),"password_unlock_required":bool(password_unlock_required),"website_readability": website_readability if website_readability in ("normal", "soft", "softer", "relaxed") else "normal", "website_color_mode": website_color_mode if website_color_mode in ("normal", "black") else "normal", "user_agent_mode": user_agent_mode if user_agent_mode in ("privacy", "native", "custom") else "privacy", "user_agent_custom": str(user_agent_custom).strip(), "translation_provider": selected_translation_provider,"show_download_complete_popup":bool(show_download_complete_popup),"warn_executable_downloads":bool(warn_executable_downloads),**permissions})
         self.download_dir=chosen
         write_json(CONFIG_FILE, self.settings_data)
 
@@ -5254,7 +5498,7 @@ class LunaSurfer(QMainWindow):
 
     def filter_cookies(self, request):
         """Apply the selected first/third-party cookie policy."""
-        mode = self.settings_data.get("cookie_mode", "all")
+        mode = self.settings_data.get("cookie_mode", "third")
         if mode == "none":
             return False
         if mode == "third":
@@ -5263,7 +5507,7 @@ class LunaSurfer(QMainWindow):
 
     def apply_cookie_mode(self):
         """Apply persistence behavior; cookie filtering is handled by CookieStore."""
-        mode = self.settings_data.get("cookie_mode", "all")
+        mode = self.settings_data.get("cookie_mode", "third")
         policy = QWebEngineProfile.PersistentCookiesPolicy.NoPersistentCookies if mode == "session" else QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies
         self.profile.setPersistentCookiesPolicy(policy)
 

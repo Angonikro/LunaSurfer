@@ -1,5 +1,24 @@
 Changelog
 
+# LunaSurfer 0.3.43 – SICHERHEITSDIALOG FÜR DOWNLOADS - DOWNLOAD MANAGER SELECTION & PAUSE/RESUME - SECURITY UPDATE
+
+- Die Warnung vor ausführbaren oder skriptfähigen Downloads erscheint jetzt in einem eigenen, an das Graphit-/Blau-Design angepassten Dialog.
+- Die Warnung kann über „Diese Sicherheitswarnung künftig nicht mehr anzeigen“ dauerhaft deaktiviert werden; die Auswahl wird in den Einstellungen gespeichert.
+- Die Sicherheitsprüfung und das Bereinigen vorgeschlagener Dateinamen bleiben unabhängig von der Anzeige der Warnung aktiv.
+- Die Versionsnummer bleibt 0.3.43.
+- Die ausgewählte Download-Karte ist durch einen kräftigen hellblauen Rahmen und einen deutlich abgesetzten Hintergrund sofort erkennbar.
+- Jede laufende Download-Karte besitzt eine kombinierte Pause-/Fortsetzen-Taste; die Beschriftung wechselt passend zum aktuellen Zustand.
+- Pausierte Downloads werden zusätzlich mit einem eigenen Status hervorgehoben.
+- Passwortmanager-Hilfsskript wird in QtWebEngine ApplicationWorld statt in der normalen Webseiten-JavaScript-Welt ausgeführt.
+- Passwortmanager-Hilfsskript wird nur im Hauptframe injiziert; Unterframes erhalten diese Integration nicht.
+- Jede Passwortmanager-Anfrage prüft serverseitig, ob Scheme, Host und Port der angefragten URL mit dem tatsächlichen Ursprung der aktuell geladenen Hauptseite übereinstimmen; abweichende Anfragen werden abgewiesen.
+- Die Vorschlagsfunktion gibt an das Hilfsskript nur Benutzername und Passwort zurück, nicht vollständige Tresoreinträge.
+- JavaScript-Zugriff auf die Zwischenablage wird deaktiviert.
+- Lokale Inhalte dürfen nicht auf lokale Dateien oder Remote-Inhalte zugreifen; unsichere aktive Inhalte, Hyperlink-Auditing und Plugins werden deaktiviert, soweit die Qt-Version diese Einstellungen anbietet.
+- Der vorhandene Cookie-Modus „Drittanbieter blockieren“ bleibt Standard; bereits gespeicherte Benutzereinstellungen werden nicht überschrieben.
+- Downloads mit ausführbaren oder skriptfähigen Dateiendungen lösen eine Warnabfrage aus; vorgeschlagene Dateinamen werden bereinigt.
+- QtWebEngine/Chromium wird nicht mit diesem Paket aktualisiert, sondern weiterhin aus den Systempaketen bezogen. Ein separates Engine-Update ist nicht enthalten.
+
 # LunaSurfer 0.3.42 – Argon2id-Verstärkung
 
 - Neue Tresore verwenden Argon2id mit 128 MiB Speicher, 4 Durchläufen und Parallelität 1.
@@ -395,3 +414,10 @@ Changelog
 ### 0.3.41 – PAGE_FIND_COUNT_VISIBILITY
 - Die Trefferanzeige der Seitensuche ist jetzt deutlich größer und kontrastreicher.
 - Anzeige im Format „Treffer X von Y“ (Deutsch) bzw. „Match X of Y“ (Englisch).
+
+
+
+## 0.3.43 – Download-Sicherheitswarnung und Lesezeichenmenüs
+- Sicherheitswarnung für ausführbare Downloads kann direkt im Warnfenster dauerhaft deaktiviert werden.
+- Dieselbe Option ist unter Einstellungen → Downloads verfügbar und wird in settings.json gespeichert.
+- Importierte Lesezeichenordner und das Menü „Weitere Lesezeichen“ verwenden die Graphit-Gestaltung des Lesezeichen-Managers.
