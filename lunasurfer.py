@@ -1018,6 +1018,8 @@ class LunaSurfer(QMainWindow):
         self._password_fernet = None
         self._password_entries = []
         self._password_unlock_prompted = False
+        # Suppress repeated automatic unlock prompts after an explicit cancel.
+        self._password_unlock_suppressed_until = 0.0
         self._pending_login_save = None
         self._password_lock_timer = QTimer(self)
         self._password_lock_timer.setSingleShot(True)
@@ -3320,6 +3322,7 @@ class LunaSurfer(QMainWindow):
         if data.get("salt"):
             master, ok = QInputDialog.getText(self, self.tr("Passwortmanager entsperren", "Unlock password manager"), self.tr("Master-Passwort:", "Master password:"), QLineEdit.EchoMode.Password)
             if not ok or not master:
+                self._password_unlock_suppressed_until = time.monotonic() + 60.0
                 return False
             try:
                 salt = base64.b64decode(data["salt"])
@@ -3332,7 +3335,9 @@ class LunaSurfer(QMainWindow):
             self._password_entries = payload if isinstance(payload, list) else []
         else:
             first, ok = QInputDialog.getText(self, self.tr("Passwortmanager einrichten", "Set up password manager"), self.tr("Neues Master-Passwort (mindestens 10 Zeichen):", "New master password (at least 10 characters):"), QLineEdit.EchoMode.Password)
-            if not ok: return False
+            if not ok:
+                self._password_unlock_suppressed_until = time.monotonic() + 60.0
+                return False
             if len(first) < 10:
                 QMessageBox.warning(self, self.tr("Zu kurz", "Too short"), self.tr("Bitte mindestens 10 Zeichen verwenden.", "Please use at least 10 characters.")); return False
             second, ok = QInputDialog.getText(self, self.tr("Master-Passwort bestätigen", "Confirm master password"), self.tr("Master-Passwort erneut eingeben:", "Enter master password again:"), QLineEdit.EchoMode.Password)
@@ -4347,6 +4352,10 @@ class LunaSurfer(QMainWindow):
         # login field; never interrupt ordinary page loads with an unlock prompt.
         if not self._password_fernet:
             if not (interactive and not self.settings_data.get("password_unlock_required", True)):
+                return "[]"
+            # A cancelled prompt is a deliberate choice. Ignore repeated focus,
+            # DOM and SPA events for one minute; manual manager opening is unaffected.
+            if time.monotonic() < getattr(self, "_password_unlock_suppressed_until", 0.0):
                 return "[]"
             if not self._password_setup_or_unlock():
                 return "[]"

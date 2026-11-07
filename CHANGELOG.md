@@ -1,5 +1,8 @@
 Changelog
 
+# LunaSurfer 0.3.40
+- After cancelling an automatic password-manager unlock prompt, suppress further automatic prompts for 60 seconds. Manual opening remains available immediately.
+
 ## 0.3.39 – MASTER-PASSWORT ÄNDERN / DOWNLOAD-MANAGER: NEUESTE DOWNLOADS OBEN
 - Download-Manager sortiert die Einträge jetzt so, dass der zuletzt gestartete Download ganz oben steht.
 - Gilt für laufende und abgeschlossene Downloads sowie für die wiederhergestellte Download-Historie.
