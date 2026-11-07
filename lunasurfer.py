@@ -36,6 +36,7 @@ from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage, QWebEngin
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWebChannel import QWebChannel
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from argon2.low_level import hash_secret_raw, Type as Argon2Type
 from cryptography.hazmat.primitives import hashes
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -440,6 +441,29 @@ class AddressLineEdit(QLineEdit):
         event.accept()
 
 
+
+
+class PageFindLineEdit(QLineEdit):
+    """Find-bar input: Enter/down = next match, Shift+Enter/up = previous."""
+    def __init__(self, window):
+        super().__init__()
+        self.window_ref = window
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Up or (
+            event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter)
+            and event.modifiers() & Qt.KeyboardModifier.ShiftModifier
+        ):
+            self.window_ref.find_page_previous()
+            event.accept()
+            return
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Down):
+            self.window_ref.find_page_next()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+
 class PrivacyInterceptor(QWebEngineUrlRequestInterceptor):
     def __init__(self, window):
         super().__init__()
@@ -575,6 +599,25 @@ class LoginCaptureBridge(QObject):
             return "no"
 
 
+class BookmarkOverflowMenu(QMenu):
+    """Overflow menu that supports right-click actions on bookmark entries."""
+    def __init__(self, title, parent, window_ref):
+        super().__init__(title, parent)
+        self.window_ref = window_ref
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.RightButton:
+            action = self.actionAt(event.pos())
+            if action is not None:
+                url = action.data()
+                if url:
+                    self.window_ref.show_bookmark_context_menu(str(url), event.globalPos())
+                    event.accept()
+                    self.close()
+                    return
+        super().mousePressEvent(event)
+
+
 class BrowserView(QWebEngineView):
     def __init__(self, window):
         super().__init__()
@@ -687,6 +730,7 @@ class BrowserView(QWebEngineView):
             "cut": "Cut" if is_english else "Ausschneiden",
             "copy": "Copy" if is_english else "Kopieren",
             "paste": "Paste" if is_english else "Einfügen",
+            "find_page": "Find on this page…" if is_english else "Diese Seite durchsuchen…",
         }
 
         history = self.history()
@@ -745,6 +789,7 @@ class BrowserView(QWebEngineView):
         )
 
         menu.addSeparator()
+        menu.addAction(labels["find_page"], self.window_ref.find_in_page)
         menu.addAction(labels["save_page"], self.save_page_as)
         # Use the explicit WebEngine ViewSource action, not the native context menu.
         menu.addAction(
@@ -1062,7 +1107,56 @@ class LunaSurfer(QMainWindow):
         self.new_tab_button.setStyleSheet("font-size: 21px; font-weight: bold; color: #ffffff; background: #1769aa; border: 1px solid #5fa8e8; border-radius: 5px; margin: 1px;")
         self.new_tab_button.clicked.connect(lambda: self.add_tab(self.settings_data.get("home", "https://duckduckgo.com")))
         self.tabs.tabBar().installEventFilter(self)
-        self.setCentralWidget(self.tabs)
+        self.central_container = QWidget(self)
+        self.central_layout = QVBoxLayout(self.central_container)
+        self.central_layout.setContentsMargins(0, 0, 0, 0)
+        self.central_layout.setSpacing(0)
+        self.central_layout.addWidget(self.tabs, 1)
+        self.find_bar = QWidget(self.central_container)
+        self.find_bar.setObjectName("pageFindBar")
+        find_layout = QHBoxLayout(self.find_bar)
+        find_layout.setContentsMargins(10, 6, 10, 6)
+        find_layout.setSpacing(8)
+        self.find_input = PageFindLineEdit(self)
+        self.find_input.setPlaceholderText(self.tr("Auf dieser Seite suchen", "Find on this page"))
+        self.find_input.setMinimumWidth(260)
+        self.find_input.textChanged.connect(self._update_page_find)
+        find_layout.addWidget(self.find_input, 1)
+        self.find_count = QLabel(self.tr("Treffer 0 von 0", "Matches 0 of 0"), self.find_bar)
+        self.find_count.setMinimumWidth(150)
+        self.find_count.setFixedHeight(32)
+        self.find_count.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.find_count.setStyleSheet(
+            "QLabel { color: #ffffff; background: #31577f; "
+            "border: 1px solid #6b9dcc; border-radius: 5px; "
+            "padding: 3px 9px; font-size: 14px; font-weight: bold; }"
+        )
+        find_layout.addWidget(self.find_count)
+        self.find_prev_button = QToolButton(self.find_bar)
+        self.find_prev_button.setText("↑")
+        self.find_prev_button.setToolTip(self.tr("Vorheriger Treffer", "Previous match"))
+        self.find_prev_button.clicked.connect(self.find_page_previous)
+        find_layout.addWidget(self.find_prev_button)
+        self.find_next_button = QToolButton(self.find_bar)
+        self.find_next_button.setText("↓")
+        self.find_next_button.setToolTip(self.tr("Nächster Treffer", "Next match"))
+        self.find_next_button.clicked.connect(self.find_page_next)
+        find_layout.addWidget(self.find_next_button)
+        self.find_close_button = QToolButton(self.find_bar)
+        self.find_close_button.setText("✕")
+        self.find_close_button.setToolTip(self.tr("Suchleiste schließen", "Close find bar"))
+        self.find_close_button.clicked.connect(self.close_find_bar)
+        find_layout.addWidget(self.find_close_button)
+        self.find_bar.setStyleSheet("#pageFindBar { background: #202b3a; border-top: 1px solid #40516a; } #pageFindBar QLineEdit { padding: 7px; border: 1px solid #52657e; border-radius: 5px; } #pageFindBar QToolButton { min-width: 30px; min-height: 28px; font-size: 16px; }")
+        self.central_layout.addWidget(self.find_bar)
+        self.find_bar.hide()
+        self._find_match_count = 0
+        self._find_active_match = 0
+        self.setCentralWidget(self.central_container)
+        self.find_action = QAction(self.tr("Diese Seite durchsuchen", "Find on this page"), self)
+        self.find_action.setShortcut(QKeySequence("Ctrl+F"))
+        self.find_action.triggered.connect(self.find_in_page)
+        self.addAction(self.find_action)
         QTimer.singleShot(0, self.update_new_tab_button_position)
 
         # Chromium-style developer tools, docked to the right. A single tools
@@ -2095,6 +2189,58 @@ class LunaSurfer(QMainWindow):
         view = self.current_view()
         if view: view.load(QUrl(self.settings_data.get("home", "https://duckduckgo.com")))
 
+    def find_in_page(self):
+        """Open the persistent in-page find bar; this is not a web search."""
+        if self.current_view() is None:
+            return
+        self.find_bar.show()
+        self.find_input.setFocus()
+        self.find_input.selectAll()
+
+    def _update_page_find(self, text):
+        view = self.current_view()
+        self._find_match_count = 0
+        self._find_active_match = 0
+        if view is None or not text:
+            if view:
+                view.page().findText("")
+            self.find_count.setText(self.tr("Treffer 0 von 0", "Matches 0 of 0"))
+            return
+        self._run_page_find(text, False)
+
+    def _run_page_find(self, text, backwards=False):
+        view = self.current_view()
+        if view is None or not text:
+            return
+        flags = QWebEnginePage.FindFlag.FindBackward if backwards else QWebEnginePage.FindFlag(0)
+        def finished(result):
+            try:
+                self._find_match_count = int(result.numberOfMatches())
+                self._find_active_match = int(result.activeMatch())
+                self.find_count.setText(
+                    self.tr(
+                        f"Treffer {self._find_active_match} von {self._find_match_count}",
+                        f"Match {self._find_active_match} of {self._find_match_count}"
+                    ) if self._find_match_count else self.tr("Treffer 0 von 0", "Matches 0 of 0")
+                )
+            except Exception:
+                self.find_count.setText(self.tr("Treffer 0 von 0", "Matches 0 of 0"))
+        view.page().findText(text, flags, finished)
+
+    def find_page_next(self):
+        self._run_page_find(self.find_input.text().strip(), False)
+
+    def find_page_previous(self):
+        self._run_page_find(self.find_input.text().strip(), True)
+
+    def close_find_bar(self):
+        view = self.current_view()
+        if view:
+            view.page().findText("")
+            view.setFocus()
+        self.find_input.clear()
+        self.find_bar.hide()
+
     def add_bookmark(self):
         view = self.current_view()
         if not view: return
@@ -2136,20 +2282,25 @@ class LunaSurfer(QMainWindow):
         def add_menu_entries(menu, entries):
             for item in entries:
                 if item.get("type") == "folder" or "children" in item:
-                    sub = menu.addMenu((item.get("title") or "Ordner").strip())
+                    sub = BookmarkOverflowMenu((item.get("title") or "Ordner").strip(), menu, self)
+                    menu.addMenu(sub)
                     add_menu_entries(sub, item.get("children", []))
                 else:
                     url = item.get("url", "").strip()
                     if url:
                         title = (item.get("title") or url).strip()
                         action = menu.addAction(title)
+                        action.setData(url)
                         action.setToolTip(url)
                         action.triggered.connect(lambda checked=False, u=url: self.open_bookmark(u))
 
         def add_visible(item):
             if item.get("type") == "folder" or "children" in item:
                 title = self.bookmark_display_title(item, root=True)
-                menu = QMenu(title, self)
+                # Use the same right-click capable menu as the overflow area,
+                # so bookmarks inside folders on the visible bookmarks bar
+                # also expose Open / Edit / Delete actions.
+                menu = BookmarkOverflowMenu(title, self, self)
                 add_menu_entries(menu, item.get("children", []))
                 button = QToolButton(self.bookmarks_bar)
                 button.setText(title)
@@ -2178,7 +2329,7 @@ class LunaSurfer(QMainWindow):
             add_visible(item)
 
         if overflow:
-            more_menu = QMenu(self.tr("Weitere Lesezeichen", "More bookmarks"), self)
+            more_menu = BookmarkOverflowMenu(self.tr("Weitere Lesezeichen", "More bookmarks"), self, self)
             add_menu_entries(more_menu, overflow)
             more_button = QToolButton(self.bookmarks_bar)
             more_button.setText(self.tr("» Weitere", "» More"))
@@ -2222,7 +2373,15 @@ class LunaSurfer(QMainWindow):
 
     def edit_bookmark(self, old_url):
         items = read_json(BOOKMARKS_FILE, [])
-        item = next((x for x in items if x.get("url") == old_url), None)
+        def locate(entries):
+            for entry in entries:
+                if entry.get("url") == old_url:
+                    return entry
+                found = locate(entry.get("children", [])) if isinstance(entry.get("children"), list) else None
+                if found is not None:
+                    return found
+            return None
+        item = locate(items)
         if item is None:
             return
         title, ok = QInputDialog.getText(self, self.tr("Lesezeichen bearbeiten", "Edit bookmark"), self.tr("Name:", "Name:"), text=item.get("title", ""))
@@ -2245,7 +2404,16 @@ class LunaSurfer(QMainWindow):
         )
         if answer != QMessageBox.StandardButton.Yes:
             return
-        items = [x for x in read_json(BOOKMARKS_FILE, []) if x.get("url") != url]
+        def remove_url(entries):
+            kept = []
+            for entry in entries:
+                if entry.get("url") == url:
+                    continue
+                if isinstance(entry.get("children"), list):
+                    entry["children"] = remove_url(entry["children"])
+                kept.append(entry)
+            return kept
+        items = remove_url(read_json(BOOKMARKS_FILE, []))
         write_json(BOOKMARKS_FILE, items)
         self.refresh_bookmarks_bar()
         self.statusBar().showMessage(self.tr("Lesezeichen gelöscht", "Bookmark deleted"), 3000)
@@ -3204,11 +3372,15 @@ class LunaSurfer(QMainWindow):
                         break
                 self.save_download_history()
                 self.statusBar().showMessage(f"Download fertig: {target.name}", 8000)
-                QMessageBox.information(
-                    self,
-                    "Download fertig",
-                    f"Der Download wurde abgeschlossen:\n{target.name}\n\nGespeichert in:\n{target.parent}"
-                )
+                if self.settings_data.get("show_download_complete_popup", True):
+                    QMessageBox.information(
+                        self,
+                        self.tr("Download fertig", "Download complete"),
+                        self.tr("Der Download wurde abgeschlossen:", "The download has finished:")
+                        + f"\n{target.name}\n\n"
+                        + self.tr("Gespeichert in:", "Saved in:")
+                        + f"\n{target.parent}"
+                    )
         download.isFinishedChanged.connect(check_finished)
 
     def open_downloads(self):
@@ -3298,9 +3470,43 @@ class LunaSurfer(QMainWindow):
         return any(self._password_hosts_match(candidate, wanted)
                    for candidate in candidates for wanted in site_keys if candidate and wanted)
 
-    def _password_key(self, master_password, salt):
-        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=600000)
-        return base64.urlsafe_b64encode(kdf.derive(master_password.encode("utf-8")))
+    # New vaults use Argon2id. Existing version-1 vaults without a KDF marker
+    # remain readable as PBKDF2-HMAC-SHA256 and are migrated after successful unlock.
+    PASSWORD_KDF = "argon2id"
+    ARGON2_TIME_COST = 3
+    ARGON2_MEMORY_COST = 65536  # KiB (64 MiB)
+    ARGON2_PARALLELISM = 1
+
+    def _password_key(self, master_password, salt, kdf_name="argon2id", params=None):
+        params = params or {}
+        if kdf_name == "pbkdf2-sha256":
+            iterations = int(params.get("iterations", 600000))
+            kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=iterations)
+            raw = kdf.derive(master_password.encode("utf-8"))
+        elif kdf_name == "argon2id":
+            raw = hash_secret_raw(
+                secret=master_password.encode("utf-8"),
+                salt=salt,
+                time_cost=int(params.get("time_cost", self.ARGON2_TIME_COST)),
+                memory_cost=int(params.get("memory_cost", self.ARGON2_MEMORY_COST)),
+                parallelism=int(params.get("parallelism", self.ARGON2_PARALLELISM)),
+                hash_len=32,
+                type=Argon2Type.ID,
+                version=19,
+            )
+        else:
+            raise ValueError("Unsupported password KDF")
+        return base64.urlsafe_b64encode(raw)
+
+    def _password_kdf_metadata(self):
+        return {
+            "kdf": self.PASSWORD_KDF,
+            "kdf_params": {
+                "time_cost": self.ARGON2_TIME_COST,
+                "memory_cost": self.ARGON2_MEMORY_COST,
+                "parallelism": self.ARGON2_PARALLELISM,
+            },
+        }
 
     @staticmethod
     def _secure_password_storage_permissions():
@@ -3326,13 +3532,23 @@ class LunaSurfer(QMainWindow):
                 return False
             try:
                 salt = base64.b64decode(data["salt"])
-                fernet = Fernet(self._password_key(master, salt))
+                old_kdf = data.get("kdf", "pbkdf2-sha256")
+                old_params = data.get("kdf_params") or ({"iterations": 600000} if old_kdf in ("pbkdf2-sha256", "PBKDF2-HMAC-SHA256") else {})
+                if old_kdf == "PBKDF2-HMAC-SHA256":
+                    old_kdf = "pbkdf2-sha256"
+                fernet = Fernet(self._password_key(master, salt, old_kdf, old_params))
                 payload = json.loads(fernet.decrypt(data["token"].encode()).decode("utf-8"))
             except (InvalidToken, ValueError, KeyError, TypeError, json.JSONDecodeError):
-                QMessageBox.warning(self, self.tr("Falsches Passwort", "Incorrect password"), self.tr("Das Master-Passwort ist falsch oder die Passwortdatei beschädigt.", "The master password is incorrect or the password file is damaged."))
+                QMessageBox.warning(self, self.tr("Falsches Passwort", "Incorrect password"), self.tr("Das Master-Passwort ist falsch oder die Passwortdatei beschädigt.", "The master password is incorrect or the vault is damaged."))
                 return False
             self._password_fernet = fernet
             self._password_entries = payload if isinstance(payload, list) else []
+            if old_kdf != self.PASSWORD_KDF:
+                # Re-encrypt only after successful legacy decryption. A fresh salt
+                # and Argon2id-derived key upgrade the vault without losing entries.
+                new_salt = secrets.token_bytes(16)
+                self._password_fernet = Fernet(self._password_key(master, new_salt))
+                self._save_password_entries(new_salt)
         else:
             first, ok = QInputDialog.getText(self, self.tr("Passwortmanager einrichten", "Set up password manager"), self.tr("Neues Master-Passwort (mindestens 10 Zeichen):", "New master password (at least 10 characters):"), QLineEdit.EchoMode.Password)
             if not ok:
@@ -3357,12 +3573,13 @@ class LunaSurfer(QMainWindow):
             try: salt = base64.b64decode(old["salt"])
             except Exception: salt = secrets.token_bytes(16)
         token = self._password_fernet.encrypt(json.dumps(self._password_entries, ensure_ascii=False).encode()).decode()
-        write_json(PASSWORDS_FILE, {"version": 1, "salt": base64.b64encode(salt).decode(), "token": token})
+        envelope = {"version": 2, "salt": base64.b64encode(salt).decode(), "token": token}
+        envelope.update(self._password_kdf_metadata())
+        write_json(PASSWORDS_FILE, envelope)
         self._secure_password_storage_permissions()
 
     def _password_export_key(self, export_password, salt):
-        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=600000)
-        return base64.urlsafe_b64encode(kdf.derive(export_password.encode("utf-8")))
+        return self._password_key(export_password, salt, self.PASSWORD_KDF, self._password_kdf_metadata()["kdf_params"])
 
     def _password_vault_file_dialog(self, save=False):
         """Show a Qt-localized file dialog instead of untranslated native OS labels."""
@@ -3498,7 +3715,7 @@ class LunaSurfer(QMainWindow):
                                   "entries": self._password_entries},
                                  ensure_ascii=False).encode("utf-8")
             envelope = {"format": "LunaSurferEncryptedVault", "version": 1,
-                        "kdf": "PBKDF2-HMAC-SHA256", "iterations": 600000,
+                        **self._password_kdf_metadata(),
                         "salt": base64.b64encode(salt).decode("ascii"),
                         "token": cipher.encrypt(payload).decode("ascii")}
             pathlib.Path(path).write_text(json.dumps(envelope, indent=2), encoding="utf-8")
@@ -3530,7 +3747,11 @@ class LunaSurfer(QMainWindow):
             salt = base64.b64decode(envelope["salt"], validate=True)
             if len(salt) != 16:
                 raise ValueError("Invalid salt")
-            cipher = Fernet(self._password_export_key(export_password, salt))
+            export_kdf = envelope.get("kdf", "pbkdf2-sha256")
+            export_params = envelope.get("kdf_params") or ({"iterations": int(envelope.get("iterations", 600000))} if export_kdf in ("pbkdf2-sha256", "PBKDF2-HMAC-SHA256") else {})
+            if export_kdf == "PBKDF2-HMAC-SHA256":
+                export_kdf = "pbkdf2-sha256"
+            cipher = Fernet(self._password_key(export_password, salt, export_kdf, export_params))
             payload = json.loads(cipher.decrypt(envelope["token"].encode("ascii")).decode("utf-8"))
             imported = payload.get("entries") if payload.get("format") == "LunaSurferEncryptedVault" else None
             if not isinstance(imported, list):
@@ -4722,6 +4943,8 @@ class LunaSurfer(QMainWindow):
         for value in (50,67,75,80,90,100,110,125,150,175,200): zoom.addItem(f"{value} %",value)
         zoom.setCurrentIndex(max(0,zoom.findData(int(self.settings_data.get("default_zoom",100)))))
         ask_download=QCheckBox(self.tr("Bei jedem Download nach dem Speicherort fragen", "Ask where to save each download")); ask_download.setChecked(self.settings_data.get("ask_download_location",False))
+        show_download_complete_popup = QCheckBox(self.tr("Popup nach Abschluss eines Downloads anzeigen", "Show popup when a download finishes"))
+        show_download_complete_popup.setChecked(self.settings_data.get("show_download_complete_popup", True))
         font_size=QComboBox()
         font_sizes=[("Klein","Small"),("Mittel","Medium"),("Groß","Large"),("Sehr groß","Very large")]
         saved_font=self.settings_data.get("font_size", "Mittel")
@@ -4778,7 +5001,7 @@ class LunaSurfer(QMainWindow):
             # clipping of headings such as 'Sicherheit und Berechtigungen'.
             form.addRow(label)
         add_section(self.tr("Allgemein", "General"))
-        form.addRow(self.tr("Sprache:", "Language:"), language); form.addRow(self.tr("Beim Start:", "On startup:"),startup); form.addRow(self.tr("Startseite:", "Homepage:"),home); form.addRow(self.tr("Suchmaschine:", "Search engine:"),engine); form.addRow(self.tr("Übersetzungsanbieter:", "Translation provider:"), translation_provider); form.addRow("", translation_help); form.addRow(self.tr("Browser-Design:", "Browser design:"),browser_design); form.addRow(self.tr("Webseiten-Design:", "Website appearance:"),theme); form.addRow("",show_bookmarks_bar); form.addRow(self.tr("Download-Ordner:", "Download folder:"),row); form.addRow("",ask_download); form.addRow(self.tr("Standard-Zoom:", "Default zoom:"),zoom); form.addRow(self.tr("Standard-Schriftgröße:", "Default font size:"),font_size); form.addRow(self.tr("Webseiten-Lesbarkeit:", "Website readability:"), readability); form.addRow(self.tr("Webseiten-Farbgebung:", "Website colors:"), website_color)
+        form.addRow(self.tr("Sprache:", "Language:"), language); form.addRow(self.tr("Beim Start:", "On startup:"),startup); form.addRow(self.tr("Startseite:", "Homepage:"),home); form.addRow(self.tr("Suchmaschine:", "Search engine:"),engine); form.addRow(self.tr("Übersetzungsanbieter:", "Translation provider:"), translation_provider); form.addRow("", translation_help); form.addRow(self.tr("Browser-Design:", "Browser design:"),browser_design); form.addRow(self.tr("Webseiten-Design:", "Website appearance:"),theme); form.addRow("",show_bookmarks_bar); add_section(self.tr("Downloads", "Downloads")); form.addRow(self.tr("Download-Ordner:", "Download folder:"),row); form.addRow("",ask_download); form.addRow("",show_download_complete_popup); form.addRow(self.tr("Standard-Zoom:", "Default zoom:"),zoom); form.addRow(self.tr("Standard-Schriftgröße:", "Default font size:"),font_size); form.addRow(self.tr("Webseiten-Lesbarkeit:", "Website readability:"), readability); form.addRow(self.tr("Webseiten-Farbgebung:", "Website colors:"), website_color)
         add_section(self.tr("Sicherheit und Berechtigungen", "Security and permissions"))
         form.addRow(self.tr("Sicherheit:", "Security:"),block); form.addRow("", javascript)
         add_section(self.tr("User-Agent-Verwaltung", "User-Agent management"))
@@ -4854,7 +5077,7 @@ class LunaSurfer(QMainWindow):
         add_section(self.tr("Datenschutz und Browserdaten", "Privacy and browser data"))
         form.addRow(self.tr("Cookie-Modus:", "Cookie mode:"), cookie_mode); form.addRow(self.tr("Browserdaten:", "Browser data:"),privacy); form.addRow("", clear_all); form.addRow("",clear_history_exit); form.addRow("",clear_cache_exit); form.addRow("",clear_cookies_exit); form.addRow("",remember_window_size); form.addRow("",default_browser); a.clicked.connect(self.clear_history); b.clicked.connect(self.clear_cache); c.clicked.connect(self.clear_cookies); clear_all.clicked.connect(self.clear_all_browser_data)
         buttons=QHBoxLayout(); save=QPushButton(self.tr("Speichern", "Save")); cancel=QPushButton(self.tr("Abbrechen", "Cancel")); buttons.addWidget(save); buttons.addWidget(cancel); form.addRow(buttons)
-        save.clicked.connect(lambda:self.save_settings_v39(page,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData(),default_browser.isChecked(),browser_design.currentData(),javascript.isChecked(),cookie_mode.currentData(),password_auto_save.isChecked(),password_unlock_required.isChecked(),readability.currentData(),website_color.currentData(),ua_mode.currentData(),ua_custom.text(),translation_provider.currentData()))
+        save.clicked.connect(lambda:self.save_settings_v39(page,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData(),default_browser.isChecked(),browser_design.currentData(),javascript.isChecked(),cookie_mode.currentData(),password_auto_save.isChecked(),password_unlock_required.isChecked(),readability.currentData(),website_color.currentData(),ua_mode.currentData(),ua_custom.text(),translation_provider.currentData(),show_download_complete_popup.isChecked()))
         cancel.clicked.connect(lambda: self.close_settings_page(page))
 
     def close_settings_page(self, page):
@@ -4866,14 +5089,14 @@ class LunaSurfer(QMainWindow):
                 self.add_tab(self.settings_data.get("home"))
             QTimer.singleShot(0, self.update_new_tab_button_position)
 
-    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de", default_browser=False, browser_design="dark", javascript_enabled=True, cookie_mode="all", password_auto_save=True, password_unlock_required=True, website_readability="normal", website_color_mode="normal", user_agent_mode="privacy", user_agent_custom="", translation_provider="google"):
+    def save_settings_v39(self, dialog, home, engine_name, search_url, theme, bookmarks, startup_mode, download_dir, ask_download, zoom, font_size, block, dnt, confirm_tabs, permissions, ch, cc, ck, remember_window_size=True, language="de", default_browser=False, browser_design="dark", javascript_enabled=True, cookie_mode="all", password_auto_save=True, password_unlock_required=True, website_readability="normal", website_color_mode="normal", user_agent_mode="privacy", user_agent_custom="", translation_provider="google", show_download_complete_popup=True):
         if user_agent_mode == "custom" and not str(user_agent_custom).strip():
             QMessageBox.warning(self, self.tr("User-Agent fehlt", "User-Agent missing"), self.tr("Bitte einen vollständigen User-Agent eintragen oder einen anderen Modus auswählen.", "Enter a complete User-Agent or select another mode."))
             return
         chosen=pathlib.Path(download_dir.strip() or str(DOWNLOAD_DIR)).expanduser()
         previous_translation_provider = self.settings_data.get("translation_provider", "google")
         selected_translation_provider = translation_provider if translation_provider in ("google", "mymemory") else "google"
-        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"javascript_enabled":bool(javascript_enabled),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"cookie_mode":cookie_mode if cookie_mode in ("all","third","none","session") else "all","remember_window_size":bool(remember_window_size),"language":language or "de","default_browser":bool(default_browser),"browser_design":browser_design if browser_design in ("dark", "light", "luna", "graphite", "ocean") else "dark","password_auto_save":bool(password_auto_save),"password_unlock_required":bool(password_unlock_required),"website_readability": website_readability if website_readability in ("normal", "soft", "softer", "relaxed") else "normal", "website_color_mode": website_color_mode if website_color_mode in ("normal", "black") else "normal", "user_agent_mode": user_agent_mode if user_agent_mode in ("privacy", "native", "custom") else "privacy", "user_agent_custom": str(user_agent_custom).strip(), "translation_provider": selected_translation_provider,**permissions})
+        self.settings_data.update({"home":home.strip() or "https://duckduckgo.com","search":search_url,"search_engine":engine_name,"theme":theme,"show_bookmarks_bar":bool(bookmarks),"startup_mode":startup_mode,"restore_session":startup_mode=="restore","download_dir":str(chosen),"default_zoom":int(zoom or 100),"font_size":font_size,"ask_download_location":bool(ask_download),"block_popups":bool(block),"javascript_enabled":bool(javascript_enabled),"send_dnt":bool(dnt),"confirm_close_multiple_tabs":bool(confirm_tabs),"clear_history_on_exit":bool(ch),"clear_cache_on_exit":bool(cc),"clear_cookies_on_exit":bool(ck),"cookie_mode":cookie_mode if cookie_mode in ("all","third","none","session") else "all","remember_window_size":bool(remember_window_size),"language":language or "de","default_browser":bool(default_browser),"browser_design":browser_design if browser_design in ("dark", "light", "luna", "graphite", "ocean") else "dark","password_auto_save":bool(password_auto_save),"password_unlock_required":bool(password_unlock_required),"website_readability": website_readability if website_readability in ("normal", "soft", "softer", "relaxed") else "normal", "website_color_mode": website_color_mode if website_color_mode in ("normal", "black") else "normal", "user_agent_mode": user_agent_mode if user_agent_mode in ("privacy", "native", "custom") else "privacy", "user_agent_custom": str(user_agent_custom).strip(), "translation_provider": selected_translation_provider,"show_download_complete_popup":bool(show_download_complete_popup),**permissions})
         self.download_dir=chosen
         write_json(CONFIG_FILE, self.settings_data)
 

@@ -1,5 +1,15 @@
 Changelog
 
+# LunaSurfer 0.3.41 – ARGON2ID-PASSWORTTRESOR
+- Neue Passworttresore verwenden Argon2id (64 MiB Speicher, 3 Durchläufe, Parallelität 1) zur Schlüsselableitung; die eigentliche Fernet-Verschlüsselung bleibt erhalten.
+- Bestehende PBKDF2-HMAC-SHA256-Tresore werden nach erfolgreichem Entsperren automatisch mit frischem Salt auf Argon2id migriert.
+- Alte verschlüsselte Exporte mit PBKDF2 bleiben importierbar; neue Exporte verwenden Argon2id.
+- Debian-Abhängigkeit `python3-argon2` ergänzt; README und Paketmetadaten aktualisiert.
+- Rechtsklick auf Lesezeichen im Menü „Weitere“ ermöglicht Öffnen, Bearbeiten und Löschen, auch innerhalb von Lesezeichenordnern.
+- Dasselbe Rechtsklick-Menü (Öffnen, Bearbeiten, Löschen) ist jetzt auch für Lesezeichen innerhalb der Ordner in der sichtbaren Lesezeichenleiste verfügbar.
+- Unter Einstellungen → Downloads kann das Popup nach Abschluss eines Downloads dauerhaft ein- oder ausgeschaltet werden. Die Einstellung wird gespeichert und beim nächsten Start wiederverwendet.
+- „Diese Seite durchsuchen…“ im Webseiten-Kontextmenü sucht Text auf der aktuell geöffneten Seite und hebt Treffer hervor.
+
 # LunaSurfer 0.3.40
 - Unterdrücken Sie nach dem Abbrechen einer automatischen Aufforderung zum Entsperren des Passwort-Managers, weitere automatische Aufforderungen für 60 Sekunden. Die manuelle Öffnung bleibt sofort verfügbar.
 
@@ -368,3 +378,12 @@ Changelog
 - Password updates now match the exact canonical website key and username only.
 - A shared email address or unrelated/stale related URL can no longer update another site’s saved login.
 - Existing cross-site authentication metadata is preserved without using it to select an entry for update.
+
+## 0.3.41
+- Added right-click actions (open, edit, delete) for bookmarks inside the “Weitere” overflow menu, including bookmarks in folders.
+- Added “Diese Seite durchsuchen…” to the webpage context menu to find and highlight text on the currently open page.
+\n- Reworked the in-page search into a persistent browser find bar with live highlighting, match counter, previous/next controls, and Ctrl+F.\n
+
+### 0.3.41 – PAGE_FIND_COUNT_VISIBILITY
+- Die Trefferanzeige der Seitensuche ist jetzt deutlich größer und kontrastreicher.
+- Anzeige im Format „Treffer X von Y“ (Deutsch) bzw. „Match X of Y“ (Englisch).

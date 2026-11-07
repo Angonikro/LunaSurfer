@@ -1,4 +1,4 @@
-# LunaSurfer 0.3.40
+# LunaSurfer 0.3.41
 
 Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 
@@ -17,7 +17,7 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 - Lesezeichen und Verlauf werden dauerhaft gespeichert
 - Lesezeichenleiste kann unter **Menü → Einstellungen** ein- oder ausgeblendet werden
 - Lesezeichen können im standardmäßigen Chromium/Netscape-HTML-Format einschließlich Ordnerstruktur exportiert und aus einer Chromium-kompatiblen HTML-Datei importiert werden. Beim Zusammenführen werden doppelte URLs vermieden und die Lesezeichenleisten-Root korrekt behandelt.
-- Deutsche Kontextmenüs für die rechte Maustaste, erweitert um Seitenaktionen und Entwicklerwerkzeuge
+- Kontextmenü der rechten Maustaste mit „Diese Seite durchsuchen…“ zum Suchen und Hervorheben von Begriffen auf der aktuell geöffneten Webseite; außerdem Seitenaktionen und Entwicklerwerkzeuge
 - Entwicklerwerkzeuge mit F12, rechts angedockt und mindestens 590 px breit (ca. 15,6 cm); DOM-Inspektor, Konsole und Netzwerk je nach QtWebEngine-Version)
 - Erweiterter Download-Manager mit Fortschritt, Prozent, Größe, Geschwindigkeit, Abbrechen, Datei/Ordner öffnen sowie Listen- und Dateilöschung
 - Kleines Hinweisfenster, sobald ein Download vollständig abgeschlossen ist
@@ -30,14 +30,14 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 - Widevine-Unterstützung, wenn das CDM auf dem System vorhanden ist
 - In den Einstellungen kann gewählt werden, ob LunaSurfer Fenstergröße und Fensterposition beim Beenden speichern und beim nächsten Start wiederherstellen soll.
 - Integrierter Adblocker mit fünf Stufen: Standard, Stark, Sehr stark, Super stark und Mega stark; inklusive eigener Blockiermuster und Whitelist
-- Passwortmanager
+- Passwortmanager mit Argon2id-Schlüsselableitung, 64 MiB Speicherbedarf und automatischer Migration vorhandener PBKDF2-Tresore
 - User-Agent-Verwaltung: Datenschutz-Standard, nativer QtWebEngine-User-Agent oder eigener User-Agent; Änderungen werden ohne Browserneustart übernommen
 - Webseiten-Übersetzung über die Schaltfläche „文“: ganze Seiten in 12 Zielsprachen übersetzen und zur Originalseite zurückkehren (Google Übersetzer; Internetverbindung erforderlich)
 - usw.
 
 ## Lesezeichen bearbeiten und verwalten
 
-- Mit der **rechten Maustaste auf ein Lesezeichen in der Lesezeichenleiste** kannst du es öffnen, bearbeiten oder löschen.
+- Mit der **rechten Maustaste auf ein Lesezeichen in der Lesezeichenleiste oder im Menü „Weitere“** kannst du es öffnen, bearbeiten oder löschen.
 - Unter **Menü → Lesezeichen verwalten** kannst du gespeicherte Lesezeichen öffnen, bearbeiten und löschen. Der Manager bietet eine aufklappbare Ordnerstruktur, Suche nach Namen und Adressen sowie Import und Export.
 
 ## Speicherorte
@@ -50,15 +50,17 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 
 ## Abhängigkeiten (Debian 13)
 
+Zusätzlich zu `python3-cryptography` wird `python3-argon2` für Argon2id benötigt. Vorhandene PBKDF2-Tresore werden beim ersten erfolgreichen Entsperren automatisch auf Argon2id umgestellt. Alte verschlüsselte Exporte mit PBKDF2 bleiben importierbar.
+
 ```bash
 sudo apt update
-sudo apt install python3 python3-pyside6.qtwidgets python3-pyside6.qtwebenginewidgets python3-pyside6.qtwebchannel python3-cryptography xdg-utils
+sudo apt install python3 python3-pyside6.qtwidgets python3-pyside6.qtwebenginewidgets python3-pyside6.qtwebchannel python3-cryptography python3-argon2 xdg-utils
 ```
 
 ## Installation
 
 ```bash
-sudo apt install ./lunasurfer_0.3.40_all.deb
+sudo apt install ./lunasurfer_0.3.41_all.deb
 ```
 
 ## Start aus dem Quellcode
