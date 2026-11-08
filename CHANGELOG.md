@@ -1,6 +1,6 @@
 Changelog
 
-# LunaSurfer 0.3.45 – AKTUALISIEREN-ABBRECHEN WIEDERHERGESTELLT - ULTRA-STARK-ADBLOCKER HINZUGEFÜGT – MEGA-STARK-ADBLOCKER VERSTÄRKT - DOWNLOAD-STATUS NACH NEUSTART KORRIGIERT
+# LunaSurfer 0.3.45 – AKTUALISIEREN-ABBRECHEN WIEDERHERGESTELLT - ULTRA-STARK-ADBLOCKER HINZUGEFÜGT – MEGA-STARK-ADBLOCKER VERSTÄRKT - DOWNLOAD-STATUS NACH NEUSTART KORRIGIERT - LESEZEICHENLEISTEN VERBESSERT
  
 – AKTUALISIEREN-/ABBRECHEN-SCHALTFLÄCHE WIEDERHERGESTELLT
 - Die Navigationsschaltfläche wechselt während des Seitenladens wieder vom Aktualisieren-Symbol zum X-/Stopp-Symbol und zeigt „Laden abbrechen“ als Tooltip.
@@ -26,6 +26,7 @@ Changelog
 - Unvollständige Dateien bleiben weiterhin als fehlgeschlagen bzw. unterbrochen gekennzeichnet; abgebrochene Downloads werden nicht als erfolgreich ausgegeben.
 - Die Statusprüfung während eines Downloads berücksichtigt ebenfalls, ob die Zieldatei bereits vollständig geschrieben wurde.
 - Pause/Fortsetzen, Download-Verlauf und die übrigen Download-Manager-Funktionen bleiben erhalten.
+- Lesezeichenleisten verbesser, sie füllen bei vielen Lesezeichen nicht mehr den Bildschirm.
 
 # LunaSurfer 0.3.44 – DOWNLOAD-MANAGER FEINSCHLIFF
 
