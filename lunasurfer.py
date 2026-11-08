@@ -3066,7 +3066,7 @@ class LunaSurfer(QMainWindow):
         dialog.exec()
 
     def load_download_history(self):
-        """Restore completed downloads from ~/.local/share/lunasurfer/downloads.json."""
+        """Restore persistent download records without pretending interrupted jobs resumed."""
         records = read_json(DOWNLOADS_FILE, [])
         if not isinstance(records, list):
             records = []
@@ -3075,28 +3075,60 @@ class LunaSurfer(QMainWindow):
                 continue
             target = pathlib.Path(record["target"]).expanduser()
             stored = dict(record)
+            # Legacy history files had no status field. Infer success only
+            # when the downloaded file is still present on disk.
+            status = stored.get("status") or ("completed" if target.is_file() else "failed")
             self.download_items.append({
+                "id": stored.get("id") or secrets.token_hex(12),
                 "download": StoredDownload(stored), "target": target,
                 "last_bytes": int(stored.get("received", 0) or 0),
                 "last_time": time.monotonic(), "speed": 0, "stored": True,
+                "status": status,
                 "downloaded_at": stored.get("downloaded_at", "")
             })
 
+    @staticmethod
+    def _download_status(item):
+        """Return a stable UI status; a finished Qt request is not always successful."""
+        download = item.get("download")
+        if item.get("stored") or item.get("status") == "interrupted":
+            return item.get("status", "completed")
+        if not download:
+            return "failed"
+        try:
+            state = str(download.state()).casefold()
+        except Exception:
+            state = ""
+        if "cancel" in state:
+            return "cancelled"
+        if "interrupt" in state or "fail" in state:
+            return "failed"
+        if download.isFinished():
+            return "completed" if item.get("target") and pathlib.Path(item["target"]).is_file() else "failed"
+        if bool(getattr(download, "isPaused", lambda: False)()):
+            return "paused"
+        return "active"
+
     def save_download_history(self):
-        """Persist completed downloads only; never serialize live Qt objects."""
+        """Persist history and terminal outcomes; live Qt objects are never serialized."""
         records = []
         for item in self.download_items:
             download = item.get("download")
-            if not download or not download.isFinished():
+            if not download:
+                continue
+            status = self._download_status(item)
+            if status not in ("completed", "cancelled", "failed", "interrupted"):
                 continue
             target = item.get("target")
             if not target:
                 continue
-            received = int(getattr(download, "receivedBytes", lambda: 0)() or 0)
-            total = int(getattr(download, "totalBytes", lambda: 0)() or received)
+            received = int(getattr(download, "receivedBytes", lambda: item.get("last_bytes", 0))() or 0)
+            total = int(getattr(download, "totalBytes", lambda: 0)() or 0)
             records.append({
+                "id": item.get("id") or secrets.token_hex(12),
                 "target": str(target), "received": received, "total": total,
-                "downloaded_at": item.get("downloaded_at") or time.strftime("%Y-%m-%d %H:%M:%S")
+                "status": status,
+                "downloaded_at": item.get("downloaded_at", "")
             })
         write_json(DOWNLOADS_FILE, records)
 
@@ -3174,7 +3206,9 @@ class LunaSurfer(QMainWindow):
         filter_box = QComboBox()
         filter_box.addItem(self.tr("Alle Downloads", "All downloads"), "all")
         filter_box.addItem(self.tr("Laufen", "In progress"), "active")
+        filter_box.addItem(self.tr("Pausiert", "Paused"), "paused")
         filter_box.addItem(self.tr("Abgeschlossen", "Completed"), "finished")
+        filter_box.addItem(self.tr("Fehlgeschlagen / abgebrochen", "Failed / cancelled"), "failed")
         search = QLineEdit()
         search.setPlaceholderText(self.tr("Dateiname oder Pfad suchen …", "Search filename or path …"))
         search.setClearButtonEnabled(True)
@@ -3184,40 +3218,73 @@ class LunaSurfer(QMainWindow):
 
         lst = QListWidget()
         lst.setSpacing(9)
+        lst.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         lst.setStyleSheet("QListWidget { background:transparent; border:0; outline:0; }")
         layout.addWidget(lst, 1)
 
         def fmt(n):
+            # Decimal units (1 MB = 1,000,000 bytes), matching common
+            # download-speed displays and avoiding mislabeled 1024-based units.
             units = ["B", "KB", "MB", "GB", "TB"]
             n = float(max(0, n)); i = 0
-            while n >= 1024 and i < len(units) - 1:
-                n /= 1024; i += 1
+            while n >= 1000 and i < len(units) - 1:
+                n /= 1000; i += 1
             return f"{n:.1f} {units[i]}"
 
         def actual_selected():
             qitem = lst.currentItem()
             if qitem is None:
                 return None, -1
-            idx = qitem.data(Qt.ItemDataRole.UserRole)
-            return (self.download_items[idx], idx) if isinstance(idx, int) and 0 <= idx < len(self.download_items) else (None, -1)
+            stable_id = qitem.data(Qt.ItemDataRole.UserRole)
+            for index, entry in enumerate(self.download_items):
+                if entry.get("id") == stable_id:
+                    return entry, index
+            return None, -1
 
         def update_row(item, now):
             """Update an existing download card without replacing its widget."""
             download = item["download"]
             received = getattr(download, "receivedBytes", lambda: 0)()
             total = getattr(download, "totalBytes", lambda: 0)()
-            finished = download.isFinished()
-            paused = bool(getattr(download, "isPaused", lambda: False)()) if not finished else False
-            if not finished:
-                last_bytes = item.get("last_bytes", received)
-                last_time = item.get("last_time", now)
-                dt = max(now - last_time, 0.001)
-                speed = max(0, received - last_bytes) / dt
+            status = self._download_status(item)
+            finished = status in ("completed", "cancelled", "failed", "interrupted")
+            paused = status == "paused"
+            if not finished and not paused:
+                # Measure the real byte delta over a rolling time window.
+                # Qt's receivedBytes() is cumulative; do not blend rates or
+                # apply artificial decay factors, which distort the result.
+                samples = item.setdefault("_speed_samples", [])
+                if not samples:
+                    samples.append((now, received))
+                else:
+                    last_sample_time, last_sample_bytes = samples[-1]
+                    # A counter reset can occur after a restarted transfer.
+                    if received < last_sample_bytes:
+                        samples.clear()
+                        samples.append((now, received))
+                    elif now > last_sample_time:
+                        samples.append((now, received))
+
+                # Keep enough history for a stable ~2.4 s measurement.
+                cutoff = now - 2.4
+                while len(samples) > 2 and samples[1][0] < cutoff:
+                    samples.pop(0)
+
+                if len(samples) >= 2:
+                    first_time, first_bytes = samples[0]
+                    elapsed = now - first_time
+                    speed = max(0, received - first_bytes) / elapsed if elapsed >= 0.8 else 0
+                else:
+                    speed = 0
+                # If no bytes arrive for a full measurement window, show 0.
+                if samples and now - samples[-1][0] >= 2.4:
+                    speed = 0
                 item["speed"] = speed
                 item["last_bytes"] = received
                 item["last_time"] = now
             else:
                 speed = 0
+                item["speed"] = 0
 
             percent = int(received * 100 / total) if total and total > 0 else (100 if finished else 0)
             ui = item.get("_download_ui")
@@ -3240,24 +3307,30 @@ class LunaSurfer(QMainWindow):
             elif item.get("downloaded_at"):
                 details_text += f"   ·   {item['downloaded_at']}"
             ui["details"].setText(details_text)
-            state_text = self.tr("Fertig", "Completed") if finished else (self.tr("Pausiert", "Paused") if paused else f"{percent} %")
+            state_labels = {
+                "completed": self.tr("Fertig", "Completed"),
+                "cancelled": self.tr("Abgebrochen", "Cancelled"),
+                "failed": self.tr("Fehlgeschlagen", "Failed"),
+                "interrupted": self.tr("Unterbrochen", "Interrupted"),
+                "paused": self.tr("Pausiert", "Paused"),
+            }
+            state_text = state_labels.get(status, f"{percent} %")
             ui["state"].setText(state_text)
+            state_color = {
+                "completed": "background:#153d32; color:#5ce0a8;",
+                "cancelled": "background:#49302d; color:#ffb3a8;",
+                "failed": "background:#49302d; color:#ff8f86;",
+                "interrupted": "background:#49302d; color:#ffb3a8;",
+                "paused": "background:#51401f; color:#ffd27a;",
+            }.get(status, "background:#173954; color:#73c7ff;")
             ui["state"].setStyleSheet(
-                ("background:#153d32; color:#5ce0a8;" if finished else ("background:#51401f; color:#ffd27a;" if paused else "background:#173954; color:#73c7ff;"))
+                state_color
                 + "border:0; border-radius:8px; padding:7px 9px; font-size:11px; font-weight:800;"
             )
             if ui.get("pause") is not None:
                 ui["pause"].setText(self.tr("▶ Fortsetzen", "▶ Resume") if paused else self.tr("Ⅱ Pause", "Ⅱ Pause"))
                 ui["pause"].setEnabled(not finished)
                 ui["pause"].setStyleSheet("background:#254b3d; border:1px solid #398c6c; color:#9af0c7; border-radius:8px; padding:7px 9px; font-weight:700;" if paused else "background:#263f59; border:1px solid #47749c; color:#a8d9ff; border-radius:8px; padding:7px 9px; font-weight:700;")
-            selected_index = lst.currentItem().data(Qt.ItemDataRole.UserRole) if lst.currentItem() else None
-            row_index = next((i for i, entry in enumerate(self.download_items) if entry is item), None)
-            selected = row_index == selected_index
-            ui["card"].setStyleSheet(
-                "QWidget#downloadCard { background:#294968; border:3px solid #70c5ff; border-radius:12px; }" if selected else
-                "QWidget#downloadCard { background:#202733; border:1px solid #303c4d; border-radius:12px; }"
-            )
-
         def toggle_download(download):
             if download.isFinished():
                 return
@@ -3276,8 +3349,9 @@ class LunaSurfer(QMainWindow):
             card.setStyleSheet("QWidget#downloadCard { background:#202733; border:1px solid #303c4d; border-radius:12px; }")
             card.setObjectName("downloadCard")
             outer = QHBoxLayout(card)
-            outer.setContentsMargins(14, 12, 14, 12)
-            outer.setSpacing(13)
+            outer.setContentsMargins(10, 10, 10, 10)
+            outer.setSpacing(8)
+            card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
             suffix = target.suffix.lower().replace(".", "").upper() or "FILE"
             file_icon = QLabel(suffix[:4])
@@ -3290,15 +3364,19 @@ class LunaSurfer(QMainWindow):
             text_col.setSpacing(4)
             name = QLabel(target.name)
             name.setToolTip(str(target))
+            name.setMinimumWidth(0)
+            name.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
             name.setStyleSheet("font-size:14px; font-weight:700; color:#f3f6fb; border:0;")
             name.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             path_label = QLabel(str(target.parent))
             path_label.setToolTip(str(target.parent))
+            path_label.setMinimumWidth(0)
+            path_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
             path_label.setStyleSheet("font-size:11px; color:#8f9daf; border:0;")
             path_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             text_col.addWidget(name)
             text_col.addWidget(path_label)
-            outer.addLayout(text_col, 2)
+            outer.addLayout(text_col, 3)
 
             progress_col = QVBoxLayout()
             progress_col.setSpacing(7)
@@ -3306,19 +3384,24 @@ class LunaSurfer(QMainWindow):
             bar.setRange(0, 100)
             bar.setTextVisible(False)
             details = QLabel()
+            details.setMinimumWidth(0)
+            details.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
             details.setStyleSheet("font-size:11px; color:#aab6c5; border:0;")
             progress_col.addWidget(bar)
             progress_col.addWidget(details)
             outer.addLayout(progress_col, 2)
 
             pause_btn = QPushButton(self.tr("Ⅱ Pause", "Ⅱ Pause"))
-            pause_btn.setMinimumWidth(112)
+            pause_btn.setMinimumWidth(92)
+            pause_btn.setMaximumWidth(104)
+            pause_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             pause_btn.clicked.connect(lambda checked=False, d=item["download"]: toggle_download(d))
             outer.addWidget(pause_btn)
 
             state = QLabel()
             state.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            state.setMinimumWidth(88)
+            state.setMinimumWidth(70)
+            state.setMaximumWidth(82)
             outer.addWidget(state)
             item["_download_ui"] = {"bar": bar, "details": details, "state": state, "pause": pause_btn, "card": card}
             update_row(item, now)
@@ -3328,22 +3411,28 @@ class LunaSurfer(QMainWindow):
             query = search.text().strip().casefold()
             mode = filter_box.currentData()
             now = time.monotonic()
-            active_count = sum(not entry["download"].isFinished() for entry in self.download_items)
-            finished_count = len(self.download_items) - active_count
-            stat_active.setText("●  " + self.tr("Aktiv", "Active") + f"  {active_count}")
+            statuses = [self._download_status(entry) for entry in self.download_items]
+            active_count = statuses.count("active")
+            paused_count = statuses.count("paused")
+            finished_count = statuses.count("completed")
+            stat_active.setText("●  " + self.tr("Aktiv", "Active") + f"  {active_count}   " + self.tr("Pausiert", "Paused") + f"  {paused_count}")
             stat_finished.setText("✓  " + self.tr("Fertig", "Completed") + f"  {finished_count}")
             stat_total.setText(self.tr("Gesamt", "Total") + f"  {len(self.download_items)}")
 
             visible = []
             for index, item in enumerate(self.download_items):
-                finished = item["download"].isFinished()
+                status = self._download_status(item)
                 target = item["target"]
                 searchable = (target.name + " " + str(target.parent)).casefold()
                 if query and query not in searchable:
                     continue
-                if mode == "active" and finished:
+                if mode == "active" and status not in ("active",):
                     continue
-                if mode == "finished" and not finished:
+                if mode == "paused" and status != "paused":
+                    continue
+                if mode == "finished" and status != "completed":
+                    continue
+                if mode == "failed" and status not in ("failed", "cancelled", "interrupted"):
                     continue
                 visible.append((index, item))
 
@@ -3351,32 +3440,55 @@ class LunaSurfer(QMainWindow):
             # show them first without changing their stable backing indices.
             visible.reverse()
 
-            # Keep the existing QListWidgetItems and card widgets while the
-            # visible download set is unchanged. This preserves scroll position
-            # and avoids flicker every time the 800 ms timer fires.
-            current_indices = [
-                lst.item(row).data(Qt.ItemDataRole.UserRole)
+            # Reconcile rows by stable download ID. Never clear/rebuild the
+            # whole QListWidget: doing so destroys every card widget, including
+            # widgets belonging to unrelated active downloads, when one entry
+            # is removed or its filter visibility changes.
+            wanted_by_id = {item.get("id"): item for _index, item in visible}
+            current_by_id = {}
+            for row in range(lst.count()):
+                qitem = lst.item(row)
+                current_by_id[qitem.data(Qt.ItemDataRole.UserRole)] = qitem
+
+            # Remove only rows that are no longer visible. Deleting one
+            # completed entry leaves every unrelated active card untouched.
+            for row in range(lst.count() - 1, -1, -1):
+                qitem = lst.item(row)
+                stable_id = qitem.data(Qt.ItemDataRole.UserRole)
+                if stable_id not in wanted_by_id:
+                    widget = lst.itemWidget(qitem)
+                    removed = lst.takeItem(row)
+                    if widget is not None:
+                        for entry in self.download_items:
+                            ui = entry.get("_download_ui")
+                            if ui is not None and ui.get("card") is widget:
+                                entry["_download_ui"] = None
+                                break
+                        widget.deleteLater()
+                    del removed
+
+            # Add only missing cards. Existing card instances and their
+            # progress widgets remain alive across history deletion.
+            current_by_id = {
+                lst.item(row).data(Qt.ItemDataRole.UserRole): lst.item(row)
                 for row in range(lst.count())
-            ]
-            wanted_indices = [index for index, _item in visible]
-            if current_indices != wanted_indices:
-                selected = actual_selected()
-                selected_download = selected[0]["download"] if selected[0] else None
-                scroll_value = lst.verticalScrollBar().value()
-                lst.clear()
-                for index, item in visible:
-                    widget = make_row(item, now)
-                    qitem = QListWidgetItem()
-                    qitem.setData(Qt.ItemDataRole.UserRole, index)
-                    qitem.setSizeHint(widget.sizeHint())
-                    lst.addItem(qitem)
-                    lst.setItemWidget(qitem, widget)
-                    if selected_download is not None and item["download"] is selected_download:
-                        lst.setCurrentItem(qitem)
-                lst.verticalScrollBar().setValue(scroll_value)
-            else:
-                for row, (_index, item) in enumerate(visible):
-                    update_row(item, now)
+            }
+            for wanted_position, (_index, item) in enumerate(visible):
+                stable_id = item.get("id")
+                if stable_id in current_by_id:
+                    continue
+                widget = make_row(item, now)
+                qitem = QListWidgetItem()
+                qitem.setData(Qt.ItemDataRole.UserRole, stable_id)
+                qitem.setSizeHint(widget.sizeHint())
+                insert_at = min(wanted_position, lst.count())
+                lst.insertItem(insert_at, qitem)
+                lst.setItemWidget(qitem, widget)
+                current_by_id[stable_id] = qitem
+
+            # Update every visible row in place; no full-list rebuild.
+            for _index, item in visible:
+                update_row(item, now)
 
         def cancel_selected():
             item, _ = actual_selected()
@@ -3403,7 +3515,7 @@ class LunaSurfer(QMainWindow):
                 refresh()
 
         def clear_history():
-            self.download_items[:] = [entry for entry in self.download_items if not entry["download"].isFinished()]
+            self.download_items[:] = [entry for entry in self.download_items if self._download_status(entry) != "completed"]
             self.save_download_history()
             refresh()
 
@@ -3567,7 +3679,7 @@ class LunaSurfer(QMainWindow):
             download.setDownloadDirectory(str(target.parent))
             download.setDownloadFileName(target.name)
             download.accept()
-            self.download_items.append({"download": download, "target": target, "last_bytes": 0, "last_time": time.monotonic(), "speed": 0})
+            self.download_items.append({"id": secrets.token_hex(12), "download": download, "target": target, "last_bytes": 0, "last_time": time.monotonic(), "speed": 0, "status": "active"})
             self.watch_download_finished(download, target)
             self.statusBar().showMessage(f"Download gestartet: {target.name}", 5000)
             return
@@ -3582,7 +3694,7 @@ class LunaSurfer(QMainWindow):
             download.setDownloadDirectory(str(target.parent))
             download.setDownloadFileName(target.name)
             download.accept()
-            self.download_items.append({"download": download, "target": target, "last_bytes": 0, "last_time": time.monotonic(), "speed": 0})
+            self.download_items.append({"id": secrets.token_hex(12), "download": download, "target": target, "last_bytes": 0, "last_time": time.monotonic(), "speed": 0, "status": "active"})
             self.watch_download_finished(download, target)
             self.statusBar().showMessage(f"Download gestartet: {target.name}", 5000)
             return
@@ -3596,29 +3708,38 @@ class LunaSurfer(QMainWindow):
         download.setDownloadDirectory(str(target.parent))
         download.setDownloadFileName(target.name)
         download.accept()
-        self.download_items.append({"download": download, "target": target, "last_bytes": 0, "last_time": time.monotonic(), "speed": 0})
+        self.download_items.append({"id": secrets.token_hex(12), "download": download, "target": target, "last_bytes": 0, "last_time": time.monotonic(), "speed": 0, "status": "active"})
         self.watch_download_finished(download, target)
         self.statusBar().showMessage(f"Download gestartet: {target.name}", 5000)
 
     def watch_download_finished(self, download, target):
-        """Show a small notification when a WebEngine download has finished."""
+        """Handle each terminal transition once and never label a failed transfer complete."""
         def check_finished():
-            if download.isFinished():
-                for entry in self.download_items:
-                    if entry.get("download") is download:
-                        entry["downloaded_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
-                        break
-                self.save_download_history()
+            if not download.isFinished():
+                return
+            entry = next((entry for entry in self.download_items if entry.get("download") is download), None)
+            if entry is None or entry.get("_finish_handled"):
+                return
+            entry["_finish_handled"] = True
+            entry["downloaded_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            status = self._download_status(entry)
+            self.save_download_history()
+            if status == "completed":
                 self.statusBar().showMessage(f"Download fertig: {target.name}", 8000)
                 if self.settings_data.get("show_download_complete_popup", True):
                     QMessageBox.information(
                         self,
                         self.tr("Download fertig", "Download complete"),
                         self.tr("Der Download wurde abgeschlossen:", "The download has finished:")
-                        + f"\n{target.name}\n\n"
+                        + f"\\n{target.name}\\n\\n"
                         + self.tr("Gespeichert in:", "Saved in:")
-                        + f"\n{target.parent}"
+                        + f"\\n{target.parent}"
                     )
+            else:
+                self.statusBar().showMessage(
+                    self.tr("Download fehlgeschlagen oder abgebrochen.", "Download failed or cancelled."),
+                    8000
+                )
         download.isFinishedChanged.connect(check_finished)
 
     def open_downloads(self):
@@ -3645,6 +3766,9 @@ class LunaSurfer(QMainWindow):
         else:
             self.settings_data["window_geometry"] = None
         write_json(CONFIG_FILE, self.settings_data)
+        for entry in self.download_items:
+            if self._download_status(entry) in ("active", "paused"):
+                entry["status"] = "interrupted"
         self.save_download_history()
         urls = []
         for i in range(self.tabs.count()):

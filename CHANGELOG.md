@@ -1,3 +1,12 @@
+
+# LunaSurfer 0.3.44 – DOWNLOAD-MANAGER FEINSCHLIFF
+
+- Download-Manager so gut es geht repariert.
+- Download-Manager-Karten passen sich der verfügbaren Fensterbreite an; lange Dateinamen und Pfade verdrängen die Pause-/Fortsetzen-Taste nicht mehr.
+- Die horizontale Scrollleiste der Download-Liste entfällt; die Pause-/Fortsetzen-Taste erhält eine feste, vollständig sichtbare Breite.
+- Die angezeigte Download-Geschwindigkeit wird über mehrere Aktualisierungen geglättet, damit kurzfristige Schwankungen nicht mehr stark springen.
+- Die bestehende Download-Verwaltung und ihre Aktionen (Pause/Fortsetzen, Abbrechen, Datei öffnen, Ordner öffnen und Verlauf) bleiben erhalten.
+
 Changelog
 
 # LunaSurfer 0.3.43 – SICHERHEITSDIALOG FÜR DOWNLOADS - DOWNLOAD MANAGER SELECTION & PAUSE/RESUME - SECURITY UPDATE
@@ -5,7 +14,6 @@ Changelog
 - Die Warnung vor ausführbaren oder skriptfähigen Downloads erscheint jetzt in einem eigenen, an das Graphit-/Blau-Design angepassten Dialog.
 - Die Warnung kann über „Diese Sicherheitswarnung künftig nicht mehr anzeigen“ dauerhaft deaktiviert werden; die Auswahl wird in den Einstellungen gespeichert.
 - Die Sicherheitsprüfung und das Bereinigen vorgeschlagener Dateinamen bleiben unabhängig von der Anzeige der Warnung aktiv.
-- Die Versionsnummer bleibt 0.3.43.
 - Die ausgewählte Download-Karte ist durch einen kräftigen hellblauen Rahmen und einen deutlich abgesetzten Hintergrund sofort erkennbar.
 - Jede laufende Download-Karte besitzt eine kombinierte Pause-/Fortsetzen-Taste; die Beschriftung wechselt passend zum aktuellen Zustand.
 - Pausierte Downloads werden zusätzlich mit einem eigenen Status hervorgehoben.
@@ -421,3 +429,14 @@ Changelog
 - Sicherheitswarnung für ausführbare Downloads kann direkt im Warnfenster dauerhaft deaktiviert werden.
 - Dieselbe Option ist unter Einstellungen → Downloads verfügbar und wird in settings.json gespeichert.
 - Importierte Lesezeichenordner und das Menü „Weitere Lesezeichen“ verwenden die Graphit-Gestaltung des Lesezeichen-Managers.
+
+
+## 0.3.43 – DOWNLOAD-MANAGER-STABILISIERUNG
+
+- Download-Einträge erhalten unveränderliche IDs; Aktualisierungen von Fortschritt, Geschwindigkeit und Status ändern die Auswahl nicht.
+- Bestehende Karten und Listenelemente werden bei reinen Live-Aktualisierungen weiterverwendet; die Liste wird nicht alle 800 ms neu aufgebaut.
+- Status werden getrennt als laufend, pausiert, abgeschlossen, abgebrochen, fehlgeschlagen oder nach Programmende unterbrochen angezeigt.
+- Filter für laufende, pausierte, abgeschlossene und fehlgeschlagene/abgebrochene Downloads ergänzt.
+- Nur tatsächlich vorhandene, erfolgreich abgeschlossene Dateien werden als „Fertig“ gemeldet.
+- Download-Historie speichert stabile IDs und terminale Status; beim Beenden laufende/pausierte Vorgänge werden als unterbrochen markiert.
+- Hinweis: Qt WebEngine stellt keine automatische Wiederaufnahme eines Downloads nach einem vollständigen Browser-Neustart bereit. Unterbrochene Downloads werden deshalb ehrlich als unterbrochen angezeigt und nicht fälschlich als fortsetzbar dargestellt.
