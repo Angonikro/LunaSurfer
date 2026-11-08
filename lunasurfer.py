@@ -3400,8 +3400,11 @@ class LunaSurfer(QMainWindow):
 
             state = QLabel()
             state.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            state.setMinimumWidth(70)
-            state.setMaximumWidth(82)
+            # Leave enough room for the longest German status labels
+            # (e.g. "Fehlgeschlagen" and "Abgebrochen") without clipping.
+            state.setMinimumWidth(116)
+            state.setMaximumWidth(132)
+            state.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             outer.addWidget(state)
             item["_download_ui"] = {"bar": bar, "details": details, "state": state, "pause": pause_btn, "card": card}
             update_row(item, now)

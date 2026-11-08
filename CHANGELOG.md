@@ -1,3 +1,4 @@
+Changelog
 
 # LunaSurfer 0.3.44 – DOWNLOAD-MANAGER FEINSCHLIFF
 
@@ -6,8 +7,6 @@
 - Die horizontale Scrollleiste der Download-Liste entfällt; die Pause-/Fortsetzen-Taste erhält eine feste, vollständig sichtbare Breite.
 - Die angezeigte Download-Geschwindigkeit wird über mehrere Aktualisierungen geglättet, damit kurzfristige Schwankungen nicht mehr stark springen.
 - Die bestehende Download-Verwaltung und ihre Aktionen (Pause/Fortsetzen, Abbrechen, Datei öffnen, Ordner öffnen und Verlauf) bleiben erhalten.
-
-Changelog
 
 # LunaSurfer 0.3.43 – SICHERHEITSDIALOG FÜR DOWNLOADS - DOWNLOAD MANAGER SELECTION & PAUSE/RESUME - SECURITY UPDATE
 
