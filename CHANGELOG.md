@@ -26,7 +26,7 @@ Changelog
 - Unvollständige Dateien bleiben weiterhin als fehlgeschlagen bzw. unterbrochen gekennzeichnet; abgebrochene Downloads werden nicht als erfolgreich ausgegeben.
 - Die Statusprüfung während eines Downloads berücksichtigt ebenfalls, ob die Zieldatei bereits vollständig geschrieben wurde.
 - Pause/Fortsetzen, Download-Verlauf und die übrigen Download-Manager-Funktionen bleiben erhalten.
-- Lesezeichenleisten verbesser, sie füllen bei vielen Lesezeichen nicht mehr den Bildschirm.
+- Lesezeichenleisten verbessert, sie füllen bei vielen Lesezeichen nicht mehr den Bildschirm.
 
 # LunaSurfer 0.3.44 – DOWNLOAD-MANAGER FEINSCHLIFF
 
