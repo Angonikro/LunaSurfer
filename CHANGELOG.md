@@ -1,5 +1,32 @@
 Changelog
 
+# LunaSurfer 0.3.45 – AKTUALISIEREN-ABBRECHEN WIEDERHERGESTELLT - ULTRA-STARK-ADBLOCKER HINZUGEFÜGT – MEGA-STARK-ADBLOCKER VERSTÄRKT - DOWNLOAD-STATUS NACH NEUSTART KORRIGIERT
+ 
+– AKTUALISIEREN-/ABBRECHEN-SCHALTFLÄCHE WIEDERHERGESTELLT
+- Die Navigationsschaltfläche wechselt während des Seitenladens wieder vom Aktualisieren-Symbol zum X-/Stopp-Symbol und zeigt „Laden abbrechen“ als Tooltip.
+- Ein Klick während des Ladens stoppt die aktuelle Navigation; nach Ladeende oder Tabwechsel wird das passende Symbol für den aktiven Tab angezeigt.
+- Die Änderung stellt das zuvor vorhandene Verhalten wieder her und verändert keine Adblocker-Stufen oder sonstigen Browserfunktionen.
+– ULTRA-STARK-ADBLOCKER HINZUGEFÜGT
+- Zusätzliche auswählbare Stufe „Ultra stark“ mit den im bereitgestellten Turtlecute-Testbericht aufgeführten Werbe-, Analyse-, Fehlerbericht-, Social-, Geräte-Telemetrie- und Werbenetzwerk-Hosts.
+- Gezielte Hostnamen statt pauschaler Sperre ganzer Webseiten; Whitelist und benutzerdefinierte Blockmuster bleiben wirksam.
+- Ergänzt gezielte Regeln für `/pagead.js` und `/widget/ads.` sowie kosmetische Testselektoren auf `adblock.turtlecute.org`.
+- Ausschließlich die Stufe „Ultra stark“ um zusätzliche, gezielte Hostregeln für Videoanzeigen, Affiliate-Weiterleitungen, Browser-Miner sowie weitere Fingerprinting- und Telemetrie-Endpunkte erweitert.
+- Ergänzende Ultra-only-Pfadregeln für typische VAST/VMAP-Werbeauslieferung, Affiliate-Klickweiterleitungen, Fingerprinting-Aufrufe und bekannte Miner-Skriptpfade ergänzt.
+- Die bestehenden Stufen Standard, Stark, Sehr stark, Super stark und Mega stark bleiben unverändert; eine automatische Umstellung von Mega stark auf Ultra stark findet nicht statt.
+- Whitelist, benutzerdefinierte Blockmuster und die bestehende kosmetische Filterung bleiben erhalten.
+- Keine Änderungen an anderen Browserfunktionen. Versionsnummer bleibt 0.3.45.
+– MEGA-STARK-ADBLOCKER VERSTÄRKT
+- Ergänzt gezielte Blockregeln für im Adblock-Tester durchgelassene Adobe-, Mixpanel-, Lucky-Orange-, Heap-, Plausible-, Meta- und Index-Exchange-Endpunkte.
+- Ergänzt bekannte Amazon-, Microsoft- und Yahoo-Werbe-/Tracking-Endpunkte sowie lokale Test-Skriptdateien (`ads.js`, `pagead.js`, `advertisement.js`, `analytics.js`).
+- Ergänzt kosmetische Filter für typische Werbeflächen und dynamisch eingefügte Werbeelemente; Regeln werden beim Aktivieren von „Mega stark“ auch auf bereits geöffnete Tabs angewendet.
+- Andere Browserfunktionen und die Versionsnummer bleiben unverändert.
+- DOWNLOAD-STATUS NACH NEUSTART KORRIGIERT
+- Download-Verlauf prüft beim Programmstart fehlgeschlagene oder unterbrochene Einträge erneut anhand der tatsächlichen Dateigröße.
+- Ein vollständig vorhandener Download wird auch dann als „Fertig“ wiederhergestellt, wenn Qt beim vorherigen Beenden einen veralteten Fehler-/Unterbrochen-Status gespeichert hatte.
+- Unvollständige Dateien bleiben weiterhin als fehlgeschlagen bzw. unterbrochen gekennzeichnet; abgebrochene Downloads werden nicht als erfolgreich ausgegeben.
+- Die Statusprüfung während eines Downloads berücksichtigt ebenfalls, ob die Zieldatei bereits vollständig geschrieben wurde.
+- Pause/Fortsetzen, Download-Verlauf und die übrigen Download-Manager-Funktionen bleiben erhalten.
+
 # LunaSurfer 0.3.44 – DOWNLOAD-MANAGER FEINSCHLIFF
 
 - Download-Manager so gut es geht repariert.
@@ -439,3 +466,7 @@ Changelog
 - Nur tatsächlich vorhandene, erfolgreich abgeschlossene Dateien werden als „Fertig“ gemeldet.
 - Download-Historie speichert stabile IDs und terminale Status; beim Beenden laufende/pausierte Vorgänge werden als unterbrochen markiert.
 - Hinweis: Qt WebEngine stellt keine automatische Wiederaufnahme eines Downloads nach einem vollständigen Browser-Neustart bereit. Unterbrochene Downloads werden deshalb ehrlich als unterbrochen angezeigt und nicht fälschlich als fortsetzbar dargestellt.
+
+## 0.3.45 – Einheitliches Dropdown für „Weitere“
+- Der Button „Weitere“ verwendet jetzt dieselbe gemeinsame Menü-Erzeugung und Button-Konfiguration wie Ordner in der Lesezeichenleiste.
+- Verschachtelte Ordner, Menübreite, Tooltips und natives Scrollverhalten werden einheitlich behandelt.

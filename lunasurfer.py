@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.38 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.45 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -25,10 +25,10 @@ if WIDEVINE_CDM.is_file():
     if widevine_flag not in existing_flags:
         os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (existing_flags + " " + widevine_flag).strip()
 
-from PySide6.QtCore import QUrl, QSize, Qt, QTimer, QEvent, QObject, Slot, QTranslator, QLocale, QLibraryInfo, QFile, QIODevice
+from PySide6.QtCore import QUrl, QSize, QPoint, Qt, QTimer, QEvent, QObject, Slot, QTranslator, QLocale, QLibraryInfo, QFile, QIODevice
 from PySide6.QtGui import QAction, QKeySequence, QIcon
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QTabWidget, QToolBar, QLineEdit, QToolButton,
+    QApplication, QMainWindow, QTabWidget, QToolBar, QLineEdit, QToolButton, QWidgetAction,
     QVBoxLayout, QWidget, QMenu, QFileDialog, QMessageBox, QDialog,
     QFormLayout, QPushButton, QHBoxLayout, QLabel, QCheckBox, QComboBox, QStyle, QInputDialog, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QHeaderView, QProgressBar, QSizePolicy, QScrollArea, QDockWidget, QDialogButtonBox, QGroupBox, QTextBrowser
 )
@@ -539,26 +539,219 @@ class PrivacyInterceptor(QWebEngineUrlRequestInterceptor):
             "teads.tv", "tribalfusion.com", "undertone.com", "weborama.com", "yieldlab.net",
             "zemanta.com", "analytics.tiktok.com", "analytics.twitter.com", "snap.licdn.com"
         ]
+        mega_strong += [
+            # Gaps identified by the Adblock Tester run: Adobe, Mixpanel,
+            # Lucky Orange, Heap, Plausible/WordPress stats, Meta and Index Exchange.
+            "adobedtm.com", "sstats.adobe.com", "mxpnl.com", "luckyorange.net",
+            "heapanalytics.com", "plausible.io", "stats.wp.com", "an.facebook.com",
+            "graph.facebook.com", "indexww.com"
+        ]
         mega_url_patterns = [
             "facebook.com/tr", "/collect?", "/collect/", "/analytics", "/analytics/",
             "/tracking", "/tracking/", "/tracker", "/tracker/", "/telemetry", "/telemetry/",
             "/beacon", "/beacon/", "/pixel", "/pixel/", "/pageview", "/page-view",
             "/event?", "/events?", "/conversion", "/conversions", "/remarketing",
             "/adservice", "/adserver", "/ads/", "/ads?", "/advert/", "/advertising/",
-            "utm_source=", "utm_medium=", "gclid=", "fbclid="
+            "utm_source=", "utm_medium=", "gclid=", "fbclid=", "msclkid=",
+            "advice-ads.s3.amazonaws.com", "adtago.s3.amazonaws.com",
+            "c.bing.com", "ads.microsoft.com", "adsdk.microsoft.com",
+            "msadsscale.microsoft.com", "udcm.yahoo.com", "udc.yahoo.com",
+            "adtech.yahooinc.com", "log.fc.yahoo.com", "partnerads.ysm.yahoo.com",
+            "beap-bc.yahoo.com", "an.facebook.com",
+            "graph.facebook.com", "js-sec.indexww.com", "upload.luckyorange.net",
+            "cs.luckyorange.net", "settings.luckyorange.net", "cdn.mxpnl.com",
+            "cdn.heapanalytics.com", "sstats.adobe.com",
+            "pagead.js", "/widget/ads."
         ]
+        # Ultra strong adds the complete host set used by the supplied Turtlecute
+        # Ad Blocker Test report. Entries are exact hostnames (including subdomains),
+        # not broad parent domains, to limit collateral breakage.
+        ultra_strong = mega_strong + [
+            "ad.doubleclick.net",
+            "adc3-launch.adcolony.com",
+            "adfox.yandex.ru",
+            "adfstat.yandex.ru",
+            "adm.hotjar.com",
+            "ads-api.tiktok.com",
+            "ads-api.twitter.com",
+            "ads-sg.tiktok.com",
+            "ads.linkedin.com",
+            "ads.pinterest.com",
+            "ads.tiktok.com",
+            "ads.yahoo.com",
+            "ads.youtube.com",
+            "ads30.adcolony.com",
+            "adserver.unityads.unity3d.com",
+            "adservice.google.com",
+            "adsfs.oppomobile.com",
+            "adtago.s3.amazonaws.com",
+            "adtech.yahooinc.com",
+            "advice-ads.s3.amazonaws.com",
+            "adx.ads.oppomobile.com",
+            "afs.googlesyndication.com",
+            "an.facebook.com",
+            "analytics-api.samsunghealthcn.com",
+            "analytics-sg.tiktok.com",
+            "analytics.google.com",
+            "analytics.pointdrive.linkedin.com",
+            "analytics.query.yahoo.com",
+            "analytics.s3.amazonaws.com",
+            "analytics.tiktok.com",
+            "analytics.yahoo.com",
+            "analyticsengine.s3.amazonaws.com",
+            "api-adservices.apple.com",
+            "api.ad.xiaomi.com",
+            "api.bugsnag.com",
+            "api.luckyorange.com",
+            "api.mouseflow.com",
+            "app.bugsnag.com",
+            "app.getsentry.com",
+            "appmetrica.yandex.ru",
+            "auction.unityads.unity3d.com",
+            "bdapi-ads.realmemobile.com",
+            "bdapi-in-ads.realmemobile.com",
+            "books-analytics-events.apple.com",
+            "browser.sentry-cdn.com",
+            "business-api.tiktok.com",
+            "careers.hotjar.com",
+            "cdn-test.mouseflow.com",
+            "cdn.luckyorange.com",
+            "cdn.mouseflow.com",
+            "ck.ads.oppomobile.com",
+            "claritybt.freshmarketer.com",
+            "click.googleanalytics.com",
+            "click.oneplus.cn",
+            "config.unityads.unity3d.com",
+            "cs.luckyorange.net",
+            "data.ads.oppomobile.com",
+            "data.mistat.india.xiaomi.com",
+            "data.mistat.rus.xiaomi.com",
+            "data.mistat.xiaomi.com",
+            "events.reddit.com",
+            "events.redditmedia.com",
+            "events3alt.adcolony.com",
+            "extmaps-api.yandex.net",
+            "freshmarketer.com",
+            "fwtracks.freshmarketer.com",
+            "gemini.yahoo.com",
+            "geo.yahoo.com",
+            "google-analytics.com",
+            "grs.hicloud.com",
+            "gtm.mouseflow.com",
+            "iadsdk.apple.com",
+            "identify.hotjar.com",
+            "insights.hotjar.com",
+            "iot-eu-logser.realme.com",
+            "iot-logser.realme.com",
+            "log.byteoversea.com",
+            "log.fc.yahoo.com",
+            "log.pinterest.com",
+            "logbak.hicloud.com",
+            "logservice.hicloud.com",
+            "logservice1.hicloud.com",
+            "luckyorange.com",
+            "m.doubleclick.net",
+            "mediavisor.doubleclick.net",
+            "metrics.data.hicloud.com",
+            "metrics.icloud.com",
+            "metrics.mzstatic.com",
+            "metrics2.data.hicloud.com",
+            "metrika.yandex.ru",
+            "mouseflow.com",
+            "nmetrics.samsung.com",
+            "notes-analytics-events.apple.com",
+            "notify.bugsnag.com",
+            "o2.mouseflow.com",
+            "offerwall.yandex.net",
+            "pagead2.googleadservices.com",
+            "pagead2.googlesyndication.com",
+            "partnerads.ysm.yahoo.com",
+            "pixel.facebook.com",
+            "realtime.luckyorange.com",
+            "samsung-com.112.2o7.net",
+            "samsungads.com",
+            "script.hotjar.com",
+            "sdkconfig.ad.intl.xiaomi.com",
+            "sdkconfig.ad.xiaomi.com",
+            "sessions.bugsnag.com",
+            "settings.luckyorange.net",
+            "smetrics.samsung.com",
+            "ssl.google-analytics.com",
+            "static.ads-twitter.com",
+            "static.doubleclick.net",
+            "static.media.net",
+            "stats.g.doubleclick.net",
+            "stats.wp.com",
+            "surveys.hotjar.com",
+            "tools.mouseflow.com",
+            "tracking.rus.miui.com",
+            "trk.pinterest.com",
+            "udcm.yahoo.com",
+            "upload.luckyorange.net",
+            "w1.luckyorange.com",
+            "wd.adcolony.com",
+            "weather-analytics-events.apple.com",
+            "webview.unityads.unity3d.com",
+        ]
+        # Ultra-only additions based on the weak categories in the 357-domain
+        # report: video advertising, affiliate redirects, browser miners and
+        # additional fingerprinting/telemetry endpoints. Exact hosts only.
+        ultra_strong += [
+            # Video advertising and ad delivery
+            "pubads.g.doubleclick.net", "securepubads.g.doubleclick.net",
+            "googleads.g.doubleclick.net", "video-ad-stats.googlesyndication.com",
+            "tpc.googlesyndication.com", "s0.2mdn.net", "c.amazon-adsystem.com",
+            "fls-na.amazon.com", "ads.stickyadstv.com", "video.unrulymedia.com",
+            "ads.vidoomy.com", "ads.servebom.com", "ads.yieldmo.com",
+            "adserver.adtech.de", "vast.yieldmo.com", "imasdk.googleapis.com",
+            "imasdk.g.doubleclick.net", "pubads4kads.com", "adsafeprotected.com",
+            # Affiliate and conversion redirect networks
+            "click.linksynergy.com", "linksynergy.com", "track.adform.net",
+            "clk.tradedoubler.com", "tradedoubler.com", "redirect.viglink.com",
+            "api.viglink.com", "viglink.com", "skimlinks.com", "go.skimresources.com",
+            "prf.hn", "t.cfjump.com", "track.flexlinks.com", "shareasale.com",
+            "www.awin1.com", "www.affiliatewindow.com", "track.impact.com",
+            "app.partnerize.com", "clickbank.net", "rakutenadvertising.com",
+            "cj.com", "anrdoezrs.net", "jdoqwsz.com",
+            # Browser-based cryptocurrency mining / mining script delivery
+            "coinhive.com", "coin-hive.com", "authedmine.com", "crypto-loot.com",
+            "cryptoloot.pro", "coinimp.com", "jsecoin.com", "webminepool.com",
+            "webmine.cz", "minero.cc", "miner.pr0gramm.com",
+            # Additional fingerprinting, session replay and telemetry hosts
+            "api.fpjs.io", "fpjscdn.net", "fpcdn.io", "cdn.usefathom.com",
+            "api-js.mixpanel.com", "api2.amplitude.com", "api.segment.io",
+            "cdn.segment.com", "events.launchdarkly.com", "clientstream.launchdarkly.com",
+            "o450.ingest.sentry.io", "browser-intake-datadoghq.com",
+            "rum.browser-intake-datadoghq.com", "bam.nr-data.net",
+            "collector.github.com", "telemetry.mozilla.org", "vortex.data.microsoft.com",
+            "settings-win.data.microsoft.com", "watson.telemetry.microsoft.com",
+            "self.events.data.microsoft.com", "umeng.com", "alog.umeng.com",
+            "apm.umeng.com", "sdk.open.talk.getui.net",
+        ]
+        # Local/script-based test resources are same-origin and cannot be caught
+        # by a domain list. Match only known ad/tracker script filenames.
+        mega_script_names = {"ads.js", "pagead.js", "advertisement.js", "analytics.js"}
         strength = self.window_ref.settings_data.get("adblock_strength", "standard")
         builtins = (standard if strength == "standard" else
                     strong if strength == "strong" else
                     very_strong if strength == "very_strong" else
-                    super_strong if strength == "super_strong" else mega_strong)
+                    super_strong if strength == "super_strong" else
+                    ultra_strong if strength == "ultra_strong" else mega_strong)
         custom = [str(x).lower() for x in self.window_ref.settings_data.get("adblock_custom_blocklist", [])]
         # Match domains precisely (including subdomains), while custom entries may
         # still be URL patterns. This avoids accidental partial hostname matches.
         domain_match = any(host == token or host.endswith("." + token) for token in builtins if "/" not in token)
         pattern_match = any(token in url for token in custom)
-        mega_pattern_match = strength == "mega_strong" and any(token in url for token in mega_url_patterns)
-        if domain_match or pattern_match or mega_pattern_match:
+        mega_pattern_match = strength in ("mega_strong", "ultra_strong") and any(token in url for token in mega_url_patterns)
+        path_name = urllib.parse.urlparse(url).path.rsplit("/", 1)[-1].lower()
+        mega_script_match = strength in ("mega_strong", "ultra_strong") and path_name in mega_script_names and host not in ("localhost", "127.0.0.1", "::1")
+        ultra_url_patterns = (
+            "/vast/", "/vmap/", "/prebid/", "/affiliate/redirect", "/outbound/track",
+            "/clickthrough", "/click-through", "/pixel.gif", "/fingerprint/",
+            "/fp/collect", "/deviceid", "/device-id", "/miner.js", "/coinhive.min.js",
+        )
+        ultra_pattern_match = strength == "ultra_strong" and any(token in url for token in ultra_url_patterns)
+        if domain_match or pattern_match or mega_pattern_match or mega_script_match or ultra_pattern_match:
             info.block(True)
 
 
@@ -656,6 +849,20 @@ class LoginCaptureBridge(QObject):
             return "no"
 
 
+class BookmarkEntryButton(QToolButton):
+    """Bookmark row button that handles right-click before popup menus can consume it."""
+    def __init__(self, parent=None, context_callback=None):
+        super().__init__(parent)
+        self._bookmark_context_callback = context_callback
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.RightButton and self._bookmark_context_callback:
+            self._bookmark_context_callback(self.mapToGlobal(event.pos()))
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+
 class BookmarkOverflowMenu(QMenu):
     """Overflow menu that supports right-click actions on bookmark entries."""
     def __init__(self, title, parent, window_ref):
@@ -672,6 +879,12 @@ class BookmarkOverflowMenu(QMenu):
             QMenu::separator { height: 1px; background: #354155; margin: 5px 8px; }
             QMenu::indicator { width: 14px; height: 14px; }
         """)
+
+    def wheelEvent(self, event):
+        """Use Qt's native menu scrolling so the visible bookmark list moves."""
+        # Do not emulate scrolling by changing the active action: that only
+        # moves the selection and leaves the menu's scrollable viewport still.
+        super().wheelEvent(event)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.RightButton:
@@ -692,6 +905,8 @@ class BrowserView(QWebEngineView):
         self.window_ref = window
         self.titleChanged.connect(self.on_title)
         self.urlChanged.connect(self.on_url)
+        self._is_loading = False
+        self.loadStarted.connect(self.on_load_started)
         self.loadProgress.connect(lambda p: window.statusBar().showMessage(f"Laden … {p}%"))
         self.loadFinished.connect(self.on_load_finished)
         self.renderProcessTerminated.connect(self.on_render_process_terminated)
@@ -1014,7 +1229,13 @@ class BrowserView(QWebEngineView):
                 pass
         self.page().runJavaScript(js, language_ready)
 
+    def on_load_started(self):
+        self._is_loading = True
+        self.window_ref.update_reload_stop_button()
+
     def on_load_finished(self, ok):
+        self._is_loading = False
+        self.window_ref.update_reload_stop_button()
         url = self.url().toString()
         # GitHub's traffic graphs contain a few light SVG panels.  With the
         # dark browser chrome on this QtWebEngine build their SVG labels can be
@@ -1078,6 +1299,9 @@ class LunaSurfer(QMainWindow):
         self.setWindowTitle(f"{APP_NAME} {APP_VERSION}")
         self.resize(1250, 820)
         self._web_fullscreen = False
+        # Keep the "Weitere" membership stable when an item is edited.
+        self._bookmark_overflow_keys = None
+        self._preserve_bookmark_overflow_once = False
         self._was_maximized_before_fullscreen = False
         self._fullscreen_chrome = []
         self.settings_data = read_json(CONFIG_FILE, {
@@ -1276,8 +1500,9 @@ class LunaSurfer(QMainWindow):
         self.forward_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowForward), "", self); self.forward_action.setToolTip(self.tr("Vorwärts", "Forward"))
         self.forward_action.triggered.connect(lambda: self.current_view() and self.current_view().forward())
         bar.addAction(self.forward_action)
-        self.reload_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload), "", self); self.reload_action.setToolTip(self.tr("Neu laden", "Reload"))
-        self.reload_action.triggered.connect(lambda: self.current_view() and self.current_view().reload())
+        self.reload_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload), "", self)
+        self.reload_action.setToolTip(self.tr("Neu laden", "Reload"))
+        self.reload_action.triggered.connect(self.reload_or_stop_current_page)
         bar.addAction(self.reload_action)
         self.home_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon), "", self); self.home_action.setToolTip(self.tr("Startseite", "Home"))
         self.home_action.triggered.connect(self.go_home)
@@ -1681,7 +1906,7 @@ class LunaSurfer(QMainWindow):
         """Update visible application texts immediately after a language change."""
         self.back_action.setToolTip(self.tr("Zurück", "Back"))
         self.forward_action.setToolTip(self.tr("Vorwärts", "Forward"))
-        self.reload_action.setToolTip(self.tr("Neu laden", "Reload"))
+        self.update_reload_stop_button()
         self.home_action.setToolTip(self.tr("Startseite", "Home"))
         self.star_action.setToolTip(self.tr("Aktuelle Seite als Lesezeichen hinzufügen", "Add current page to bookmarks"))
         self.download_action.setToolTip(self.tr("Download-Manager", "Download manager"))
@@ -1853,6 +2078,7 @@ class LunaSurfer(QMainWindow):
         page = QWebEnginePage(self.profile, view)
         view.setPage(page)
         view.configure_web_page()
+        self.install_adblock_cosmetic_script(page)
         # Register login capture before the first real navigation so even an
         # authentication URL opened directly receives the DocumentReady hook.
         self.install_login_capture(view)
@@ -2102,10 +2328,34 @@ class LunaSurfer(QMainWindow):
                 self._bind_devtools_to_current_page()
             self.address.setText(view.url().toString())
             self.update_navigation()
+            self.update_reload_stop_button()
         elif index >= 0:
             self.address.setText("lunasurfer://settings")
             self.back_action.setEnabled(False)
             self.forward_action.setEnabled(False)
+            self.update_reload_stop_button()
+
+    def reload_or_stop_current_page(self):
+        view = self.current_view()
+        if not view:
+            return
+        if getattr(view, "_is_loading", False):
+            view.stop()
+            view._is_loading = False
+            self.update_reload_stop_button()
+        else:
+            view.reload()
+
+    def update_reload_stop_button(self):
+        view = self.current_view()
+        loading = bool(view and getattr(view, "_is_loading", False))
+        style = QApplication.style()
+        if loading:
+            self.reload_action.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_BrowserStop))
+            self.reload_action.setToolTip(self.tr("Laden abbrechen", "Stop loading"))
+        else:
+            self.reload_action.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
+            self.reload_action.setToolTip(self.tr("Neu laden", "Reload"))
 
     def update_navigation(self):
         view = self.current_view()
@@ -2345,9 +2595,16 @@ class LunaSurfer(QMainWindow):
         items = read_json(BOOKMARKS_FILE, [])
         style = QApplication.style()
 
-        # Reserve space for the permanent management button and the overflow
-        # button.  Entries are never squeezed into unreadable widths.
-        available = max(180, self.bookmarks_bar.width() - 230)
+        # Work from the actual toolbar width (not the main-window width).
+        # The overflow button must be budgeted BEFORE deciding which bookmark
+        # fits; otherwise the last visible entry and "Weitere" get squeezed.
+        toolbar_width = max(0, self.bookmarks_bar.width())
+        manage_label = self.tr("Lesezeichen verwalten", "Manage bookmarks")
+        more_label = self.tr("» Weitere", "» More")
+        manage_width = max(150, self.fontMetrics().horizontalAdvance(manage_label) + 48)
+        more_width = max(104, self.fontMetrics().horizontalAdvance(more_label) + 42)
+        toolbar_margins = 36
+        available_without_more = max(0, toolbar_width - manage_width - toolbar_margins)
         used = 0
         visible, overflow = [], []
 
@@ -2355,28 +2612,153 @@ class LunaSurfer(QMainWindow):
             title = self.bookmark_display_title(item, root=True)
             return max(88, min(220, self.fontMetrics().horizontalAdvance(title) + 42))
 
+        def bookmark_layout_key(item):
+            # URLs uniquely identify ordinary bookmarks. Folder keys also
+            # include their child URLs so renaming a folder does not move it
+            # between the toolbar and the "More" popup.
+            url = str(item.get("url", "")).strip()
+            if url:
+                return ("url", url)
+            child_urls = []
+            def collect_urls(entries):
+                for child in entries if isinstance(entries, list) else []:
+                    child_url = str(child.get("url", "")).strip()
+                    if child_url:
+                        child_urls.append(child_url)
+                    collect_urls(child.get("children", []))
+            collect_urls(item.get("children", []))
+            return ("folder", tuple(sorted(child_urls)) if child_urls else str(item.get("title", "")).casefold())
+
+        # Determine whether an overflow button is needed using the full
+        # natural width. If yes, reserve its complete width before placing
+        # any bookmark. This keeps the button from being squeezed at the end.
+        natural_total = sum(entry_width(item) for item in items)
+        needs_overflow = (
+            natural_total > available_without_more
+            or bool(self._preserve_bookmark_overflow_once and self._bookmark_overflow_keys)
+        )
+        available = max(0, available_without_more - (more_width + 8 if needs_overflow else 0))
+
+        # Preserve the membership only for the single refresh immediately
+        # following an edit; normal additions/resizes are laid out afresh.
+        if self._preserve_bookmark_overflow_once and self._bookmark_overflow_keys is not None:
+            pinned_overflow = set(self._bookmark_overflow_keys)
+        else:
+            pinned_overflow = set()
+        self._preserve_bookmark_overflow_once = False
+
         for item in items:
+            key = bookmark_layout_key(item)
             width = entry_width(item)
-            if used + width <= available or not visible:
+            if key in pinned_overflow:
+                overflow.append(item)
+            elif used + width <= available or not visible:
                 visible.append(item)
                 used += width
             else:
                 overflow.append(item)
+                pinned_overflow.add(key)
+
+        self._bookmark_overflow_keys = pinned_overflow
 
         def add_menu_entries(menu, entries):
+            """Build a genuinely scrollable bookmark popup with a visible scrollbar."""
+            screen = self.screen() if hasattr(self, "screen") else QApplication.primaryScreen()
+            screen_geometry = screen.availableGeometry() if screen else None
+            screen_width = screen_geometry.width() if screen_geometry else 1280
+            screen_height = screen_geometry.height() if screen_geometry else 800
+            menu_width = min(380, max(220, int(screen_width * 0.32)))
+            menu.setMinimumWidth(menu_width)
+            menu.setMaximumWidth(menu_width)
+            menu.setToolTipsVisible(True)
+
+            scroll = QScrollArea(menu)
+            scroll.setObjectName("bookmarkPopupScroll")
+            scroll.setWidgetResizable(True)
+            scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            scroll.setMaximumHeight(max(180, screen_height - 130))
+            scroll.setMinimumWidth(menu_width - 12)
+            scroll.setStyleSheet("""
+                QScrollArea#bookmarkPopupScroll, QScrollArea#bookmarkPopupScroll QWidget#qt_scrollarea_viewport { background-color: #1d2430; border: 0; }
+                QScrollBar:vertical { width: 13px; background: #202a38; margin: 2px; }
+                QScrollBar::handle:vertical { background: #687991; min-height: 28px; border-radius: 5px; }
+                QScrollBar::handle:vertical:hover { background: #9270c8; }
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+                QWidget#bookmarkPopupContent { background-color: #1d2430; color: #e8edf5; }
+            """)
+            content = QWidget()
+            content.setObjectName("bookmarkPopupContent")
+            content.setAutoFillBackground(True)
+            content.setStyleSheet("QWidget#bookmarkPopupContent { background-color: #1d2430; color: #e8edf5; }")
+            scroll.viewport().setStyleSheet("background-color: #1d2430;")
+            rows = QVBoxLayout(content)
+            rows.setContentsMargins(5, 5, 5, 5)
+            rows.setSpacing(2)
+
+            def fit_menu_text(value):
+                return menu.fontMetrics().elidedText(
+                    str(value), Qt.TextElideMode.ElideRight, menu_width - 55
+                )
+
             for item in entries:
-                if item.get("type") == "folder" or "children" in item:
-                    sub = BookmarkOverflowMenu((item.get("title") or "Ordner").strip(), menu, self)
-                    menu.addMenu(sub)
-                    add_menu_entries(sub, item.get("children", []))
+                is_folder = item.get("type") == "folder" or "children" in item
+                full_title = (item.get("title") or ("Ordner" if is_folder else item.get("url", ""))).strip()
+                row = BookmarkEntryButton(content)
+                row.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+                row.setText(("▸  " if is_folder else "     ") + fit_menu_text(full_title))
+                row.setToolTip(full_title if is_folder else f"{full_title}\n{item.get('url', '')}")
+                row.setMinimumHeight(34)
+                row.setMaximumWidth(menu_width - 28)
+                row.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+                row.setStyleSheet("""
+                    QToolButton { text-align: left; padding: 6px 9px; border: 0;
+                                  border-radius: 5px; color: #e8edf5; background: transparent; }
+                    QToolButton:hover { background: #303b4c; color: white; }
+                """)
+                if is_folder:
+                    child_menu = BookmarkOverflowMenu(fit_menu_text(full_title), menu, self)
+                    add_menu_entries(child_menu, item.get("children", []))
+                    row.clicked.connect(
+                        lambda checked=False, b=row, m=child_menu:
+                            m.popup(b.mapToGlobal(QPoint(b.width(), 0)))
+                    )
                 else:
                     url = item.get("url", "").strip()
                     if url:
-                        title = (item.get("title") or url).strip()
-                        action = menu.addAction(title)
-                        action.setData(url)
-                        action.setToolTip(url)
-                        action.triggered.connect(lambda checked=False, u=url: self.open_bookmark(u))
+                        row.clicked.connect(lambda checked=False, u=url: (menu.close(), self.open_bookmark(u)))
+                        # The scroll-area rows are real widgets, not QMenu
+                        # actions.  Route their right-clicks to the same
+                        # Open / Edit / Delete menu used by the toolbar.
+                        row._bookmark_context_callback = (
+                            lambda global_pos, u=url:
+                                self.show_bookmark_context_menu(u, global_pos)
+                        )
+                    else:
+                        row.setEnabled(False)
+                rows.addWidget(row)
+
+            rows.addStretch(1)
+            scroll.setWidget(content)
+            widget_action = QWidgetAction(menu)
+            widget_action.setDefaultWidget(scroll)
+            menu.addAction(widget_action)
+
+        def create_bookmark_popup(title, entries):
+            """Create the standard cascading, scrollable popup used by all bookmark buttons."""
+            menu = BookmarkOverflowMenu(title, self, self)
+            add_menu_entries(menu, entries)
+            return menu
+
+        def configure_bookmark_popup_button(button, title, menu, tooltip):
+            """Give folder buttons and the 'More' button identical popup behavior."""
+            button.setText(title)
+            button.setToolTip(tooltip)
+            button.setMenu(menu)
+            button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+            button.setMinimumWidth(88)
+            button.setMaximumWidth(220)
 
         def add_visible(item):
             if item.get("type") == "folder" or "children" in item:
@@ -2384,14 +2766,11 @@ class LunaSurfer(QMainWindow):
                 # Use the same right-click capable menu as the overflow area,
                 # so bookmarks inside folders on the visible bookmarks bar
                 # also expose Open / Edit / Delete actions.
-                menu = BookmarkOverflowMenu(title, self, self)
-                add_menu_entries(menu, item.get("children", []))
+                menu = create_bookmark_popup(title, item.get("children", []))
                 button = QToolButton(self.bookmarks_bar)
-                button.setText(title)
-                button.setMenu(menu)
-                button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-                button.setMinimumWidth(88)
-                button.setMaximumWidth(220)
+                configure_bookmark_popup_button(
+                    button, title, menu, self.tr("Ordner öffnen", "Open folder")
+                )
                 self.bookmarks_bar.addWidget(button)
             else:
                 url = item.get("url", "").strip()
@@ -2413,13 +2792,15 @@ class LunaSurfer(QMainWindow):
             add_visible(item)
 
         if overflow:
-            more_menu = BookmarkOverflowMenu(self.tr("Weitere Lesezeichen", "More bookmarks"), self, self)
-            add_menu_entries(more_menu, overflow)
+            more_title = more_label
+            more_menu = create_bookmark_popup(
+                self.tr("Weitere Lesezeichen", "More bookmarks"), overflow
+            )
             more_button = QToolButton(self.bookmarks_bar)
-            more_button.setText(self.tr("» Weitere", "» More"))
-            more_button.setToolTip(self.tr("Weitere Lesezeichen anzeigen", "Show more bookmarks"))
-            more_button.setMenu(more_menu)
-            more_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+            configure_bookmark_popup_button(
+                more_button, more_title, more_menu,
+                self.tr("Weitere Lesezeichen anzeigen", "Show more bookmarks")
+            )
             self.bookmarks_bar.addWidget(more_button)
 
         # Flexible spacer keeps the management action anchored at the right.
@@ -2433,6 +2814,9 @@ class LunaSurfer(QMainWindow):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        # A wider/narrower window must always recalculate which bookmarks fit.
+        self._bookmark_overflow_keys = None
+        self._preserve_bookmark_overflow_once = False
         if hasattr(self, "_bookmark_resize_timer"):
             self._bookmark_resize_timer.start(120)
 
@@ -2476,7 +2860,15 @@ class LunaSurfer(QMainWindow):
             return
         item["title"] = title.strip() or url.strip()
         item["url"] = url.strip()
+        # If this bookmark belongs to "Weitere", keep it there even when
+        # its URL is changed during editing.
+        if self._bookmark_overflow_keys is not None:
+            old_key = ("url", str(old_url).strip())
+            if old_key in self._bookmark_overflow_keys:
+                self._bookmark_overflow_keys.discard(old_key)
+                self._bookmark_overflow_keys.add(("url", str(url).strip()))
         write_json(BOOKMARKS_FILE, items)
+        self._preserve_bookmark_overflow_once = True
         self.refresh_bookmarks_bar()
         self.statusBar().showMessage(self.tr("Lesezeichen geändert", "Bookmark changed"), 3000)
 
@@ -2797,6 +3189,99 @@ class LunaSurfer(QMainWindow):
 
     def show_history(self): self.show_list_dialog(self.tr("Verlauf", "History"), HISTORY_FILE, "url")
 
+    @staticmethod
+    def adblock_cosmetic_script():
+        """Hide common ad slots and remove known local ad-script decoys in the strongest ad-blocking modes."""
+        return r"""(() => {
+          'use strict';
+          if (window.__lunaMegaAdblockInstalled) return;
+          window.__lunaMegaAdblockInstalled = true;
+          const selectors = [
+            '.adsbox', '.ad-banner', '#ad-container', '.adsbygoogle', '.google-ad',
+            '[id^="google_ads"]', '[id^="div-gpt-ad"]', '[class*="advert"]',
+            '[id*="advert"]', '[class*="sponsor"]', '[id*="sponsor"]',
+            'iframe[src*="doubleclick.net"]', 'iframe[src*="googlesyndication.com"]',
+            'iframe[src*="amazon-adsystem.com"]', 'iframe[src*="taboola.com"]',
+            'iframe[src*="outbrain.com"]'
+          ];
+          if (location.hostname === 'adblock.turtlecute.org') {
+            selectors.push('.adbox.banner_ads.adsbox', '.textads');
+          }
+          const style = document.createElement('style');
+          style.id = 'luna-mega-adblock-cosmetic';
+          style.textContent = selectors.join(',') + '{display:none!important;visibility:hidden!important;'
+            + 'width:0!important;height:0!important;min-width:0!important;min-height:0!important;'
+            + 'pointer-events:none!important;overflow:hidden!important}';
+          const addStyle = () => {
+            if (document.documentElement && !document.getElementById(style.id))
+              document.documentElement.appendChild(style);
+          };
+          addStyle();
+          if (!document.documentElement) document.addEventListener('DOMContentLoaded', addStyle, {once:true});
+          const scriptNames = new Set(['ads.js','pagead.js','advertisement.js','analytics.js']);
+          const removeDecoyScripts = root => {
+            try {
+              (root.querySelectorAll ? root.querySelectorAll('script[src]') : []).forEach(script => {
+                try {
+                  const url = new URL(script.src, location.href);
+                  if (url.origin === location.origin && scriptNames.has(url.pathname.split('/').pop().toLowerCase()))
+                    script.remove();
+                } catch (_) {}
+              });
+            } catch (_) {}
+          };
+          removeDecoyScripts(document);
+          try {
+            const observe = () => { window.__lunaMegaAdblockObserver = new MutationObserver(records => records.forEach(record =>
+              record.addedNodes.forEach(node => {
+                if (node.nodeType !== 1) return;
+                if (node.matches && node.matches('script[src]')) {
+                  try {
+                    const url = new URL(node.src, location.href);
+                    if (url.origin === location.origin && scriptNames.has(url.pathname.split('/').pop().toLowerCase())) node.remove();
+                  } catch (_) {}
+                }
+                removeDecoyScripts(node);
+              })
+            ));
+              window.__lunaMegaAdblockObserver.observe(document.documentElement, {childList:true, subtree:true});
+            };
+            if (document.documentElement) observe();
+            else document.addEventListener('DOMContentLoaded', observe, {once:true});
+          } catch (_) {}
+        })();"""
+
+    def install_adblock_cosmetic_script(self, page, run_now=False):
+        scripts = page.scripts()
+        for old_script in scripts.find("LunaSurferMegaAdblockCosmetic"):
+            scripts.remove(old_script)
+        if (self.settings_data.get("adblock_enabled", True)
+                and self.settings_data.get("adblock_strength", "standard") in ("mega_strong", "ultra_strong")):
+            script = QWebEngineScript()
+            script.setName("LunaSurferMegaAdblockCosmetic")
+            script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
+            script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
+            script.setRunsOnSubFrames(True)
+            script.setSourceCode(self.adblock_cosmetic_script())
+            scripts.insert(script)
+            if run_now:
+                page.runJavaScript(self.adblock_cosmetic_script())
+        elif run_now:
+            page.runJavaScript("""(() => {
+              const style = document.getElementById('luna-mega-adblock-cosmetic');
+              if (style) style.remove();
+              if (window.__lunaMegaAdblockObserver) window.__lunaMegaAdblockObserver.disconnect();
+              window.__lunaMegaAdblockObserver = null;
+              window.__lunaMegaAdblockInstalled = false;
+            })();""")
+
+    def apply_adblock_cosmetic_live(self):
+        """Apply or remove high-strength cosmetic rules in all open tabs immediately."""
+        for index in range(self.tabs.count()):
+            view = self.tabs.widget(index)
+            if isinstance(view, BrowserView):
+                self.install_adblock_cosmetic_script(view.page(), run_now=True)
+
     def update_adblock_button(self):
         enabled = self.settings_data.get("adblock_enabled", True)
         self.adblock_button.setText("🛡" if enabled else "⊘")
@@ -2991,6 +3476,7 @@ class LunaSurfer(QMainWindow):
             ("Sehr stark", "Very strong", "very_strong"),
             ("Super stark", "Super strong", "super_strong"),
             ("Mega stark", "Mega strong", "mega_strong"),
+            ("Ultra stark", "Ultra strong", "ultra_strong"),
         ]:
             strength.addItem(self.tr(label_de, label_en), value)
         current_strength = self.settings_data.get("adblock_strength", "standard")
@@ -3058,6 +3544,7 @@ class LunaSurfer(QMainWindow):
             self.settings_data["fingerprint_strength"] = fp_strength.currentData()
             write_json(CONFIG_FILE, self.settings_data)
             self.update_adblock_button()
+            self.apply_adblock_cosmetic_live()
             self.apply_fingerprint_protection_live()
             dialog.accept()
 
@@ -3075,9 +3562,24 @@ class LunaSurfer(QMainWindow):
                 continue
             target = pathlib.Path(record["target"]).expanduser()
             stored = dict(record)
-            # Legacy history files had no status field. Infer success only
-            # when the downloaded file is still present on disk.
+            # Legacy records had no status field. More importantly, an older
+            # manager could persist a transient Qt "interrupted/failed" state
+            # just before the completed file was flushed to disk. Reconcile
+            # those terminal records against the actual file size on restart.
             status = stored.get("status") or ("completed" if target.is_file() else "failed")
+            if status in ("failed", "interrupted") and target.is_file():
+                try:
+                    actual_size = target.stat().st_size
+                    expected_size = int(stored.get("total", 0) or 0)
+                    received_size = int(stored.get("received", 0) or 0)
+                    # A full-sized file is stronger evidence of success than
+                    # a stale terminal state saved during Qt's final flush.
+                    if expected_size > 0 and actual_size >= expected_size:
+                        status = "completed"
+                    elif expected_size <= 0 and received_size > 0 and actual_size >= received_size and status == "interrupted":
+                        status = "completed"
+                except (OSError, TypeError, ValueError):
+                    pass
             self.download_items.append({
                 "id": stored.get("id") or secrets.token_hex(12),
                 "download": StoredDownload(stored), "target": target,
@@ -3101,10 +3603,24 @@ class LunaSurfer(QMainWindow):
             state = ""
         if "cancel" in state:
             return "cancelled"
+        if download.isFinished():
+            target = pathlib.Path(item["target"]) if item.get("target") else None
+            if target and target.is_file():
+                try:
+                    actual_size = target.stat().st_size
+                    expected_size = int(getattr(download, "totalBytes", lambda: 0)() or 0)
+                    received_size = int(getattr(download, "receivedBytes", lambda: 0)() or 0)
+                    if expected_size > 0 and actual_size >= expected_size:
+                        return "completed"
+                    if expected_size <= 0 and received_size > 0 and actual_size >= received_size and "interrupt" not in state and "fail" not in state:
+                        return "completed"
+                except (OSError, TypeError, ValueError):
+                    pass
+            if "interrupt" in state or "fail" in state:
+                return "failed"
+            return "completed" if target and target.is_file() else "failed"
         if "interrupt" in state or "fail" in state:
             return "failed"
-        if download.isFinished():
-            return "completed" if item.get("target") and pathlib.Path(item["target"]).is_file() else "failed"
         if bool(getattr(download, "isPaused", lambda: False)()):
             return "paused"
         return "active"
@@ -5107,7 +5623,7 @@ class LunaSurfer(QMainWindow):
 <h2>7. Separate Protection &amp; Privacy panel</h2>
 <p>Open this panel with the shield button in the toolbar. It has two tabs:</p>
 <h3>Ad blocker</h3><ul>
-<li><b>Enable ad blocker:</b> turns filtering on or off.</li><li><b>Blocking strength:</b> Standard, Strong, Very strong, Super strong or Mega strong. Higher levels filter more patterns but can break site features or hide content.</li>
+<li><b>Enable ad blocker:</b> turns filtering on or off.</li><li><b>Blocking strength:</b> Standard, Strong, Very strong, Super strong, Mega strong or Ultra strong. Higher levels filter more patterns but can break site features or hide content.</li>
 <li><b>Custom block patterns:</b> add domains or patterns separated by semicolons, for example <code>example-ads.com; tracker.example</code>.</li>
 <li><b>Whitelist domains:</b> list domains that should be exempted from ad-block filtering, separated by semicolons. Use this for trusted sites that do not work correctly.</li>
 </ul>
@@ -5189,7 +5705,7 @@ class LunaSurfer(QMainWindow):
 <h2>7. Separates Fenster „Schutz &amp; Privatsphäre“</h2>
 <p>Öffne dieses Fenster über die Schild-Schaltfläche in der Symbolleiste. Es enthält zwei Registerkarten:</p>
 <h3>Werbeblocker</h3><ul>
-<li><b>Werbeblocker aktivieren:</b> schaltet die Filterung ein oder aus.</li><li><b>Blockierstärke:</b> Standard, Stark, Sehr stark, Super stark oder Mega stark. Höhere Stufen filtern mehr Muster, können aber Funktionen stören oder Inhalte ausblenden.</li>
+<li><b>Werbeblocker aktivieren:</b> schaltet die Filterung ein oder aus.</li><li><b>Blockierstärke:</b> Standard, Stark, Sehr stark, Super stark, Mega stark oder Ultra stark. Höhere Stufen filtern mehr Muster, können aber Funktionen stören oder Inhalte ausblenden.</li>
 <li><b>Eigene Blockiermuster:</b> füge Domains oder Muster ein, getrennt durch Semikolons, zum Beispiel <code>example-ads.com; tracker.example</code>.</li>
 <li><b>Whitelist-Domains:</b> Domains, die von der Werbeblocker-Filterung ausgenommen werden sollen, ebenfalls durch Semikolons trennen. Das hilft bei vertrauenswürdigen Seiten, die sonst nicht richtig funktionieren.</li>
 </ul>
