@@ -1,6 +1,6 @@
 Changelog
 
-# LunaSurfer 0.3.45 – ZWISCHENABLAGE FÜR WEBSEITEN-KOPIERFUNKTIONEN KORRIGIERT
+# LunaSurfer 0.3.46 – ZWISCHENABLAGE FÜR WEBSEITEN-KOPIERFUNKTIONEN KORRIGIERT
 
 - JavaScript-Zugriff auf die Zwischenablage in QtWebEngine aktiviert, damit Kopier-Schaltflächen auf HTTPS-Webseiten (z. B. GitHub „Copy code to clipboard“) den System-Zwischenspeicher tatsächlich beschreiben können.
 - Eine angeforderte Clipboard-Berechtigung wird über den vorhandenen Webseiten-Berechtigungsdialog abgefragt und kann wie andere Webseiten-Berechtigungen gespeichert werden.
