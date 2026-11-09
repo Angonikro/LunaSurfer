@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.45 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.46 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -918,11 +918,13 @@ class BrowserView(QWebEngineView):
         page = self.page()
         settings = page.settings()
         settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, self.window_ref.settings_data.get("javascript_enabled", True))
-        # Allow websites to copy text after an explicit user action.  Many modern
-        # pages use navigator.clipboard.writeText() for their own Copy buttons.
+        # Allow clipboard writes from web pages after an explicit user action.
+        # GitHub and other HTTPS sites use navigator.clipboard.writeText() for
+        # their Copy buttons; disabling this setting makes the UI report a copy
+        # even though the system clipboard is not updated.
         clipboard_attr = getattr(QWebEngineSettings.WebAttribute, "JavascriptCanAccessClipboard", None)
         if clipboard_attr is not None:
-            settings.setAttribute(clipboard_attr, False)
+            settings.setAttribute(clipboard_attr, True)
         # Explicitly deny risky cross-boundary content capabilities. These are
         # normally disabled by Qt, but setting them here protects against future
         # defaults or profile-level changes.
@@ -1808,6 +1810,8 @@ class LunaSurfer(QMainWindow):
                 key, label = "permission_location", self.tr("Standort", "Location")
             elif "notification" in raw_type:
                 key, label = "permission_notifications", self.tr("Benachrichtigungen", "Notifications")
+            elif "clipboardreadwrite" in raw_type:
+                key, label = "permission_clipboard", self.tr("Zwischenablage", "Clipboard")
             else:
                 # Do not silently grant permission types not managed by the settings.
                 permission.deny()
