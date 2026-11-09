@@ -3566,24 +3566,20 @@ class LunaSurfer(QMainWindow):
                 continue
             target = pathlib.Path(record["target"]).expanduser()
             stored = dict(record)
-            # Legacy records had no status field. More importantly, an older
-            # manager could persist a transient Qt "interrupted/failed" state
-            # just before the completed file was flushed to disk. Reconcile
-            # those terminal records against the actual file size on restart.
-            status = stored.get("status") or ("completed" if target.is_file() else "failed")
-            if status in ("failed", "interrupted") and target.is_file():
-                try:
-                    actual_size = target.stat().st_size
-                    expected_size = int(stored.get("total", 0) or 0)
-                    received_size = int(stored.get("received", 0) or 0)
-                    # A full-sized file is stronger evidence of success than
-                    # a stale terminal state saved during Qt's final flush.
-                    if expected_size > 0 and actual_size >= expected_size:
-                        status = "completed"
-                    elif expected_size <= 0 and received_size > 0 and actual_size >= received_size and status == "interrupted":
-                        status = "completed"
-                except (OSError, TypeError, ValueError):
-                    pass
+            # The transfer result is independent from whether the user still
+            # keeps the downloaded file. Repair old stale failure records only
+            # when the persisted byte counters prove the full transfer arrived.
+            try:
+                expected_size = int(stored.get("total", 0) or 0)
+                received_size = int(stored.get("received", 0) or 0)
+            except (TypeError, ValueError):
+                expected_size = received_size = 0
+            status = stored.get("status")
+            if not status:
+                status = "completed" if target.is_file() else "failed"
+            if (status in ("failed", "interrupted")
+                    and expected_size > 0 and received_size >= expected_size):
+                status = "completed"
             self.download_items.append({
                 "id": stored.get("id") or secrets.token_hex(12),
                 "download": StoredDownload(stored), "target": target,
@@ -3595,9 +3591,9 @@ class LunaSurfer(QMainWindow):
 
     @staticmethod
     def _download_status(item):
-        """Return a stable UI status; a finished Qt request is not always successful."""
+        """Return the transfer outcome; file deletion never means transfer failure."""
         download = item.get("download")
-        if item.get("stored") or item.get("status") == "interrupted":
+        if item.get("stored"):
             return item.get("status", "completed")
         if not download:
             return "failed"
@@ -3605,26 +3601,34 @@ class LunaSurfer(QMainWindow):
             state = str(download.state()).casefold()
         except Exception:
             state = ""
+
+        # Explicit Qt terminal states take precedence over filesystem checks.
         if "cancel" in state:
             return "cancelled"
-        if download.isFinished():
-            target = pathlib.Path(item["target"]) if item.get("target") else None
-            if target and target.is_file():
-                try:
-                    actual_size = target.stat().st_size
-                    expected_size = int(getattr(download, "totalBytes", lambda: 0)() or 0)
-                    received_size = int(getattr(download, "receivedBytes", lambda: 0)() or 0)
-                    if expected_size > 0 and actual_size >= expected_size:
-                        return "completed"
-                    if expected_size <= 0 and received_size > 0 and actual_size >= received_size and "interrupt" not in state and "fail" not in state:
-                        return "completed"
-                except (OSError, TypeError, ValueError):
-                    pass
-            if "interrupt" in state or "fail" in state:
-                return "failed"
-            return "completed" if target and target.is_file() else "failed"
         if "interrupt" in state or "fail" in state:
+            # Older Qt versions may briefly expose a stale state after all
+            # bytes arrived. The full byte count is sufficient evidence.
+            try:
+                expected = int(getattr(download, "totalBytes", lambda: 0)() or 0)
+                received = int(getattr(download, "receivedBytes", lambda: 0)() or 0)
+            except (TypeError, ValueError):
+                expected = received = 0
+            if expected > 0 and received >= expected:
+                return "completed"
             return "failed"
+        if "complete" in state:
+            return "completed"
+
+        if download.isFinished():
+            try:
+                expected = int(getattr(download, "totalBytes", lambda: 0)() or 0)
+                received = int(getattr(download, "receivedBytes", lambda: 0)() or 0)
+            except (TypeError, ValueError):
+                expected = received = 0
+            if expected > 0 and received >= expected:
+                return "completed"
+            target = pathlib.Path(item["target"]) if item.get("target") else None
+            return "completed" if target and target.is_file() else "failed"
         if bool(getattr(download, "isPaused", lambda: False)()):
             return "paused"
         return "active"
@@ -3827,22 +3831,30 @@ class LunaSurfer(QMainWindow):
             elif item.get("downloaded_at"):
                 details_text += f"   ·   {item['downloaded_at']}"
             ui["details"].setText(details_text)
+            # "missing" is a display-only state: the transfer succeeded,
+            # but the file is no longer at its original path (deleted or moved).
+            display_status = (
+                "missing" if status == "completed" and not pathlib.Path(item["target"]).is_file()
+                else status
+            )
             state_labels = {
                 "completed": self.tr("Fertig", "Completed"),
+                "missing": self.tr("Datei nicht mehr vorhanden", "File no longer present"),
                 "cancelled": self.tr("Abgebrochen", "Cancelled"),
                 "failed": self.tr("Fehlgeschlagen", "Failed"),
                 "interrupted": self.tr("Unterbrochen", "Interrupted"),
                 "paused": self.tr("Pausiert", "Paused"),
             }
-            state_text = state_labels.get(status, f"{percent} %")
+            state_text = state_labels.get(display_status, f"{percent} %")
             ui["state"].setText(state_text)
             state_color = {
                 "completed": "background:#153d32; color:#5ce0a8;",
+                "missing": "background:#51401f; color:#ffd27a;",
                 "cancelled": "background:#49302d; color:#ffb3a8;",
                 "failed": "background:#49302d; color:#ff8f86;",
                 "interrupted": "background:#49302d; color:#ffb3a8;",
                 "paused": "background:#51401f; color:#ffd27a;",
-            }.get(status, "background:#173954; color:#73c7ff;")
+            }.get(display_status, "background:#173954; color:#73c7ff;")
             ui["state"].setStyleSheet(
                 state_color
                 + "border:0; border-radius:8px; padding:7px 9px; font-size:11px; font-weight:800;"
@@ -3920,10 +3932,11 @@ class LunaSurfer(QMainWindow):
 
             state = QLabel()
             state.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            # Leave enough room for the longest German status labels
-            # (e.g. "Fehlgeschlagen" and "Abgebrochen") without clipping.
-            state.setMinimumWidth(116)
-            state.setMaximumWidth(132)
+            # Reserve enough horizontal space for the full German status
+            # "Datei nicht mehr vorhanden", including the label's padding.
+            # The previous 116–132 px cap clipped the beginning/end of the text.
+            state.setMinimumWidth(205)
+            state.setMaximumWidth(205)
             state.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             outer.addWidget(state)
             item["_download_ui"] = {"bar": bar, "details": details, "state": state, "pause": pause_btn, "card": card}

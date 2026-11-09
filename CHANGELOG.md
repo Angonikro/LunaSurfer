@@ -1,3 +1,18 @@
+# LunaSurfer 0.3.47 – DOWNLOAD-STATUS KORREKTUR
+
+## 0.3.47
+- Download-Erfolg und Verfügbarkeit der heruntergeladenen Datei werden getrennt behandelt.
+- Erfolgreich übertragene Downloads bleiben erfolgreich, auch wenn die Datei später gelöscht oder verschoben wird.
+- Im Download-Manager wird bei fehlender Datei „Datei nicht mehr vorhanden“ angezeigt.
+- Alte Verlaufseinträge mit vollständig übertragenen Bytezählern werden beim Laden korrigiert.
+
+# LunaSurfer 0.3.46 – DOWNLOAD-ERFOLG UND DATEISTATUS GETRENNT
+
+- Der Status eines Downloads beschreibt jetzt ausschließlich das Ergebnis der Übertragung. Das spätere Löschen oder Verschieben der Datei ändert einen erfolgreichen Download nicht mehr in „Fehlgeschlagen“.
+- Im Download-Manager wird bei erfolgreich übertragenen, am ursprünglichen Speicherort aber nicht mehr vorhandenen Dateien „Datei nicht mehr vorhanden“ angezeigt.
+- Beim Laden alter Verlaufseinträge werden vollständige gespeicherte Bytezähler genutzt, um fälschlich als fehlgeschlagen markierte vollständige Übertragungen zu korrigieren.
+- Tatsächlich fehlgeschlagene oder abgebrochene Übertragungen bleiben entsprechend gekennzeichnet.
+
 Changelog
 
 # LunaSurfer 0.3.46 – ZWISCHENABLAGE FÜR WEBSEITEN-KOPIERFUNKTIONEN KORRIGIERT

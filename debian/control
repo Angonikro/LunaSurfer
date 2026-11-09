@@ -1,4 +1,5 @@
 Package: lunasurfer
+Version: 0.3.47
 Section: web
 Priority: optional
 Architecture: all
