@@ -3859,6 +3859,9 @@ class LunaSurfer(QMainWindow):
             "pt": ("Esta página não parece estar em alemão. Pretende traduzi-la?", "Traduzir"),
             "pl": ("Ta strona nie wygląda na niemiecką. Czy chcesz ją przetłumaczyć?", "Przetłumacz"),
             "tr": ("Bu sayfa Almanca görünmüyor. Çevirmek ister misiniz?", "Çevir"),
+            "ru": ("Похоже, эта страница не на немецком языке. Перевести?", "Перевести"),
+            "ja": ("このページはドイツ語ではないようです。翻訳しますか？", "翻訳"),
+            "zh-CN": ("此页面似乎不是德语。要翻译吗？", "翻译"),
         }
         message, action_text = notices.get(language, notices["de"])
         try:

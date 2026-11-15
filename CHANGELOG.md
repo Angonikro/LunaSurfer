@@ -1,7 +1,7 @@
 Changelog
 
 ## 0.3.49 - 10 Sprachen hinzugefügt
-- Italienisch, Niederländisch, Französisch, Polnisch, Portugisisch, Spanisch, Russisch, Japanisch, Chinesisch, Türkisch hinzugefügt. 
+- Italienisch, Niederländisch, Französisch, Polnisch, Portugisisch, Spanisch, Russisch, Japanisch, Chinesisch, Türkisch hinzugefügt.
 
 ## 0.3.48 – DOWNLOAD-HISTORY UND DOWNLOAD-MANAGER
 
