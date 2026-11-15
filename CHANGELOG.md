@@ -1,6 +1,9 @@
 Changelog
 
-# LunaSurfer 0.3.48 – DOWNLOAD-HISTORY UND DOWNLOAD-MANAGER
+## 0.3.49 - 10 Sprachen hinzugefügt
+- Italienisch, Niederländisch, Französisch, Polnisch, Portugisisch, Spanisch, Russisch, Japanisch, Chinesisch, Türkisch hinzugefügt. 
+
+## 0.3.48 – DOWNLOAD-HISTORY UND DOWNLOAD-MANAGER
 
 - Die gespeicherte Download-History wird beim Browserstart im Hintergrund eingelesen, ohne den GUI-Thread zu blockieren.
 - Beim Öffnen des Download-Managers wird der laufende bzw. abgeschlossene Ladevorgang übernommen.
@@ -496,3 +499,10 @@ Changelog
 ## 0.3.45 – Einheitliches Dropdown für „Weitere“
 - Der Button „Weitere“ verwendet jetzt dieselbe gemeinsame Menü-Erzeugung und Button-Konfiguration wie Ordner in der Lesezeichenleiste.
 - Verschachtelte Ordner, Menübreite, Tooltips und natives Scrollverhalten werden einheitlich behandelt.
+
+### Version 0.3.49 – Russian interface
+- Added Russian (Русский) as a selectable interface language.
+- Added Russian translations for the main browser interface, settings, menus, dialogs, download manager, bookmarks and password manager.
+- Added Russian Qt standard-button translations and Russian locale selection for Qt dialogs.
+- Website translation target languages and browser functionality remain unchanged.
+

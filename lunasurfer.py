@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.48 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.49 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -45,7 +45,7 @@ _VERSION_FILE = pathlib.Path(__file__).resolve().with_name("VERSION")
 try:
     APP_VERSION = _VERSION_FILE.read_text(encoding="utf-8").strip() or "0.3.35"
 except OSError:
-    APP_VERSION = "0.3.33"
+    APP_VERSION = "0.3.49"
 CONFIG_DIR = pathlib.Path.home() / ".config" / "lunasurfer"
 DATA_DIR = pathlib.Path.home() / ".local" / "share" / "lunasurfer"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
@@ -345,6 +345,1101 @@ FINGERPRINT_PROTECTION_JS = r"""
 """
 
 
+
+
+# Portuguese (Portugal) interface catalogue.
+RUSSIAN_UI = {'Manage bookmarks': 'Управление закладками',
+ '» More': '» Ещё',
+ 'Clear all browser data': 'Очистить все данные браузера',
+ 'Find on this page': 'Найти на странице',
+ 'Matches 0 of 0': 'Совпадений: 0 из 0',
+ 'Previous match': 'Предыдущее совпадение',
+ 'Next match': 'Следующее совпадение',
+ 'Close find bar': 'Закрыть панель поиска',
+ 'Developer tools': 'Инструменты разработчика',
+ 'Back': 'Назад',
+ 'Forward': 'Вперёд',
+ 'Reload': 'Обновить',
+ 'Home': 'Домой',
+ 'Enter address or search': 'Введите адрес или поисковый запрос',
+ 'Translate webpage': 'Перевести страницу',
+ 'Show original page': 'Показать оригинал страницы',
+ 'Add current page to bookmarks': 'Добавить текущую страницу в закладки',
+ 'Unlock password manager – autofill saved logins (Ctrl+Shift+L)': 'Разблокировать менеджер паролей — '
+                                                                   'автозаполнение сохранённых учётных '
+                                                                   'данных (Ctrl+Shift+L)',
+ 'Download manager': 'Менеджер загрузок',
+ 'Protection & privacy': 'Защита и конфиденциальность',
+ 'New tab': 'Новая вкладка',
+ 'Menu': 'Меню',
+ 'Bookmarks': 'Закладки',
+ 'History': 'История',
+ 'Open downloads folder': 'Открыть папку загрузок',
+ 'Settings': 'Настройки',
+ 'User guide': 'Руководство пользователя',
+ 'Developer tools (F12)': 'Инструменты разработчика (F12)',
+ 'About LunaSurfer': 'О программе LunaSurfer',
+ 'Quit': 'Выход',
+ 'Bookmarks bar': 'Панель закладок',
+ 'Ad blocker': 'Блокировщик рекламы',
+ 'Ready': 'Готово',
+ 'Loading translated webpage …': 'Загрузка переведённой страницы…',
+ 'View and manage bookmarks': 'Просмотр и управление закладками',
+ 'Open': 'Открыть',
+ 'Edit bookmark…': 'Изменить закладку…',
+ 'Delete bookmark': 'Удалить закладку',
+ 'Edit bookmark': 'Изменить закладку',
+ 'Name:': 'Имя:',
+ 'Address:': 'Адрес:',
+ 'Bookmark changed': 'Закладка изменена',
+ 'Really delete this bookmark?': 'Действительно удалить эту закладку?',
+ 'Bookmark deleted': 'Закладка удалена',
+ 'Your bookmarks': 'Ваши закладки',
+ 'Expand folders, search entries and manage them directly.': 'Раскрывайте папки, ищите записи и управляйте '
+                                                             'ими прямо здесь.',
+ 'Search bookmarks or addresses …': 'Поиск закладок или адресов…',
+ 'Edit…': 'Изменить…',
+ 'Delete': 'Удалить',
+ 'Import…': 'Импорт…',
+ 'Export…': 'Экспорт…',
+ 'Close': 'Закрыть',
+ 'Protection settings: ad blocker and fingerprint': 'Настройки защиты: блокировщик рекламы и защита от '
+                                                    'цифрового отпечатка',
+ 'Saved website permissions': 'Сохранённые разрешения сайтов',
+ 'Change or remove remembered decisions for each website. Changes are saved immediately.': 'Изменяйте или '
+                                                                                           'удаляйте '
+                                                                                           'сохранённые '
+                                                                                           'решения для '
+                                                                                           'каждого сайта. '
+                                                                                           'Изменения '
+                                                                                           'сохраняются '
+                                                                                           'сразу.',
+ 'Camera': 'Камера',
+ 'Microphone': 'Микрофон',
+ 'Location': 'Местоположение',
+ 'Notifications': 'Уведомления',
+ 'Clear all saved permissions': 'Удалить все сохранённые разрешения',
+ 'Enable ad blocker': 'Включить блокировщик рекламы',
+ 'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'Блокировщик '
+                                                                                                                           'рекламы '
+                                                                                                                           'фильтрует '
+                                                                                                                           'известные '
+                                                                                                                           'рекламные '
+                                                                                                                           'и '
+                                                                                                                           'отслеживающие '
+                                                                                                                           'домены. '
+                                                                                                                           'Более '
+                                                                                                                           'высокий '
+                                                                                                                           'уровень '
+                                                                                                                           'блокирует '
+                                                                                                                           'больше, '
+                                                                                                                           'но '
+                                                                                                                           'может '
+                                                                                                                           'влиять '
+                                                                                                                           'на '
+                                                                                                                           'работу '
+                                                                                                                           'некоторых '
+                                                                                                                           'сайтов.',
+ 'Enable fingerprint protection': 'Включить защиту от цифрового отпечатка',
+ 'Fingerprint protection': 'Защита от цифрового отпечатка',
+ 'Save': 'Сохранить',
+ 'Cancel': 'Отмена',
+ 'Download Manager': 'Менеджер загрузок',
+ 'Downloads': 'Загрузки',
+ 'All active and completed files in one place.': 'Все активные и завершённые загрузки в одном месте.',
+ 'All downloads': 'Все загрузки',
+ 'In progress': 'Выполняется',
+ 'Paused': 'Приостановлено',
+ 'Completed': 'Завершено',
+ 'Failed / cancelled': 'Ошибка / отменено',
+ 'Search filename or path …': 'Поиск по имени файла или пути…',
+ 'Cancel download': 'Отменить загрузку',
+ 'Open file': 'Открыть файл',
+ 'Open folder': 'Открыть папку',
+ 'Remove entry': 'Удалить запись',
+ 'Clear completed': 'Очистить завершённые',
+ 'Clear history': 'Очистить историю',
+ 'Change master password': 'Изменить мастер-пароль',
+ 'Current master password:': 'Текущий мастер-пароль:',
+ 'New master password': 'Новый мастер-пароль',
+ 'New master password (at least 10 characters):': 'Новый мастер-пароль (не менее 10 символов):',
+ 'Confirm master password': 'Подтвердите мастер-пароль',
+ 'Enter the new master password again:': 'Введите новый мастер-пароль ещё раз:',
+ 'Export password': 'Пароль экспорта',
+ 'Choose a password for this export file (at least 10 characters):': 'Задайте пароль для этого файла '
+                                                                     'экспорта (не менее 10 символов):',
+ 'Confirm export password': 'Подтвердите пароль экспорта',
+ 'Enter the export password again:': 'Введите пароль экспорта ещё раз:',
+ 'Enter the password used to encrypt this export file:': 'Введите пароль, использованный для шифрования '
+                                                         'файла экспорта:',
+ 'Passwords deleted': 'Пароли удалены',
+ 'All saved website passwords have been deleted. The master password remains.': 'Все сохранённые пароли '
+                                                                                'сайтов удалены. '
+                                                                                'Мастер-пароль сохранён.',
+ 'Login details': 'Данные для входа',
+ 'Website (matched automatically)': 'Сайт (определяется автоматически)',
+ 'Username': 'Имя пользователя',
+ 'Password': 'Пароль',
+ 'Show password': 'Показать пароль',
+ 'Generate secure password': 'Создать надёжный пароль',
+ 'LunaSurfer – Password manager': 'LunaSurfer — Менеджер паролей',
+ 'Passwords are encrypted locally. The master password cannot be recovered.': 'Пароли шифруются локально. '
+                                                                              'Мастер-пароль невозможно '
+                                                                              'восстановить.',
+ 'Add': 'Добавить',
+ 'Edit': 'Изменить',
+ 'Export encrypted…': 'Экспортировать в зашифрованном виде…',
+ 'Import encrypted…': 'Импортировать зашифрованные данные…',
+ 'Change master password…': 'Изменить мастер-пароль…',
+ 'Lock now': 'Заблокировать',
+ 'Update password?': 'Обновить пароль?',
+ 'Save password?': 'Сохранить пароль?',
+ 'Login details saved securely.': 'Данные для входа надёжно сохранены.',
+ 'LunaSurfer – User guide': 'LunaSurfer — Руководство пользователя',
+ 'Open homepage': 'Открыть домашнюю страницу',
+ 'Restore last session': 'Восстановить предыдущий сеанс',
+ 'Open blank page': 'Открыть пустую страницу',
+ 'Google Translate (whole webpage)': 'Google Переводчик (вся веб-страница)',
+ 'MyMemory (no API key)': 'MyMemory (без ключа API)',
+ 'Google translates the whole webpage. MyMemory translates visible text sections and has a free daily limit.': 'Google '
+                                                                                                               'переводит '
+                                                                                                               'всю '
+                                                                                                               'веб-страницу. '
+                                                                                                               'MyMemory '
+                                                                                                               'переводит '
+                                                                                                               'видимые '
+                                                                                                               'фрагменты '
+                                                                                                               'текста '
+                                                                                                               'и '
+                                                                                                               'имеет '
+                                                                                                               'дневной '
+                                                                                                               'бесплатный '
+                                                                                                               'лимит.',
+ 'Dark': 'Тёмная',
+ 'Light': 'Светлая',
+ 'Dark (Standard)': 'Тёмная (стандартная)',
+ 'Light (Classic)': 'Светлая (классическая)',
+ 'Luna (Modern)': 'Luna (современная)',
+ 'Graphite Blue (Elegant)': 'Графитово-синяя (элегантная)',
+ 'Ocean (Teal Blue)': 'Океан (бирюзово-синий)',
+ 'Show bookmarks bar below the address bar': 'Показывать панель закладок под адресной строкой',
+ 'Choose folder…': 'Выбрать папку…',
+ 'Ask where to save each download': 'Спрашивать, куда сохранять каждый файл',
+ 'Show security warning for executable downloads': 'Показывать предупреждение безопасности для исполняемых '
+                                                   'файлов',
+ 'Show popup when a download finishes': 'Показывать уведомление по завершении загрузки',
+ 'Block pop-ups': 'Блокировать всплывающие окна',
+ 'Enable JavaScript': 'Включить JavaScript',
+ 'Send Do Not Track request': 'Отправлять запрос Do Not Track',
+ 'Ask when closing a tab': 'Спрашивать при закрытии вкладки',
+ 'Automatically clear history on exit': 'Автоматически очищать историю при выходе',
+ 'Automatically clear cache on exit': 'Автоматически очищать кэш при выходе',
+ 'Automatically clear cookies on exit': 'Автоматически удалять cookie при выходе',
+ 'Remember window size and position on exit': 'Запоминать размер и положение окна при выходе',
+ 'Use LunaSurfer as default browser': 'Использовать LunaSurfer как браузер по умолчанию',
+ 'General': 'Общие',
+ 'Language:': 'Язык:',
+ 'On startup:': 'При запуске:',
+ 'Homepage:': 'Домашняя страница:',
+ 'Search engine:': 'Поисковая система:',
+ 'Translation provider:': 'Служба перевода:',
+ 'Browser design:': 'Оформление браузера:',
+ 'Website appearance:': 'Внешний вид сайтов:',
+ 'Download folder:': 'Папка загрузок:',
+ 'Default zoom:': 'Масштаб по умолчанию:',
+ 'Default font size:': 'Размер шрифта по умолчанию:',
+ 'Website readability:': 'Читаемость сайтов:',
+ 'Website colors:': 'Цвета сайтов:',
+ 'Security and permissions': 'Безопасность и разрешения',
+ 'Security:': 'Безопасность:',
+ 'User-Agent management': 'Управление User-Agent',
+ 'Privacy default (reduced Chrome UA)': 'Режим конфиденциальности (сокращённый Chrome UA)',
+ 'Native browser User-Agent': 'Собственный User-Agent браузера',
+ 'Custom User-Agent': 'Пользовательский User-Agent',
+ 'Enter a complete User-Agent string…': 'Введите полную строку User-Agent…',
+ 'Mode:': 'Режим:',
+ 'Custom value:': 'Пользовательское значение:',
+ 'Current:': 'Текущее значение:',
+ 'Offer to save passwords after successful sign-in': 'Предлагать сохранять пароли после успешного входа',
+ 'Password manager must be unlocked before autofill': 'Перед автозаполнением необходимо разблокировать '
+                                                      'менеджер паролей',
+ 'Open password manager…': 'Открыть менеджер паролей…',
+ 'Manage encrypted saved website logins': 'Управление зашифрованными сохранёнными учётными данными сайтов',
+ 'Delete all passwords…': 'Удалить все пароли…',
+ 'Passwords:': 'Пароли:',
+ 'Edit saved website permissions…': 'Изменить сохранённые разрешения сайтов…',
+ 'Website permissions:': 'Разрешения сайтов:',
+ 'Browser behavior:': 'Поведение браузера:',
+ 'Clear cache': 'Очистить кэш',
+ 'Clear cookies': 'Удалить cookie',
+ 'Clear everything': 'Очистить всё',
+ 'Privacy and browser data': 'Конфиденциальность и данные браузера',
+ 'Cookie mode:': 'Режим cookie:',
+ 'Browser data:': 'Данные браузера:',
+ 'Permission request': 'Запрос разрешения',
+ 'Remember this decision for this website': 'Запомнить это решение для данного сайта',
+ 'Allow': 'Разрешить',
+ 'Block': 'Заблокировать',
+ 'Yes': 'Да',
+ 'No': 'Нет',
+ 'Close tab': 'Закрыть вкладку',
+ 'Do you really want to close this tab?': 'Вы действительно хотите закрыть эту вкладку?',
+ 'Stop loading': 'Остановить загрузку',
+ 'Translation': 'Перевод',
+ 'Open a regular webpage first.': 'Сначала откройте обычную веб-страницу.',
+ 'Original page': 'Исходная страница',
+ 'No original page URL is saved for this tab.': 'Для этой вкладки не сохранён адрес исходной страницы.',
+ 'More bookmarks': 'Другие закладки',
+ 'Show more bookmarks': 'Показать больше закладок',
+ 'Name': 'Имя',
+ 'Address': 'Адрес',
+ 'Export bookmarks': 'Экспорт закладок',
+ 'Import bookmarks': 'Импорт закладок',
+ 'Website': 'Веб-сайт',
+ 'Permission': 'Разрешение',
+ 'Decision': 'Решение',
+ 'Action': 'Действие',
+ 'Blocking strength:': 'Уровень блокировки:',
+ 'Protection level:': 'Уровень защиты:',
+ 'File no longer present': 'Файл больше не существует',
+ 'Cancelled': 'Отменено',
+ 'Failed': 'Ошибка',
+ 'Interrupted': 'Прервано',
+ 'Ⅱ Pause': 'Ⅱ Пауза',
+ 'Download security warning': 'Предупреждение безопасности загрузки',
+ 'This file may be dangerous': 'Этот файл может быть опасен',
+ 'Do not show this security warning again': 'Больше не показывать это предупреждение безопасности',
+ 'Download anyway': 'Всё равно загрузить',
+ 'History cleared': 'История очищена',
+ 'The browsing history has been cleared.': 'История просмотров очищена.',
+ 'Unlock password manager': 'Разблокировать менеджер паролей',
+ 'Master password:': 'Мастер-пароль:',
+ 'Set up password manager': 'Настроить менеджер паролей',
+ 'Enter master password again:': 'Введите мастер-пароль ещё раз:',
+ 'Look in:': 'Папка:',
+ 'File name:': 'Имя файла:',
+ 'File type:': 'Тип файла:',
+ 'Too short': 'Слишком короткий пароль',
+ 'Please use at least 10 characters.': 'Используйте не менее 10 символов.',
+ 'Passwords do not match': 'Пароли не совпадают',
+ 'The passwords do not match.': 'Пароли не совпадают.',
+ 'Master password changed': 'Мастер-пароль изменён',
+ 'Use at least 10 characters.': 'Используйте не менее 10 символов.',
+ 'Export complete': 'Экспорт завершён',
+ 'Import complete': 'Импорт завершён',
+ 'No passwords stored': 'Сохранённых паролей нет',
+ 'There are no saved passwords to delete.': 'Нет сохранённых паролей для удаления.',
+ 'Delete all passwords': 'Удалить все пароли',
+ 'Invalid input': 'Некорректные данные',
+ 'Ask': 'Спрашивать',
+ 'User-Agent missing': 'User-Agent не указан',
+ 'Cache cleared': 'Кэш очищен',
+ 'Cookies cleared': 'Cookie удалены',
+ 'Folder': 'Папка',
+ 'Delete folder': 'Удалить папку',
+ 'Bookmarks exported': 'Закладки экспортированы',
+ 'Export': 'Экспорт',
+ 'Bookmarks imported': 'Закладки импортированы',
+ 'Import': 'Импорт',
+ 'Remove': 'Удалить',
+ 'Clear all permissions': 'Удалить все разрешения',
+ 'Total': 'Всего',
+ 'Download cancelled.': 'Загрузка отменена.',
+ 'Download failed or cancelled.': 'Ошибка загрузки или загрузка отменена.',
+ 'Incorrect password': 'Неверный пароль',
+ 'Change failed': 'Не удалось изменить',
+ 'Export failed': 'Ошибка экспорта',
+ 'Nothing to import': 'Нет данных для импорта',
+ 'Import passwords': 'Импорт паролей',
+ 'Import failed': 'Ошибка импорта',
+ 'Delete password': 'Удалить пароль',
+ 'Really delete this saved login?': 'Действительно удалить эти сохранённые данные для входа?',
+ 'Folder deleted': 'Папка удалена',
+ '▶ Resume': '▶ Продолжить',
+ 'Download': 'Загрузка',
+ 'Unknown': 'Неизвестно',
+ 'Download complete': 'Загрузка завершена',
+ 'Error': 'Ошибка',
+ 'Active': 'Активно',
+ 'Saved in:': 'Сохранено в:',
+ 'Clipboard': 'Буфер обмена',
+ 'Allow all cookies': 'Разрешить все cookie',
+ 'Block third-party cookies': 'Блокировать сторонние cookie',
+ 'Block all cookies': 'Блокировать все cookie',
+ 'Allow session cookies only': 'Разрешать только сеансовые cookie',
+ 'Strong': 'Высокий',
+ 'Very strong': 'Очень высокий',
+ 'Super strong': 'Сверхвысокий',
+ 'Mega strong': 'Максимальный',
+ 'Ultra strong': 'Ультравысокий',
+ 'Maximum': 'Максимум',
+ 'Standard': 'Стандартный',
+ 'Small': 'Маленький',
+ 'Medium': 'Средний',
+ 'Large': 'Большой',
+ 'Very large': 'Очень большой',
+ 'Export encrypted vault': 'Экспортировать зашифрованное хранилище',
+ 'Import encrypted vault': 'Импортировать зашифрованное хранилище',
+ 'New': 'Новый',
+ 'Updated': 'Обновлено',
+ 'Save image as': 'Сохранить изображение как',
+ 'Save page as': 'Сохранить страницу как',
+ 'All files (*.*)': 'Все файлы (*.*)',
+ 'Web page (*.mhtml)': 'Веб-страница (*.mhtml)',
+ 'Do you really want to delete the entire browsing history?': 'Действительно удалить всю историю просмотров?',
+ 'LunaSurfer vault (*.lsv);;All files (*)': 'Хранилище LunaSurfer (*.lsv);;Все файлы (*)',
+ 'Normal – leave websites unchanged': 'Обычный — не изменять сайты',
+ 'Gentle contrast': 'Мягкий контраст',
+ 'Softer contrast': 'Более мягкий контраст',
+ 'Relaxed contrast': 'Умеренный контраст',
+ 'Original – keep website colors': 'Оригинальный — сохранить цвета сайта',
+ 'Black mode – black backgrounds': 'Чёрный режим — чёрный фон',
+ 'Custom block patterns (separate with semicolons):': 'Пользовательские шаблоны блокировки (разделяйте '
+                                                      'точкой с запятой):',
+ 'Whitelist domains (separate with semicolons):': 'Домены белого списка (разделяйте точкой с запятой):',
+ 'The download has finished:': 'Загрузка завершена:',
+ ' items': ' элементов',
+ ' matches': ' совпадений',
+ 'Do you really want to clear all browser data?\n\nHistory, cache, cookies, sign-in sessions, Local Storage, IndexedDB and other website data will be removed. You will be signed out of websites.\n\nBookmarks and saved passwords will be kept. The full cleanup will finish the next time LunaSurfer starts.': 'Действительно '
+                                                                                                                                                                                                                                                                                                                  'очистить '
+                                                                                                                                                                                                                                                                                                                  'все '
+                                                                                                                                                                                                                                                                                                                  'данные '
+                                                                                                                                                                                                                                                                                                                  'браузера?\n'
+                                                                                                                                                                                                                                                                                                                  '\n'
+                                                                                                                                                                                                                                                                                                                  'История, '
+                                                                                                                                                                                                                                                                                                                  'кэш, '
+                                                                                                                                                                                                                                                                                                                  'cookie, '
+                                                                                                                                                                                                                                                                                                                  'сеансы '
+                                                                                                                                                                                                                                                                                                                  'входа, '
+                                                                                                                                                                                                                                                                                                                  'Local '
+                                                                                                                                                                                                                                                                                                                  'Storage, '
+                                                                                                                                                                                                                                                                                                                  'IndexedDB '
+                                                                                                                                                                                                                                                                                                                  'и '
+                                                                                                                                                                                                                                                                                                                  'другие '
+                                                                                                                                                                                                                                                                                                                  'данные '
+                                                                                                                                                                                                                                                                                                                  'сайтов '
+                                                                                                                                                                                                                                                                                                                  'будут '
+                                                                                                                                                                                                                                                                                                                  'удалены. '
+                                                                                                                                                                                                                                                                                                                  'Вы '
+                                                                                                                                                                                                                                                                                                                  'выйдете '
+                                                                                                                                                                                                                                                                                                                  'из '
+                                                                                                                                                                                                                                                                                                                  'учётных '
+                                                                                                                                                                                                                                                                                                                  'записей '
+                                                                                                                                                                                                                                                                                                                  'на '
+                                                                                                                                                                                                                                                                                                                  'сайтах.\n'
+                                                                                                                                                                                                                                                                                                                  '\n'
+                                                                                                                                                                                                                                                                                                                  'Закладки '
+                                                                                                                                                                                                                                                                                                                  'и '
+                                                                                                                                                                                                                                                                                                                  'сохранённые '
+                                                                                                                                                                                                                                                                                                                  'пароли '
+                                                                                                                                                                                                                                                                                                                  'останутся. '
+                                                                                                                                                                                                                                                                                                                  'Полная '
+                                                                                                                                                                                                                                                                                                                  'очистка '
+                                                                                                                                                                                                                                                                                                                  'завершится '
+                                                                                                                                                                                                                                                                                                                  'при '
+                                                                                                                                                                                                                                                                                                                  'следующем '
+                                                                                                                                                                                                                                                                                                                  'запуске '
+                                                                                                                                                                                                                                                                                                                  'LunaSurfer.',
+ 'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Стандартный: '
+                                                                                                                                                                                                                             'защита '
+                                                                                                                                                                                                                             'Canvas, '
+                                                                                                                                                                                                                             'аудио '
+                                                                                                                                                                                                                             'и '
+                                                                                                                                                                                                                             'основных '
+                                                                                                                                                                                                                             'данных '
+                                                                                                                                                                                                                             'оборудования. '
+                                                                                                                                                                                                                             'Высокий: '
+                                                                                                                                                                                                                             'дополнительно '
+                                                                                                                                                                                                                             'скрывает '
+                                                                                                                                                                                                                             'идентификаторы '
+                                                                                                                                                                                                                             'WebGL. '
+                                                                                                                                                                                                                             'Максимальный: '
+                                                                                                                                                                                                                             'дополнительная '
+                                                                                                                                                                                                                             'защита '
+                                                                                                                                                                                                                             'данных '
+                                                                                                                                                                                                                             'оборудования '
+                                                                                                                                                                                                                             'и '
+                                                                                                                                                                                                                             'Client '
+                                                                                                                                                                                                                             'Hints '
+                                                                                                                                                                                                                             'браузера. '
+                                                                                                                                                                                                                             'Изменения '
+                                                                                                                                                                                                                             'применяются '
+                                                                                                                                                                                                                             'сразу, '
+                                                                                                                                                                                                                             'перезапуск '
+                                                                                                                                                                                                                             'не '
+                                                                                                                                                                                                                             'требуется.',
+ 'The User-Agent changes the browser identification, not the browser engine or its capabilities. With fingerprint protection enabled, Client Hints are reduced to match the Chromium version.': 'User-Agent '
+                                                                                                                                                                                                'изменяет '
+                                                                                                                                                                                                'идентификацию '
+                                                                                                                                                                                                'браузера, '
+                                                                                                                                                                                                'но '
+                                                                                                                                                                                                'не '
+                                                                                                                                                                                                'его '
+                                                                                                                                                                                                'движок '
+                                                                                                                                                                                                'и '
+                                                                                                                                                                                                'возможности. '
+                                                                                                                                                                                                'При '
+                                                                                                                                                                                                'включённой '
+                                                                                                                                                                                                'защите '
+                                                                                                                                                                                                'от '
+                                                                                                                                                                                                'цифрового '
+                                                                                                                                                                                                'отпечатка '
+                                                                                                                                                                                                'Client '
+                                                                                                                                                                                                'Hints '
+                                                                                                                                                                                                'сокращаются '
+                                                                                                                                                                                                'в '
+                                                                                                                                                                                                'соответствии '
+                                                                                                                                                                                                'с '
+                                                                                                                                                                                                'версией '
+                                                                                                                                                                                                'Chromium.',
+ 'When disabled, LunaSurfer asks for the master password only when you focus a login field.': 'Если функция '
+                                                                                              'отключена, '
+                                                                                              'LunaSurfer '
+                                                                                              'запрашивает '
+                                                                                              'мастер-пароль '
+                                                                                              'только при '
+                                                                                              'переходе к '
+                                                                                              'полю входа.',
+ 'Delete all saved website logins; the master password remains': 'Удалить все сохранённые данные входа на '
+                                                                 'сайты; мастер-пароль останется',
+ 'Manage saved permission decisions for individual websites': 'Управление сохранёнными разрешениями для '
+                                                              'отдельных сайтов',
+ 'Do you really want to clear the browser cache?': 'Действительно очистить кэш браузера?',
+ 'Browser data cleared; full cleanup will finish after restart.': 'Данные браузера очищены; полная очистка '
+                                                                  'завершится после перезапуска.',
+ 'Browser data is being cleared. Please restart LunaSurfer to remove all stored website data completely. Bookmarks and saved passwords will be kept.': 'Выполняется '
+                                                                                                                                                       'очистка '
+                                                                                                                                                       'данных '
+                                                                                                                                                       'браузера. '
+                                                                                                                                                       'Перезапустите '
+                                                                                                                                                       'LunaSurfer, '
+                                                                                                                                                       'чтобы '
+                                                                                                                                                       'полностью '
+                                                                                                                                                       'удалить '
+                                                                                                                                                       'все '
+                                                                                                                                                       'сохранённые '
+                                                                                                                                                       'данные '
+                                                                                                                                                       'сайтов. '
+                                                                                                                                                       'Закладки '
+                                                                                                                                                       'и '
+                                                                                                                                                       'пароли '
+                                                                                                                                                       'останутся.',
+ 'Do you really want to delete all stored cookies?': 'Действительно удалить все сохранённые cookie?',
+ 'Provider: MyMemory – starting translation …': 'Служба: MyMemory — запуск перевода…',
+ 'Provider: Google Translate – loading whole webpage …': 'Служба: Google Переводчик — загрузка всей '
+                                                         'веб-страницы…',
+ 'This file can run programs or scripts. Only download it if you trust the source.': 'Этот файл может '
+                                                                                     'запускать программы '
+                                                                                     'или сценарии. '
+                                                                                     'Загружайте его, только '
+                                                                                     'если доверяете '
+                                                                                     'источнику.',
+ 'The vault has been re-encrypted with the new master password. Keep it safe; it cannot be recovered.': 'Хранилище '
+                                                                                                        'повторно '
+                                                                                                        'зашифровано '
+                                                                                                        'новым '
+                                                                                                        'мастер-паролем. '
+                                                                                                        'Храните '
+                                                                                                        'его '
+                                                                                                        'надёжно: '
+                                                                                                        'восстановить '
+                                                                                                        'его '
+                                                                                                        'невозможно.',
+ 'The vault was exported in encrypted form. Keep the export file and export password separately.': 'Хранилище '
+                                                                                                   'экспортировано '
+                                                                                                   'в '
+                                                                                                   'зашифрованном '
+                                                                                                   'виде. '
+                                                                                                   'Храните '
+                                                                                                   'файл '
+                                                                                                   'экспорта '
+                                                                                                   'и пароль '
+                                                                                                   'отдельно.',
+ 'Do you really want to permanently delete ALL saved website logins? The master password will remain.': 'Действительно '
+                                                                                                        'навсегда '
+                                                                                                        'удалить '
+                                                                                                        'ВСЕ '
+                                                                                                        'сохранённые '
+                                                                                                        'данные '
+                                                                                                        'входа '
+                                                                                                        'на '
+                                                                                                        'сайты? '
+                                                                                                        'Мастер-пароль '
+                                                                                                        'останется.',
+ 'Enter a valid website address, username and password.': 'Введите корректный адрес сайта, имя пользователя '
+                                                          'и пароль.',
+ 'Enter a complete User-Agent or select another mode.': 'Введите полный User-Agent или выберите другой '
+                                                        'режим.',
+ 'The browser cache has been cleared.': 'Кэш браузера очищен.',
+ 'All stored cookies have been cleared.': 'Все сохранённые cookie удалены.',
+ 'MyMemory could not translate the page. Check connection or daily quota.': 'MyMemory не удалось перевести '
+                                                                            'страницу. Проверьте подключение '
+                                                                            'или дневной лимит.',
+ 'Really delete this folder and all bookmarks inside it?': 'Действительно удалить эту папку и все закладки '
+                                                           'внутри неё?',
+ 'Bookmarks were exported, including their folder structure.': 'Закладки экспортированы вместе со структурой '
+                                                               'папок.',
+ 'Do you really want to clear all saved website permissions?': 'Действительно удалить все сохранённые '
+                                                               'разрешения сайтов?',
+ 'Download source: ': 'Источник загрузки: ',
+ 'The current master password is incorrect or the vault is damaged.': 'Текущий мастер-пароль неверен или '
+                                                                      'хранилище повреждено.',
+ 'The export contains no valid logins.': 'В экспорте нет корректных данных для входа.',
+ 'Translation provider applied immediately: ': 'Служба перевода применена немедленно: ',
+ 'Qt 6 + QtWebEngine with selectable light/dark website appearance and optional Widevine CDM integration.': 'Qt '
+                                                                                                            '6 '
+                                                                                                            '+ '
+                                                                                                            'QtWebEngine '
+                                                                                                            'с '
+                                                                                                            'выбором '
+                                                                                                            'светлого '
+                                                                                                            'или '
+                                                                                                            'тёмного '
+                                                                                                            'оформления '
+                                                                                                            'сайтов '
+                                                                                                            'и '
+                                                                                                            'дополнительной '
+                                                                                                            'поддержкой '
+                                                                                                            'Widevine '
+                                                                                                            'CDM.',
+ ' text sections translated.': ' фрагментов текста переведено.',
+ 'No bookmarks found in the selected file.': 'В выбранном файле закладки не найдены.',
+ 'The master password is incorrect or the vault is damaged.': 'Мастер-пароль неверен или хранилище '
+                                                              'повреждено.',
+ 'Incorrect export password or damaged export file.': 'Неверный пароль экспорта или файл повреждён.',
+ 'No custom User-Agent entered yet': 'Пользовательский User-Agent ещё не задан',
+ 'Could not refresh translation menu: ': 'Не удалось обновить меню перевода: ',
+ 'MyMemory: ': 'MyMemory: ',
+ 'The folder could not be deleted.': 'Не удалось удалить папку.'}
+
+# Japanese (Japan) interface catalogue.
+JAPANESE_UI = {'Manage bookmarks': 'ブックマークの管理',
+ '» More': '» その他',
+ 'Clear all browser data': 'ブラウザーのデータをすべて消去',
+ 'Find on this page': 'ページ内を検索',
+ 'Matches 0 of 0': '一致: 0 / 0',
+ 'Previous match': '前の一致',
+ 'Next match': '次の一致',
+ 'Close find bar': '検索バーを閉じる',
+ 'Developer tools': '開発者ツール',
+ 'Back': '戻る',
+ 'Forward': '進む',
+ 'Reload': '再読み込み',
+ 'Home': 'ホーム',
+ 'Enter address or search': 'アドレスまたは検索語句を入力',
+ 'Translate webpage': 'ウェブページを翻訳',
+ 'Show original page': '元のページを表示',
+ 'Add current page to bookmarks': '現在のページをブックマークに追加',
+ 'Unlock password manager – autofill saved logins (Ctrl+Shift+L)': 'パスワードマネージャーをロック解除 – 保存したログイン情報を自動入力 '
+                                                                   '(Ctrl+Shift+L)',
+ 'Download manager': 'ダウンロードマネージャー',
+ 'Protection & privacy': '保護とプライバシー',
+ 'New tab': '新しいタブ',
+ 'Menu': 'メニュー',
+ 'Bookmarks': 'ブックマーク',
+ 'History': '履歴',
+ 'Open downloads folder': 'ダウンロードフォルダーを開く',
+ 'Settings': '設定',
+ 'User guide': 'ユーザーガイド',
+ 'Developer tools (F12)': '開発者ツール (F12)',
+ 'About LunaSurfer': 'LunaSurfer について',
+ 'Quit': '終了',
+ 'Bookmarks bar': 'ブックマークバー',
+ 'Ad blocker': '広告ブロッカー',
+ 'Ready': '準備完了',
+ 'Loading translated webpage …': '翻訳したウェブページを読み込み中…',
+ 'View and manage bookmarks': 'ブックマークの表示と管理',
+ 'Open': '開く',
+ 'Edit bookmark…': 'ブックマークを編集…',
+ 'Delete bookmark': 'ブックマークを削除',
+ 'Edit bookmark': 'ブックマークを編集',
+ 'Name:': '名前:',
+ 'Address:': 'アドレス:',
+ 'Bookmark changed': 'ブックマークを変更しました',
+ 'Really delete this bookmark?': 'このブックマークを本当に削除しますか？',
+ 'Bookmark deleted': 'ブックマークを削除しました',
+ 'Your bookmarks': 'ブックマーク',
+ 'Expand folders, search entries and manage them directly.': 'フォルダーを展開し、項目を検索して直接管理できます。',
+ 'Search bookmarks or addresses …': 'ブックマークまたはアドレスを検索…',
+ 'Edit…': '編集…',
+ 'Delete': '削除',
+ 'Import…': 'インポート…',
+ 'Export…': 'エクスポート…',
+ 'Close': '閉じる',
+ 'Protection settings: ad blocker and fingerprint': '保護設定: 広告ブロッカーとフィンガープリント',
+ 'Saved website permissions': '保存済みウェブサイト権限',
+ 'Change or remove remembered decisions for each website. Changes are saved immediately.': 'ウェブサイトごとに記憶された設定を変更または削除します。変更はすぐに保存されます。',
+ 'Camera': 'カメラ',
+ 'Microphone': 'マイク',
+ 'Location': '位置情報',
+ 'Notifications': '通知',
+ 'Clear all saved permissions': '保存済みの権限をすべて消去',
+ 'Enable ad blocker': '広告ブロッカーを有効にする',
+ 'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': '広告ブロッカーは既知の広告・追跡ドメインをフィルターします。強度を上げるとより多く遮断しますが、一部のサイトに影響する場合があります。',
+ 'Enable fingerprint protection': 'フィンガープリント保護を有効にする',
+ 'Fingerprint protection': 'フィンガープリント保護',
+ 'Save': '保存',
+ 'Cancel': 'キャンセル',
+ 'Download Manager': 'ダウンロードマネージャー',
+ 'Downloads': 'ダウンロード',
+ 'All active and completed files in one place.': '進行中および完了したファイルをまとめて管理します。',
+ 'All downloads': 'すべてのダウンロード',
+ 'In progress': '進行中',
+ 'Paused': '一時停止',
+ 'Completed': '完了',
+ 'Failed / cancelled': '失敗 / キャンセル',
+ 'Search filename or path …': 'ファイル名またはパスを検索…',
+ 'Cancel download': 'ダウンロードをキャンセル',
+ 'Open file': 'ファイルを開く',
+ 'Open folder': 'フォルダーを開く',
+ 'Remove entry': '項目を削除',
+ 'Clear completed': '完了項目を消去',
+ 'Clear history': '履歴を消去',
+ 'Change master password': 'マスターパスワードを変更',
+ 'Current master password:': '現在のマスターパスワード:',
+ 'New master password': '新しいマスターパスワード',
+ 'New master password (at least 10 characters):': '新しいマスターパスワード (10文字以上):',
+ 'Confirm master password': 'マスターパスワードの確認',
+ 'Enter the new master password again:': '新しいマスターパスワードをもう一度入力してください:',
+ 'Export password': 'エクスポート用パスワード',
+ 'Choose a password for this export file (at least 10 characters):': 'このエクスポートファイルのパスワードを設定してください (10文字以上):',
+ 'Confirm export password': 'エクスポート用パスワードの確認',
+ 'Enter the export password again:': 'エクスポート用パスワードをもう一度入力してください:',
+ 'Enter the password used to encrypt this export file:': 'このエクスポートファイルの暗号化に使用したパスワードを入力してください:',
+ 'Passwords deleted': 'パスワードを削除しました',
+ 'All saved website passwords have been deleted. The master password remains.': '保存されたウェブサイトのパスワードをすべて削除しました。マスターパスワードは保持されます。',
+ 'Login details': 'ログイン情報',
+ 'Website (matched automatically)': 'ウェブサイト (自動照合)',
+ 'Username': 'ユーザー名',
+ 'Password': 'パスワード',
+ 'Show password': 'パスワードを表示',
+ 'Generate secure password': '安全なパスワードを生成',
+ 'LunaSurfer – Password manager': 'LunaSurfer – パスワードマネージャー',
+ 'Passwords are encrypted locally. The master password cannot be recovered.': 'パスワードはローカルで暗号化されます。マスターパスワードを復元することはできません。',
+ 'Add': '追加',
+ 'Edit': '編集',
+ 'Export encrypted…': '暗号化してエクスポート…',
+ 'Import encrypted…': '暗号化データをインポート…',
+ 'Change master password…': 'マスターパスワードを変更…',
+ 'Lock now': '今すぐロック',
+ 'Update password?': 'パスワードを更新しますか？',
+ 'Save password?': 'パスワードを保存しますか？',
+ 'Login details saved securely.': 'ログイン情報を安全に保存しました。',
+ 'LunaSurfer – User guide': 'LunaSurfer – ユーザーガイド',
+ 'Open homepage': 'ホームページを開く',
+ 'Restore last session': '前回のセッションを復元',
+ 'Open blank page': '空白ページを開く',
+ 'Google Translate (whole webpage)': 'Google 翻訳 (ウェブページ全体)',
+ 'MyMemory (no API key)': 'MyMemory (APIキー不要)',
+ 'Google translates the whole webpage. MyMemory translates visible text sections and has a free daily limit.': 'Google '
+                                                                                                               'はウェブページ全体を翻訳します。MyMemory '
+                                                                                                               'は表示されているテキスト部分を翻訳し、1日あたりの無料利用制限があります。',
+ 'Dark': 'ダーク',
+ 'Light': 'ライト',
+ 'Dark (Standard)': 'ダーク (標準)',
+ 'Light (Classic)': 'ライト (クラシック)',
+ 'Luna (Modern)': 'Luna (モダン)',
+ 'Graphite Blue (Elegant)': 'グラファイトブルー (エレガント)',
+ 'Ocean (Teal Blue)': 'オーシャン (ティールブルー)',
+ 'Show bookmarks bar below the address bar': 'アドレスバーの下にブックマークバーを表示',
+ 'Choose folder…': 'フォルダーを選択…',
+ 'Ask where to save each download': 'ダウンロードごとに保存先を確認',
+ 'Show security warning for executable downloads': '実行可能ファイルのダウンロード時にセキュリティ警告を表示',
+ 'Show popup when a download finishes': 'ダウンロード完了時にポップアップを表示',
+ 'Block pop-ups': 'ポップアップをブロック',
+ 'Enable JavaScript': 'JavaScriptを有効にする',
+ 'Send Do Not Track request': 'Do Not Track リクエストを送信',
+ 'Ask when closing a tab': 'タブを閉じるときに確認',
+ 'Automatically clear history on exit': '終了時に履歴を自動消去',
+ 'Automatically clear cache on exit': '終了時にキャッシュを自動消去',
+ 'Automatically clear cookies on exit': '終了時にCookieを自動消去',
+ 'Remember window size and position on exit': '終了時にウィンドウのサイズと位置を記憶',
+ 'Use LunaSurfer as default browser': 'LunaSurferを既定のブラウザーにする',
+ 'General': '一般',
+ 'Language:': '言語:',
+ 'On startup:': '起動時:',
+ 'Homepage:': 'ホームページ:',
+ 'Search engine:': '検索エンジン:',
+ 'Translation provider:': '翻訳サービス:',
+ 'Browser design:': 'ブラウザーのデザイン:',
+ 'Website appearance:': 'ウェブサイトの表示:',
+ 'Download folder:': 'ダウンロードフォルダー:',
+ 'Default zoom:': '既定のズーム:',
+ 'Default font size:': '既定のフォントサイズ:',
+ 'Website readability:': 'ウェブサイトの読みやすさ:',
+ 'Website colors:': 'ウェブサイトの色:',
+ 'Security and permissions': 'セキュリティと権限',
+ 'Security:': 'セキュリティ:',
+ 'User-Agent management': 'User-Agent の管理',
+ 'Privacy default (reduced Chrome UA)': 'プライバシー優先 (短縮版 Chrome UA)',
+ 'Native browser User-Agent': 'ブラウザー標準の User-Agent',
+ 'Custom User-Agent': 'カスタム User-Agent',
+ 'Enter a complete User-Agent string…': '完全な User-Agent 文字列を入力…',
+ 'Mode:': 'モード:',
+ 'Custom value:': 'カスタム値:',
+ 'Current:': '現在:',
+ 'Offer to save passwords after successful sign-in': 'ログイン成功後にパスワードの保存を提案',
+ 'Password manager must be unlocked before autofill': '自動入力の前にパスワードマネージャーのロック解除が必要',
+ 'Open password manager…': 'パスワードマネージャーを開く…',
+ 'Manage encrypted saved website logins': '暗号化された保存済みウェブサイトログインを管理',
+ 'Delete all passwords…': 'すべてのパスワードを削除…',
+ 'Passwords:': 'パスワード:',
+ 'Edit saved website permissions…': '保存済みウェブサイト権限を編集…',
+ 'Website permissions:': 'ウェブサイトの権限:',
+ 'Browser behavior:': 'ブラウザーの動作:',
+ 'Clear cache': 'キャッシュを消去',
+ 'Clear cookies': 'Cookieを消去',
+ 'Clear everything': 'すべて消去',
+ 'Privacy and browser data': 'プライバシーとブラウザーデータ',
+ 'Cookie mode:': 'Cookieモード:',
+ 'Browser data:': 'ブラウザーデータ:',
+ 'Permission request': '権限のリクエスト',
+ 'Remember this decision for this website': 'このウェブサイトについての選択を記憶',
+ 'Allow': '許可',
+ 'Block': 'ブロック',
+ 'Yes': 'はい',
+ 'No': 'いいえ',
+ 'Close tab': 'タブを閉じる',
+ 'Do you really want to close this tab?': 'このタブを本当に閉じますか？',
+ 'Stop loading': '読み込みを停止',
+ 'Translation': '翻訳',
+ 'Open a regular webpage first.': '先に通常のウェブページを開いてください。',
+ 'Original page': '元のページ',
+ 'No original page URL is saved for this tab.': 'このタブには元のページのURLが保存されていません。',
+ 'More bookmarks': 'その他のブックマーク',
+ 'Show more bookmarks': 'さらにブックマークを表示',
+ 'Name': '名前',
+ 'Address': 'アドレス',
+ 'Export bookmarks': 'ブックマークをエクスポート',
+ 'Import bookmarks': 'ブックマークをインポート',
+ 'Website': 'ウェブサイト',
+ 'Permission': '権限',
+ 'Decision': '選択',
+ 'Action': '操作',
+ 'Blocking strength:': 'ブロック強度:',
+ 'Protection level:': '保護レベル:',
+ 'File no longer present': 'ファイルが見つかりません',
+ 'Cancelled': 'キャンセル済み',
+ 'Failed': '失敗',
+ 'Interrupted': '中断',
+ 'Ⅱ Pause': 'Ⅱ 一時停止',
+ 'Download security warning': 'ダウンロードのセキュリティ警告',
+ 'This file may be dangerous': 'このファイルは危険な可能性があります',
+ 'Do not show this security warning again': '今後このセキュリティ警告を表示しない',
+ 'Download anyway': 'それでもダウンロード',
+ 'History cleared': '履歴を消去しました',
+ 'The browsing history has been cleared.': '閲覧履歴を消去しました。',
+ 'Unlock password manager': 'パスワードマネージャーのロック解除',
+ 'Master password:': 'マスターパスワード:',
+ 'Set up password manager': 'パスワードマネージャーを設定',
+ 'Enter master password again:': 'マスターパスワードをもう一度入力してください:',
+ 'Look in:': '場所:',
+ 'File name:': 'ファイル名:',
+ 'File type:': 'ファイルの種類:',
+ 'Too short': '短すぎます',
+ 'Please use at least 10 characters.': '10文字以上で入力してください。',
+ 'Passwords do not match': 'パスワードが一致しません',
+ 'The passwords do not match.': 'パスワードが一致しません。',
+ 'Master password changed': 'マスターパスワードを変更しました',
+ 'Use at least 10 characters.': '10文字以上で入力してください。',
+ 'Export complete': 'エクスポート完了',
+ 'Import complete': 'インポート完了',
+ 'No passwords stored': '保存されたパスワードはありません',
+ 'There are no saved passwords to delete.': '削除する保存済みパスワードはありません。',
+ 'Delete all passwords': 'すべてのパスワードを削除',
+ 'Invalid input': '入力が無効です',
+ 'Ask': '確認する',
+ 'User-Agent missing': 'User-Agent が未入力です',
+ 'Cache cleared': 'キャッシュを消去しました',
+ 'Cookies cleared': 'Cookieを消去しました',
+ 'Folder': 'フォルダー',
+ 'Delete folder': 'フォルダーを削除',
+ 'Bookmarks exported': 'ブックマークをエクスポートしました',
+ 'Export': 'エクスポート',
+ 'Bookmarks imported': 'ブックマークをインポートしました',
+ 'Import': 'インポート',
+ 'Remove': '削除',
+ 'Clear all permissions': 'すべての権限を消去',
+ 'Total': '合計',
+ 'Download cancelled.': 'ダウンロードをキャンセルしました。',
+ 'Download failed or cancelled.': 'ダウンロードに失敗したか、キャンセルされました。',
+ 'Incorrect password': 'パスワードが正しくありません',
+ 'Change failed': '変更に失敗しました',
+ 'Export failed': 'エクスポートに失敗しました',
+ 'Nothing to import': 'インポートするものがありません',
+ 'Import passwords': 'パスワードをインポート',
+ 'Import failed': 'インポートに失敗しました',
+ 'Delete password': 'パスワードを削除',
+ 'Really delete this saved login?': 'この保存済みログイン情報を本当に削除しますか？',
+ 'Folder deleted': 'フォルダーを削除しました',
+ '▶ Resume': '▶ 再開',
+ 'Download': 'ダウンロード',
+ 'Unknown': '不明',
+ 'Download complete': 'ダウンロード完了',
+ 'Error': 'エラー',
+ 'Active': '有効',
+ 'Saved in:': '保存先:',
+ 'Clipboard': 'クリップボード',
+ 'Allow all cookies': 'すべてのCookieを許可',
+ 'Block third-party cookies': 'サードパーティCookieをブロック',
+ 'Block all cookies': 'すべてのCookieをブロック',
+ 'Allow session cookies only': 'セッションCookieのみ許可',
+ 'Strong': '強い',
+ 'Very strong': '非常に強い',
+ 'Super strong': '極めて強い',
+ 'Mega strong': '非常に強力',
+ 'Ultra strong': '最高レベル',
+ 'Maximum': '最大',
+ 'Standard': '標準',
+ 'Small': '小',
+ 'Medium': '中',
+ 'Large': '大',
+ 'Very large': '特大',
+ 'Export encrypted vault': '暗号化された保管庫をエクスポート',
+ 'Import encrypted vault': '暗号化された保管庫をインポート',
+ 'New': '新規',
+ 'Updated': '更新済み',
+ 'Save image as': '画像を名前を付けて保存',
+ 'Save page as': 'ページを名前を付けて保存',
+ 'All files (*.*)': 'すべてのファイル (*.*)',
+ 'Web page (*.mhtml)': 'ウェブページ (*.mhtml)',
+ 'Do you really want to delete the entire browsing history?': '閲覧履歴をすべて本当に削除しますか？',
+ 'LunaSurfer vault (*.lsv);;All files (*)': 'LunaSurfer保管庫 (*.lsv);;すべてのファイル (*)',
+ 'Normal – leave websites unchanged': '標準 – ウェブサイトを変更しない',
+ 'Gentle contrast': '弱いコントラスト',
+ 'Softer contrast': 'より柔らかいコントラスト',
+ 'Relaxed contrast': '控えめなコントラスト',
+ 'Original – keep website colors': 'オリジナル – ウェブサイトの色を維持',
+ 'Black mode – black backgrounds': 'ブラックモード – 背景を黒にする',
+ 'Custom block patterns (separate with semicolons):': 'カスタムブロックパターン (セミコロンで区切る):',
+ 'Whitelist domains (separate with semicolons):': '許可リストのドメイン (セミコロンで区切る):',
+ 'The download has finished:': 'ダウンロードが完了しました:',
+ ' items': ' 件',
+ ' matches': ' 件一致',
+ 'Do you really want to clear all browser data?\n\nHistory, cache, cookies, sign-in sessions, Local Storage, IndexedDB and other website data will be removed. You will be signed out of websites.\n\nBookmarks and saved passwords will be kept. The full cleanup will finish the next time LunaSurfer starts.': 'ブラウザーのデータをすべて消去しますか？\n'
+                                                                                                                                                                                                                                                                                                                  '\n'
+                                                                                                                                                                                                                                                                                                                  '履歴、キャッシュ、Cookie、ログインセッション、Local '
+                                                                                                                                                                                                                                                                                                                  'Storage、IndexedDB、その他のウェブサイトデータが削除されます。ウェブサイトからログアウトされます。\n'
+                                                                                                                                                                                                                                                                                                                  '\n'
+                                                                                                                                                                                                                                                                                                                  'ブックマークと保存済みパスワードは保持されます。完全な消去は次回のLunaSurfer起動時に完了します。',
+ 'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': '標準: '
+                                                                                                                                                                                                                             'Canvas、音声、基本的なハードウェア情報を保護します。強: '
+                                                                                                                                                                                                                             'WebGL識別情報もマスクします。最大: '
+                                                                                                                                                                                                                             'ハードウェア情報とブラウザーのClient '
+                                                                                                                                                                                                                             'Hintsも保護します。変更はすぐに適用され、再起動は不要です。',
+ 'The User-Agent changes the browser identification, not the browser engine or its capabilities. With fingerprint protection enabled, Client Hints are reduced to match the Chromium version.': 'User-Agentはブラウザーの識別情報を変更するもので、ブラウザーエンジンや機能は変更しません。フィンガープリント保護が有効な場合、Client '
+                                                                                                                                                                                                'HintsはChromiumのバージョンに合わせて制限されます。',
+ 'When disabled, LunaSurfer asks for the master password only when you focus a login field.': '無効にすると、ログイン欄にフォーカスしたときだけLunaSurferがマスターパスワードを要求します。',
+ 'Delete all saved website logins; the master password remains': '保存済みのウェブサイトログインをすべて削除します。マスターパスワードは保持されます',
+ 'Manage saved permission decisions for individual websites': 'ウェブサイトごとに保存された権限の選択を管理',
+ 'Do you really want to clear the browser cache?': 'ブラウザーのキャッシュを本当に消去しますか？',
+ 'Browser data cleared; full cleanup will finish after restart.': 'ブラウザーデータを消去しました。完全な消去は再起動後に完了します。',
+ 'Browser data is being cleared. Please restart LunaSurfer to remove all stored website data completely. Bookmarks and saved passwords will be kept.': 'ブラウザーデータを消去しています。保存されたウェブサイトデータを完全に削除するにはLunaSurferを再起動してください。ブックマークと保存済みパスワードは保持されます。',
+ 'Do you really want to delete all stored cookies?': '保存されたCookieをすべて本当に削除しますか？',
+ 'Provider: MyMemory – starting translation …': '翻訳サービス: MyMemory – 翻訳を開始しています…',
+ 'Provider: Google Translate – loading whole webpage …': '翻訳サービス: Google 翻訳 – ウェブページ全体を読み込んでいます…',
+ 'This file can run programs or scripts. Only download it if you trust the source.': 'このファイルはプログラムやスクリプトを実行する可能性があります。信頼できる提供元からのみダウンロードしてください。',
+ 'The vault has been re-encrypted with the new master password. Keep it safe; it cannot be recovered.': '保管庫は新しいマスターパスワードで再暗号化されました。復元できないため、安全に保管してください。',
+ 'The vault was exported in encrypted form. Keep the export file and export password separately.': '保管庫は暗号化された形式でエクスポートされました。エクスポートファイルとパスワードは別々に保管してください。',
+ 'Do you really want to permanently delete ALL saved website logins? The master password will remain.': '保存済みのウェブサイトログインをすべて完全に削除しますか？マスターパスワードは保持されます。',
+ 'Enter a valid website address, username and password.': '有効なウェブサイトアドレス、ユーザー名、パスワードを入力してください。',
+ 'Enter a complete User-Agent or select another mode.': '完全なUser-Agentを入力するか、別のモードを選択してください。',
+ 'The browser cache has been cleared.': 'ブラウザーのキャッシュを消去しました。',
+ 'All stored cookies have been cleared.': '保存されたCookieをすべて消去しました。',
+ 'MyMemory could not translate the page. Check connection or daily quota.': 'MyMemoryでページを翻訳できませんでした。接続または1日の利用上限を確認してください。',
+ 'Really delete this folder and all bookmarks inside it?': 'このフォルダーと中のブックマークをすべて本当に削除しますか？',
+ 'Bookmarks were exported, including their folder structure.': 'フォルダー構造を含めてブックマークをエクスポートしました。',
+ 'Do you really want to clear all saved website permissions?': '保存済みのウェブサイト権限をすべて本当に消去しますか？',
+ 'Download source: ': 'ダウンロード元: ',
+ 'The current master password is incorrect or the vault is damaged.': '現在のマスターパスワードが正しくないか、保管庫が破損しています。',
+ 'The export contains no valid logins.': 'エクスポートに有効なログイン情報が含まれていません。',
+ 'Translation provider applied immediately: ': '翻訳サービスをすぐに適用しました: ',
+ 'Qt 6 + QtWebEngine with selectable light/dark website appearance and optional Widevine CDM integration.': 'Qt '
+                                                                                                            '6 '
+                                                                                                            '+ '
+                                                                                                            'QtWebEngineを使用。ウェブサイトのライト/ダーク表示を選択でき、Widevine '
+                                                                                                            'CDMの統合にも対応します。',
+ ' text sections translated.': ' 件のテキスト部分を翻訳しました。',
+ 'No bookmarks found in the selected file.': '選択したファイルにブックマークが見つかりません。',
+ 'The master password is incorrect or the vault is damaged.': 'マスターパスワードが正しくないか、保管庫が破損しています。',
+ 'Incorrect export password or damaged export file.': 'エクスポート用パスワードが正しくないか、エクスポートファイルが破損しています。',
+ 'No custom User-Agent entered yet': 'カスタムUser-Agentはまだ入力されていません',
+ 'Could not refresh translation menu: ': '翻訳メニューを更新できませんでした: ',
+ 'MyMemory: ': 'MyMemory: ',
+ 'The folder could not be deleted.': 'フォルダーを削除できませんでした。'}
+
+# Simplified Chinese (China) interface catalogue.
+CHINESE_UI = {'Manage bookmarks': '管理书签', '» More': '» 更多', 'Clear all browser data': '清除所有浏览器数据', 'Find on this page': '在页面中查找', 'Matches 0 of 0': '匹配项 0 / 0', 'Previous match': '上一个匹配项', 'Next match': '下一个匹配项', 'Close find bar': '关闭查找栏', 'Developer tools': '开发者工具', 'Back': '后退', 'Forward': '前进', 'Reload': '重新加载', 'Home': '主页', 'Enter address or search': '输入网址或搜索', 'Translate webpage': '翻译网页', 'Show original page': '显示原始网页', 'Add current page to bookmarks': '将当前页面添加到书签', 'Unlock password manager – autofill saved logins (Ctrl+Shift+L)': '解锁密码管理器 – 自动填充已保存的登录信息 (Ctrl+Shift+L)', 'Download manager': '下载管理器', 'Protection & privacy': '保护与隐私', 'New tab': '新建标签页', 'Menu': '菜单', 'Bookmarks': '书签', 'History': '历史记录', 'Open downloads folder': '打开下载文件夹', 'Settings': '设置', 'User guide': '用户指南', 'Developer tools (F12)': '开发者工具 (F12)', 'About LunaSurfer': '关于 LunaSurfer', 'Quit': '退出', 'Bookmarks bar': '书签栏', 'Ad blocker': '广告拦截器', 'Ready': '就绪', 'Loading translated webpage …': '正在加载翻译后的网页…', 'View and manage bookmarks': '查看和管理书签', 'Open': '打开', 'Edit bookmark…': '编辑书签…', 'Delete bookmark': '删除书签', 'Edit bookmark': '编辑书签', 'Name:': '名称：', 'Address:': '地址：', 'Bookmark changed': '书签已更改', 'Really delete this bookmark?': '确定要删除此书签吗？', 'Bookmark deleted': '书签已删除', 'Your bookmarks': '您的书签', 'Expand folders, search entries and manage them directly.': '展开文件夹、搜索条目并直接进行管理。', 'Search bookmarks or addresses …': '搜索书签或网址…', 'Edit…': '编辑…', 'Delete': '删除', 'Import…': '导入…', 'Export…': '导出…', 'Close': '关闭', 'Protection settings: ad blocker and fingerprint': '保护设置：广告拦截与浏览器指纹', 'Saved website permissions': '已保存的网站权限', 'Change or remove remembered decisions for each website. Changes are saved immediately.': '更改或删除各网站已记住的权限决定。更改会立即保存。', 'Camera': '摄像头', 'Microphone': '麦克风', 'Location': '位置', 'Notifications': '通知', 'Clear all saved permissions': '清除所有已保存的权限', 'Enable ad blocker': '启用广告拦截器', 'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': '广告拦截器会过滤已知的广告和跟踪域名。更高级别可拦截更多内容，但可能影响某些网站。', 'Enable fingerprint protection': '启用指纹保护', 'Fingerprint protection': '指纹保护', 'Save': '保存', 'Cancel': '取消', 'Download Manager': '下载管理器', 'Downloads': '下载', 'All active and completed files in one place.': '在一个位置查看所有正在下载和已完成的文件。', 'All downloads': '所有下载', 'In progress': '正在进行', 'Paused': '已暂停', 'Completed': '已完成', 'Failed / cancelled': '失败 / 已取消', 'Search filename or path …': '搜索文件名或路径…', 'Cancel download': '取消下载', 'Open file': '打开文件', 'Open folder': '打开文件夹', 'Remove entry': '移除条目', 'Clear completed': '清除已完成项目', 'Clear history': '清除历史记录', 'Change master password': '更改主密码', 'Current master password:': '当前主密码：', 'New master password': '新主密码', 'New master password (at least 10 characters):': '新主密码（至少 10 个字符）：', 'Confirm master password': '确认主密码', 'Enter the new master password again:': '请再次输入新主密码：', 'Export password': '导出密码', 'Choose a password for this export file (at least 10 characters):': '为此导出文件设置密码（至少 10 个字符）：', 'Confirm export password': '确认导出密码', 'Enter the export password again:': '请再次输入导出密码：', 'Enter the password used to encrypt this export file:': '请输入用于加密此导出文件的密码：', 'Passwords deleted': '密码已删除', 'All saved website passwords have been deleted. The master password remains.': '所有已保存的网站密码均已删除。主密码仍然保留。', 'Login details': '登录信息', 'Website (matched automatically)': '网站（自动匹配）', 'Username': '用户名', 'Password': '密码', 'Show password': '显示密码', 'Generate secure password': '生成安全密码', 'LunaSurfer – Password manager': 'LunaSurfer – 密码管理器', 'Passwords are encrypted locally. The master password cannot be recovered.': '密码在本地加密。主密码无法找回。', 'Add': '添加', 'Edit': '编辑', 'Export encrypted…': '加密导出…', 'Import encrypted…': '加密导入…', 'Change master password…': '更改主密码…', 'Lock now': '立即锁定', 'Update password?': '更新密码？', 'Save password?': '保存密码？', 'Login details saved securely.': '登录信息已安全保存。', 'LunaSurfer – User guide': 'LunaSurfer – 用户指南', 'Open homepage': '打开主页', 'Restore last session': '恢复上次会话', 'Open blank page': '打开空白页', 'Google Translate (whole webpage)': 'Google 翻译（整个网页）', 'MyMemory (no API key)': 'MyMemory（无需 API 密钥）', 'Google translates the whole webpage. MyMemory translates visible text sections and has a free daily limit.': 'Google 会翻译整个网页。MyMemory 会翻译可见文本片段，并设有每日免费额度。', 'Dark': '深色', 'Light': '浅色', 'Dark (Standard)': '深色（标准）', 'Light (Classic)': '浅色（经典）', 'Luna (Modern)': 'Luna（现代）', 'Graphite Blue (Elegant)': '石墨蓝（优雅）', 'Ocean (Teal Blue)': '海洋（蓝绿色）', 'Show bookmarks bar below the address bar': '在地址栏下方显示书签栏', 'Choose folder…': '选择文件夹…', 'Ask where to save each download': '每次下载时询问保存位置', 'Show security warning for executable downloads': '下载可执行文件时显示安全警告', 'Show popup when a download finishes': '下载完成时显示弹出通知', 'Block pop-ups': '阻止弹出窗口', 'Enable JavaScript': '启用 JavaScript', 'Send Do Not Track request': '发送“请勿跟踪”请求', 'Ask when closing a tab': '关闭标签页时询问', 'Automatically clear history on exit': '退出时自动清除历史记录', 'Automatically clear cache on exit': '退出时自动清除缓存', 'Automatically clear cookies on exit': '退出时自动清除 Cookie', 'Remember window size and position on exit': '退出时记住窗口大小和位置', 'Use LunaSurfer as default browser': '将 LunaSurfer 设为默认浏览器', 'General': '常规', 'Language:': '语言：', 'On startup:': '启动时：', 'Homepage:': '主页：', 'Search engine:': '搜索引擎：', 'Translation provider:': '翻译服务：', 'Browser design:': '浏览器外观：', 'Website appearance:': '网站显示模式：', 'Download folder:': '下载文件夹：', 'Default zoom:': '默认缩放：', 'Default font size:': '默认字体大小：', 'Website readability:': '网站可读性：', 'Website colors:': '网站颜色：', 'Security and permissions': '安全与权限', 'Security:': '安全：', 'User-Agent management': 'User-Agent 管理', 'Privacy default (reduced Chrome UA)': '隐私默认设置（精简 Chrome UA）', 'Native browser User-Agent': '浏览器原生 User-Agent', 'Custom User-Agent': '自定义 User-Agent', 'Enter a complete User-Agent string…': '输入完整的 User-Agent 字符串…', 'Mode:': '模式：', 'Custom value:': '自定义值：', 'Current:': '当前：', 'Offer to save passwords after successful sign-in': '成功登录后提示保存密码', 'Password manager must be unlocked before autofill': '自动填充前必须解锁密码管理器', 'Open password manager…': '打开密码管理器…', 'Manage encrypted saved website logins': '管理已加密保存的网站登录信息', 'Delete all passwords…': '删除所有密码…', 'Passwords:': '密码：', 'Edit saved website permissions…': '编辑已保存的网站权限…', 'Website permissions:': '网站权限：', 'Browser behavior:': '浏览器行为：', 'Clear cache': '清除缓存', 'Clear cookies': '清除 Cookie', 'Clear everything': '清除全部', 'Privacy and browser data': '隐私和浏览器数据', 'Cookie mode:': 'Cookie 模式：', 'Browser data:': '浏览器数据：', 'Permission request': '权限请求', 'Remember this decision for this website': '记住对此网站的决定', 'Allow': '允许', 'Block': '阻止', 'Yes': '是', 'No': '否', 'Close tab': '关闭标签页', 'Do you really want to close this tab?': '确定要关闭此标签页吗？', 'Stop loading': '停止加载', 'Translation': '翻译', 'Open a regular webpage first.': '请先打开普通网页。', 'Original page': '原始网页', 'No original page URL is saved for this tab.': '此标签页没有保存原始网页网址。', 'More bookmarks': '更多书签', 'Show more bookmarks': '显示更多书签', 'Name': '名称', 'Address': '地址', 'Export bookmarks': '导出书签', 'Import bookmarks': '导入书签', 'Website': '网站', 'Permission': '权限', 'Decision': '决定', 'Action': '操作', 'Blocking strength:': '拦截强度：', 'Protection level:': '保护级别：', 'File no longer present': '文件已不存在', 'Cancelled': '已取消', 'Failed': '失败', 'Interrupted': '已中断', 'Ⅱ Pause': 'Ⅱ 暂停', 'Download security warning': '下载安全警告', 'This file may be dangerous': '此文件可能存在危险', 'Do not show this security warning again': '不再显示此安全警告', 'Download anyway': '仍然下载', 'History cleared': '历史记录已清除', 'The browsing history has been cleared.': '浏览历史记录已清除。', 'Unlock password manager': '解锁密码管理器', 'Master password:': '主密码：', 'Set up password manager': '设置密码管理器', 'Enter master password again:': '请再次输入主密码：', 'Look in:': '查找位置：', 'File name:': '文件名：', 'File type:': '文件类型：', 'Too short': '太短', 'Please use at least 10 characters.': '请至少使用 10 个字符。', 'Passwords do not match': '密码不匹配', 'The passwords do not match.': '两次输入的密码不一致。', 'Master password changed': '主密码已更改', 'Use at least 10 characters.': '请至少使用 10 个字符。', 'Export complete': '导出完成', 'Import complete': '导入完成', 'No passwords stored': '没有已保存的密码', 'There are no saved passwords to delete.': '没有可删除的已保存密码。', 'Delete all passwords': '删除所有密码', 'Invalid input': '输入无效', 'Ask': '询问', 'User-Agent missing': '缺少 User-Agent', 'Cache cleared': '缓存已清除', 'Cookies cleared': 'Cookie 已清除', 'Folder': '文件夹', 'Delete folder': '删除文件夹', 'Bookmarks exported': '书签已导出', 'Export': '导出', 'Bookmarks imported': '书签已导入', 'Import': '导入', 'Remove': '移除', 'Clear all permissions': '清除所有权限', 'Total': '总计', 'Download cancelled.': '下载已取消。', 'Download failed or cancelled.': '下载失败或已取消。', 'Incorrect password': '密码错误', 'Change failed': '更改失败', 'Export failed': '导出失败', 'Nothing to import': '没有可导入的内容', 'Import passwords': '导入密码', 'Import failed': '导入失败', 'Delete password': '删除密码', 'Really delete this saved login?': '确定要删除此已保存的登录信息吗？', 'Folder deleted': '文件夹已删除', '▶ Resume': '▶ 继续', 'Download': '下载', 'Unknown': '未知', 'Download complete': '下载完成', 'Error': '错误', 'Active': '活动', 'Saved in:': '保存位置：', 'Clipboard': '剪贴板', 'Allow all cookies': '允许所有 Cookie', 'Block third-party cookies': '阻止第三方 Cookie', 'Block all cookies': '阻止所有 Cookie', 'Allow session cookies only': '仅允许会话 Cookie', 'Strong': '强', 'Very strong': '非常强', 'Super strong': '超强', 'Mega strong': '极强', 'Ultra strong': '极致强', 'Maximum': '最高', 'Standard': '标准', 'Small': '小', 'Medium': '中', 'Large': '大', 'Very large': '特大', 'Export encrypted vault': '导出加密密码库', 'Import encrypted vault': '导入加密密码库', 'New': '新建', 'Updated': '已更新', 'Save image as': '图片另存为', 'Save page as': '网页另存为', 'All files (*.*)': '所有文件 (*.*)', 'Web page (*.mhtml)': '网页 (*.mhtml)', 'Do you really want to delete the entire browsing history?': '确定要删除全部浏览历史记录吗？', 'LunaSurfer vault (*.lsv);;All files (*)': 'LunaSurfer 密码库 (*.lsv);;所有文件 (*)', 'Normal – leave websites unchanged': '正常 – 保持网站原样', 'Gentle contrast': '柔和对比度', 'Softer contrast': '更柔和的对比度', 'Relaxed contrast': '舒缓对比度', 'Original – keep website colors': '原始 – 保留网站颜色', 'Black mode – black backgrounds': '黑色模式 – 黑色背景', 'Custom block patterns (separate with semicolons):': '自定义拦截规则（用分号分隔）：', 'Whitelist domains (separate with semicolons):': '允许列表域名（用分号分隔）：', 'The download has finished:': '下载已完成：', ' items': ' 项', ' matches': ' 个匹配项', 'Do you really want to clear all browser data?\n\nHistory, cache, cookies, sign-in sessions, Local Storage, IndexedDB and other website data will be removed. You will be signed out of websites.\n\nBookmarks and saved passwords will be kept. The full cleanup will finish the next time LunaSurfer starts.': '确定要清除所有浏览器数据吗？\n\n历史记录、缓存、Cookie、登录会话、Local Storage、IndexedDB 及其他网站数据都将被删除。您将退出各网站的登录状态。\n\n书签和已保存的密码将保留。完整清理将在 LunaSurfer 下次启动时完成。', 'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': '标准：保护 Canvas、音频和基本硬件信息。强：额外隐藏 WebGL 标识符。最高：进一步保护硬件信息和浏览器 Client Hints。更改立即生效，无需重启。', 'The User-Agent changes the browser identification, not the browser engine or its capabilities. With fingerprint protection enabled, Client Hints are reduced to match the Chromium version.': 'User-Agent 会更改浏览器标识，而不会更改浏览器引擎或其功能。启用指纹保护后，Client Hints 会被精简，以匹配 Chromium 版本。', 'When disabled, LunaSurfer asks for the master password only when you focus a login field.': '禁用后，只有当您选中登录输入框时，LunaSurfer 才会询问主密码。', 'Delete all saved website logins; the master password remains': '删除所有已保存的网站登录信息；主密码将保留', 'Manage saved permission decisions for individual websites': '管理各个网站已保存的权限决定', 'Do you really want to clear the browser cache?': '确定要清除浏览器缓存吗？', 'Browser data cleared; full cleanup will finish after restart.': '浏览器数据已清除；完整清理将在重启后完成。', 'Browser data is being cleared. Please restart LunaSurfer to remove all stored website data completely. Bookmarks and saved passwords will be kept.': '正在清除浏览器数据。请重新启动 LunaSurfer，以彻底删除所有已存储的网站数据。书签和已保存的密码将予以保留。', 'Do you really want to delete all stored cookies?': '确定要删除所有已存储的 Cookie 吗？', 'Provider: MyMemory – starting translation …': '服务：MyMemory – 正在开始翻译…', 'Provider: Google Translate – loading whole webpage …': '服务：Google 翻译 – 正在加载整个网页…', 'This file can run programs or scripts. Only download it if you trust the source.': '此文件可以运行程序或脚本。请仅在信任来源时下载。', 'The vault has been re-encrypted with the new master password. Keep it safe; it cannot be recovered.': '密码库已使用新的主密码重新加密。请妥善保管主密码，因为它无法找回。', 'The vault was exported in encrypted form. Keep the export file and export password separately.': '密码库已加密导出。请将导出文件和导出密码分开保存。', 'Do you really want to permanently delete ALL saved website logins? The master password will remain.': '确定要永久删除所有已保存的网站登录信息吗？主密码将保留。', 'Enter a valid website address, username and password.': '请输入有效的网站地址、用户名和密码。', 'Enter a complete User-Agent or select another mode.': '请输入完整的 User-Agent，或选择其他模式。', 'The browser cache has been cleared.': '浏览器缓存已清除。', 'All stored cookies have been cleared.': '所有已存储的 Cookie 均已清除。', 'MyMemory could not translate the page. Check connection or daily quota.': 'MyMemory 无法翻译此页面。请检查网络连接或每日使用额度。', 'Really delete this folder and all bookmarks inside it?': '确定要删除此文件夹及其中的所有书签吗？', 'Bookmarks were exported, including their folder structure.': '书签已导出，文件夹结构也已保留。', 'Do you really want to clear all saved website permissions?': '确定要清除所有已保存的网站权限吗？', 'Download source: ': '下载来源：', 'The current master password is incorrect or the vault is damaged.': '当前主密码不正确，或密码库已损坏。', 'The export contains no valid logins.': '导出文件中不包含有效的登录信息。', 'Translation provider applied immediately: ': '翻译服务已立即应用：', 'Qt 6 + QtWebEngine with selectable light/dark website appearance and optional Widevine CDM integration.': '基于 Qt 6 和 QtWebEngine，可选择网站浅色/深色显示模式，并可选集成 Widevine CDM。', ' text sections translated.': ' 个文本片段已翻译。', 'No bookmarks found in the selected file.': '所选文件中未找到书签。', 'The master password is incorrect or the vault is damaged.': '主密码不正确，或密码库已损坏。', 'Incorrect export password or damaged export file.': '导出密码不正确，或导出文件已损坏。', 'No custom User-Agent entered yet': '尚未输入自定义 User-Agent', 'Could not refresh translation menu: ': '无法刷新翻译菜单：', 'MyMemory: ': 'MyMemory：', 'The folder could not be deleted.': '无法删除该文件夹。'}
+
+
+PORTUGUESE_UI = {'Manage bookmarks': 'Gerir marcadores', '» More': '» Mais', 'Clear all browser data': 'Limpar todos os dados do navegador', 'Find on this page': 'Localizar nesta página', 'Matches 0 of 0': 'Correspondências: 0 de 0', 'Previous match': 'Correspondência anterior', 'Next match': 'Correspondência seguinte', 'Close find bar': 'Fechar barra de pesquisa', 'Developer tools': 'Ferramentas de programador', 'Back': 'Anterior', 'Forward': 'Seguinte', 'Reload': 'Recarregar', 'Home': 'Início', 'Enter address or search': 'Introduza um endereço ou pesquise', 'Translate webpage': 'Traduzir página Web', 'Show original page': 'Mostrar página original', 'Add current page to bookmarks': 'Adicionar página atual aos marcadores', 'Unlock password manager – autofill saved logins (Ctrl+Shift+L)': 'Desbloquear gestor de palavras-passe – preencher dados guardados (Ctrl+Shift+L)', 'Download manager': 'Gestor de transferências', 'Protection & privacy': 'Proteção e privacidade', 'New tab': 'Novo separador', 'Menu': 'Menu', 'Bookmarks': 'Marcadores', 'History': 'Histórico', 'Open downloads folder': 'Abrir pasta de transferências', 'Settings': 'Definições', 'User guide': 'Manual do utilizador', 'Developer tools (F12)': 'Ferramentas de programador (F12)', 'About LunaSurfer': 'Acerca do LunaSurfer', 'Quit': 'Sair', 'Bookmarks bar': 'Barra de marcadores', 'Ad blocker': 'Bloqueador de anúncios', 'Ready': 'Pronto', 'Loading translated webpage …': 'A carregar página traduzida…', 'View and manage bookmarks': 'Ver e gerir marcadores', 'Open': 'Abrir', 'Edit bookmark…': 'Editar marcador…', 'Delete bookmark': 'Eliminar marcador', 'Edit bookmark': 'Editar marcador', 'Name:': 'Nome:', 'Address:': 'Endereço:', 'Bookmark changed': 'Marcador alterado', 'Really delete this bookmark?': 'Pretende mesmo eliminar este marcador?', 'Bookmark deleted': 'Marcador eliminado', 'Your bookmarks': 'Os seus marcadores', 'Expand folders, search entries and manage them directly.': 'Expanda pastas, pesquise entradas e faça a gestão diretamente.', 'Search bookmarks or addresses …': 'Pesquisar marcadores ou endereços…', 'Edit…': 'Editar…', 'Delete': 'Eliminar', 'Import…': 'Importar…', 'Export…': 'Exportar…', 'Close': 'Fechar', 'Protection settings: ad blocker and fingerprint': 'Definições de proteção: bloqueador de anúncios e impressão digital', 'Saved website permissions': 'Permissões de sites guardadas', 'Change or remove remembered decisions for each website. Changes are saved immediately.': 'Altere ou remova decisões guardadas para cada site. As alterações são guardadas imediatamente.', 'Camera': 'Câmara', 'Microphone': 'Microfone', 'Location': 'Localização', 'Notifications': 'Notificações', 'Clear all saved permissions': 'Limpar todas as permissões guardadas', 'Enable ad blocker': 'Ativar bloqueador de anúncios', 'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'O bloqueador filtra domínios conhecidos de publicidade e rastreio. Níveis superiores bloqueiam mais, mas podem afetar alguns sites.', 'Enable fingerprint protection': 'Ativar proteção contra impressão digital', 'Fingerprint protection': 'Proteção contra impressão digital', 'Save': 'Guardar', 'Cancel': 'Cancelar', 'Download Manager': 'Gestor de transferências', 'Downloads': 'Transferências', 'All active and completed files in one place.': 'Todos os ficheiros ativos e concluídos num só local.', 'All downloads': 'Todas as transferências', 'In progress': 'Em curso', 'Paused': 'Em pausa', 'Completed': 'Concluídas', 'Failed / cancelled': 'Falhadas / canceladas', 'Search filename or path …': 'Pesquisar nome ou caminho do ficheiro…', 'Cancel download': 'Cancelar transferência', 'Open file': 'Abrir ficheiro', 'Open folder': 'Abrir pasta', 'Remove entry': 'Remover entrada', 'Clear completed': 'Limpar concluídas', 'Clear history': 'Limpar histórico', 'Change master password': 'Alterar palavra-passe principal', 'Current master password:': 'Palavra-passe principal atual:', 'New master password': 'Nova palavra-passe principal', 'New master password (at least 10 characters):': 'Nova palavra-passe principal (pelo menos 10 caracteres):', 'Confirm master password': 'Confirmar palavra-passe principal', 'Enter the new master password again:': 'Introduza novamente a nova palavra-passe principal:', 'Export password': 'Palavra-passe de exportação', 'Choose a password for this export file (at least 10 characters):': 'Escolha uma palavra-passe para este ficheiro de exportação (pelo menos 10 caracteres):', 'Confirm export password': 'Confirmar palavra-passe de exportação', 'Enter the export password again:': 'Introduza novamente a palavra-passe de exportação:', 'Enter the password used to encrypt this export file:': 'Introduza a palavra-passe utilizada para encriptar este ficheiro de exportação:', 'Passwords deleted': 'Palavras-passe eliminadas', 'All saved website passwords have been deleted. The master password remains.': 'Todas as palavras-passe de sites guardadas foram eliminadas. A palavra-passe principal foi mantida.', 'Login details': 'Dados de início de sessão', 'Website (matched automatically)': 'Site (correspondência automática)', 'Username': 'Nome de utilizador', 'Password': 'Palavra-passe', 'Show password': 'Mostrar palavra-passe', 'Generate secure password': 'Gerar palavra-passe segura', 'LunaSurfer – Password manager': 'LunaSurfer – Gestor de palavras-passe', 'Passwords are encrypted locally. The master password cannot be recovered.': 'As palavras-passe são encriptadas localmente. Não é possível recuperar a palavra-passe principal.', 'Add': 'Adicionar', 'Edit': 'Editar', 'Export encrypted…': 'Exportar encriptado…', 'Import encrypted…': 'Importar encriptado…', 'Change master password…': 'Alterar palavra-passe principal…', 'Lock now': 'Bloquear agora', 'Update password?': 'Atualizar palavra-passe?', 'Save password?': 'Guardar palavra-passe?', 'Login details saved securely.': 'Dados de início de sessão guardados em segurança.', 'LunaSurfer – User guide': 'LunaSurfer – Manual do utilizador', 'Open homepage': 'Abrir página inicial', 'Restore last session': 'Restaurar última sessão', 'Open blank page': 'Abrir página em branco', 'Google Translate (whole webpage)': 'Google Translate (página Web completa)', 'MyMemory (no API key)': 'MyMemory (sem chave API)', 'Google translates the whole webpage. MyMemory translates visible text sections and has a free daily limit.': 'O Google traduz a página Web completa. O MyMemory traduz secções de texto visíveis e tem um limite diário gratuito.', 'Dark': 'Escuro', 'Light': 'Claro', 'Dark (Standard)': 'Escuro (padrão)', 'Light (Classic)': 'Claro (clássico)', 'Luna (Modern)': 'Luna (moderno)', 'Graphite Blue (Elegant)': 'Azul grafite (elegante)', 'Ocean (Teal Blue)': 'Oceano (azul-petróleo)', 'Show bookmarks bar below the address bar': 'Mostrar barra de marcadores por baixo da barra de endereços', 'Choose folder…': 'Escolher pasta…', 'Ask where to save each download': 'Perguntar onde guardar cada transferência', 'Show security warning for executable downloads': 'Mostrar aviso de segurança para transferências executáveis', 'Show popup when a download finishes': 'Mostrar aviso quando uma transferência terminar', 'Block pop-ups': 'Bloquear janelas de pop-up', 'Enable JavaScript': 'Ativar JavaScript', 'Send Do Not Track request': 'Enviar pedido Do Not Track', 'Ask when closing a tab': 'Perguntar ao fechar um separador', 'Automatically clear history on exit': 'Limpar automaticamente o histórico ao sair', 'Automatically clear cache on exit': 'Limpar automaticamente a cache ao sair', 'Automatically clear cookies on exit': 'Limpar automaticamente os cookies ao sair', 'Remember window size and position on exit': 'Memorizar tamanho e posição da janela ao sair', 'Use LunaSurfer as default browser': 'Utilizar o LunaSurfer como navegador predefinido', 'General': 'Geral', 'Language:': 'Idioma:', 'On startup:': 'Ao iniciar:', 'Homepage:': 'Página inicial:', 'Search engine:': 'Motor de pesquisa:', 'Translation provider:': 'Serviço de tradução:', 'Browser design:': 'Aspeto do navegador:', 'Website appearance:': 'Aspeto dos sites:', 'Download folder:': 'Pasta de transferências:', 'Default zoom:': 'Ampliação predefinida:', 'Default font size:': 'Tamanho de letra predefinido:', 'Website readability:': 'Legibilidade dos sites:', 'Website colors:': 'Cores dos sites:', 'Security and permissions': 'Segurança e permissões', 'Security:': 'Segurança:', 'User-Agent management': 'Gestão do User-Agent', 'Privacy default (reduced Chrome UA)': 'Predefinição de privacidade (User-Agent Chrome reduzido)', 'Native browser User-Agent': 'User-Agent nativo do navegador', 'Custom User-Agent': 'User-Agent personalizado', 'Enter a complete User-Agent string…': 'Introduza uma cadeia User-Agent completa…', 'Mode:': 'Modo:', 'Custom value:': 'Valor personalizado:', 'Current:': 'Atual:', 'Offer to save passwords after successful sign-in': 'Sugerir guardar palavras-passe após início de sessão bem-sucedido', 'Password manager must be unlocked before autofill': 'O gestor de palavras-passe tem de ser desbloqueado antes do preenchimento automático', 'Open password manager…': 'Abrir gestor de palavras-passe…', 'Manage encrypted saved website logins': 'Gerir credenciais de sites guardadas e encriptadas', 'Delete all passwords…': 'Eliminar todas as palavras-passe…', 'Passwords:': 'Palavras-passe:', 'Edit saved website permissions…': 'Editar permissões de sites guardadas…', 'Website permissions:': 'Permissões de sites:', 'Browser behavior:': 'Comportamento do navegador:', 'Clear cache': 'Limpar cache', 'Clear cookies': 'Limpar cookies', 'Clear everything': 'Limpar tudo', 'Privacy and browser data': 'Privacidade e dados do navegador', 'Cookie mode:': 'Modo de cookies:', 'Browser data:': 'Dados do navegador:', 'Permission request': 'Pedido de permissão', 'Remember this decision for this website': 'Memorizar esta decisão para este site', 'Allow': 'Permitir', 'Block': 'Bloquear', 'Yes': 'Sim', 'No': 'Não', 'Close tab': 'Fechar separador', 'Do you really want to close this tab?': 'Pretende mesmo fechar este separador?', 'Stop loading': 'Parar carregamento', 'Translation': 'Tradução', 'Open a regular webpage first.': 'Abra primeiro uma página Web normal.', 'Original page': 'Página original', 'No original page URL is saved for this tab.': 'Não está guardado nenhum URL da página original para este separador.', 'More bookmarks': 'Mais marcadores', 'Show more bookmarks': 'Mostrar mais marcadores', 'Name': 'Nome', 'Address': 'Endereço', 'Export bookmarks': 'Exportar marcadores', 'Import bookmarks': 'Importar marcadores', 'Website': 'Site', 'Permission': 'Permissão', 'Decision': 'Decisão', 'Action': 'Ação', 'Blocking strength:': 'Intensidade do bloqueio:', 'Protection level:': 'Nível de proteção:', 'File no longer present': 'O ficheiro já não existe', 'Cancelled': 'Cancelado', 'Failed': 'Falhou', 'Interrupted': 'Interrompido', 'Ⅱ Pause': 'Ⅱ Pausar', 'Download security warning': 'Aviso de segurança da transferência', 'This file may be dangerous': 'Este ficheiro pode ser perigoso', 'Do not show this security warning again': 'Não voltar a mostrar este aviso de segurança', 'Download anyway': 'Transferir mesmo assim', 'History cleared': 'Histórico limpo', 'The browsing history has been cleared.': 'O histórico de navegação foi limpo.', 'Unlock password manager': 'Desbloquear gestor de palavras-passe', 'Master password:': 'Palavra-passe principal:', 'Set up password manager': 'Configurar gestor de palavras-passe', 'Enter master password again:': 'Introduza novamente a palavra-passe principal:', 'Look in:': 'Procurar em:', 'File name:': 'Nome do ficheiro:', 'File type:': 'Tipo de ficheiro:', 'Too short': 'Demasiado curta', 'Please use at least 10 characters.': 'Utilize pelo menos 10 caracteres.', 'Passwords do not match': 'As palavras-passe não coincidem', 'The passwords do not match.': 'As palavras-passe não coincidem.', 'Master password changed': 'Palavra-passe principal alterada', 'Use at least 10 characters.': 'Utilize pelo menos 10 caracteres.', 'Export complete': 'Exportação concluída', 'Import complete': 'Importação concluída', 'No passwords stored': 'Não existem palavras-passe guardadas', 'There are no saved passwords to delete.': 'Não existem palavras-passe guardadas para eliminar.', 'Delete all passwords': 'Eliminar todas as palavras-passe', 'Invalid input': 'Entrada inválida', 'Ask': 'Perguntar', 'User-Agent missing': 'User-Agent em falta', 'Cache cleared': 'Cache limpa', 'Cookies cleared': 'Cookies limpos', 'Folder': 'Pasta', 'Delete folder': 'Eliminar pasta', 'Bookmarks exported': 'Marcadores exportados', 'Export': 'Exportar', 'Bookmarks imported': 'Marcadores importados', 'Import': 'Importar', 'Remove': 'Remover', 'Clear all permissions': 'Limpar todas as permissões', 'Total': 'Total', 'Download cancelled.': 'Transferência cancelada.', 'Download failed or cancelled.': 'A transferência falhou ou foi cancelada.', 'Incorrect password': 'Palavra-passe incorreta', 'Change failed': 'A alteração falhou', 'Export failed': 'A exportação falhou', 'Nothing to import': 'Nada para importar', 'Import passwords': 'Importar palavras-passe', 'Import failed': 'A importação falhou', 'Delete password': 'Eliminar palavra-passe', 'Really delete this saved login?': 'Pretende mesmo eliminar estas credenciais guardadas?', 'Folder deleted': 'Pasta eliminada', '▶ Resume': '▶ Retomar', 'Download': 'Transferir', 'Unknown': 'Desconhecido', 'Download complete': 'Transferência concluída', 'Error': 'Erro', 'Active': 'Ativo', 'Saved in:': 'Guardado em:', 'Clipboard': 'Área de transferência', 'Allow all cookies': 'Permitir todos os cookies', 'Block third-party cookies': 'Bloquear cookies de terceiros', 'Block all cookies': 'Bloquear todos os cookies', 'Allow session cookies only': 'Permitir apenas cookies de sessão', 'Strong': 'Forte', 'Very strong': 'Muito forte', 'Super strong': 'Super forte', 'Mega strong': 'Extremamente forte', 'Ultra strong': 'Ultra forte', 'Maximum': 'Máximo', 'Standard': 'Padrão', 'Small': 'Pequeno', 'Medium': 'Médio', 'Large': 'Grande', 'Very large': 'Muito grande', 'Export encrypted vault': 'Exportar cofre encriptado', 'Import encrypted vault': 'Importar cofre encriptado', 'New': 'Novo', 'Updated': 'Atualizado', 'Save image as': 'Guardar imagem como', 'Save page as': 'Guardar página como', 'All files (*.*)': 'Todos os ficheiros (*.*)', 'Web page (*.mhtml)': 'Página Web (*.mhtml)', 'Do you really want to clear all browser data?\n\nHistory, cache, cookies, sign-in sessions, Local Storage, IndexedDB and other website data will be removed. You will be signed out of websites.\n\nBookmarks and saved passwords will be kept. The full cleanup will finish the next time LunaSurfer starts.': 'Pretende mesmo limpar todos os dados do navegador?\n\nO histórico, a cache, os cookies, as sessões iniciadas e outros dados dos sites serão removidos. A sessão será terminada nos sites.\n\nOs marcadores e as palavras-passe guardadas serão mantidos. A limpeza completa terminará no próximo arranque do LunaSurfer.', 'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Padrão: proteção de canvas, áudio e dados básicos do hardware. Forte: oculta também identificadores WebGL. Máximo: proteção adicional dos dados de hardware e Client Hints do navegador. As alterações são aplicadas imediatamente, sem reiniciar.', 'Do you really want to delete the entire browsing history?': 'Pretende mesmo eliminar todo o histórico de navegação?', 'LunaSurfer vault (*.lsv);;All files (*)': 'Cofre LunaSurfer (*.lsv);;Todos os ficheiros (*)', 'Normal – leave websites unchanged': 'Normal – manter os sites inalterados', 'Gentle contrast': 'Contraste suave', 'Softer contrast': 'Contraste mais suave', 'Relaxed contrast': 'Contraste moderado', 'Original – keep website colors': 'Original – manter as cores dos sites', 'Black mode – black backgrounds': 'Modo preto – fundos pretos', 'The User-Agent changes the browser identification, not the browser engine or its capabilities. With fingerprint protection enabled, Client Hints are reduced to match the Chromium version.': 'O User-Agent altera a identificação do navegador, não o motor nem as suas capacidades. Com a proteção contra impressão digital ativa, os Client Hints são reduzidos para corresponder à versão do Chromium.', 'When disabled, LunaSurfer asks for the master password only when you focus a login field.': 'Quando desativado, o LunaSurfer só pede a palavra-passe principal quando seleciona um campo de início de sessão.', 'Delete all saved website logins; the master password remains': 'Eliminar todas as credenciais guardadas dos sites; a palavra-passe principal será mantida', 'Manage saved permission decisions for individual websites': 'Gerir decisões de permissões guardadas para cada site', 'Do you really want to clear the browser cache?': 'Pretende mesmo limpar a cache do navegador?', 'Browser data cleared; full cleanup will finish after restart.': 'Dados do navegador limpos; a limpeza completa terminará após reiniciar.', 'Browser data is being cleared. Please restart LunaSurfer to remove all stored website data completely. Bookmarks and saved passwords will be kept.': 'Os dados do navegador estão a ser limpos. Reinicie o LunaSurfer para remover completamente os dados guardados dos sites. Os marcadores e as palavras-passe serão mantidos.', 'Do you really want to delete all stored cookies?': 'Pretende mesmo eliminar todos os cookies guardados?', 'Provider: MyMemory – starting translation …': 'Serviço: MyMemory – a iniciar tradução…', 'Provider: Google Translate – loading whole webpage …': 'Serviço: Google Translate – a carregar a página Web completa…', 'Custom block patterns (separate with semicolons):': 'Padrões de bloqueio personalizados (separados por ponto e vírgula):', 'Whitelist domains (separate with semicolons):': 'Domínios na lista de permissões (separados por ponto e vírgula):', 'This file can run programs or scripts. Only download it if you trust the source.': 'Este ficheiro pode executar programas ou scripts. Transfira-o apenas se confiar na origem.', 'The vault has been re-encrypted with the new master password. Keep it safe; it cannot be recovered.': 'O cofre foi novamente encriptado com a nova palavra-passe principal. Guarde-a em segurança; não pode ser recuperada.', 'The vault was exported in encrypted form. Keep the export file and export password separately.': 'O cofre foi exportado em formato encriptado. Guarde o ficheiro exportado e a respetiva palavra-passe separadamente.', 'Do you really want to permanently delete ALL saved website logins? The master password will remain.': 'Pretende mesmo eliminar PERMANENTEMENTE TODAS as credenciais guardadas dos sites? A palavra-passe principal será mantida.', 'Enter a valid website address, username and password.': 'Introduza um endereço de site, nome de utilizador e palavra-passe válidos.', 'Enter a complete User-Agent or select another mode.': 'Introduza um User-Agent completo ou selecione outro modo.', 'The browser cache has been cleared.': 'A cache do navegador foi limpa.', 'All stored cookies have been cleared.': 'Todos os cookies guardados foram eliminados.', 'MyMemory could not translate the page. Check connection or daily quota.': 'O MyMemory não conseguiu traduzir a página. Verifique a ligação ou o limite diário.', 'Really delete this folder and all bookmarks inside it?': 'Pretende mesmo eliminar esta pasta e todos os marcadores que contém?', 'Bookmarks were exported, including their folder structure.': 'Os marcadores foram exportados, incluindo a estrutura de pastas.', 'Do you really want to clear all saved website permissions?': 'Pretende mesmo limpar todas as permissões de sites guardadas?', 'Download source: ': 'Origem da transferência: ', 'The current master password is incorrect or the vault is damaged.': 'A palavra-passe principal atual está incorreta ou o cofre está danificado.', 'The export contains no valid logins.': 'A exportação não contém credenciais válidas.', 'Translation provider applied immediately: ': 'Serviço de tradução aplicado imediatamente: ', 'Qt 6 + QtWebEngine with selectable light/dark website appearance and optional Widevine CDM integration.': 'Qt 6 + QtWebEngine com aspeto claro/escuro dos sites selecionável e integração opcional do Widevine CDM.', ' text sections translated.': ' secções de texto traduzidas.', 'No bookmarks found in the selected file.': 'Não foram encontrados marcadores no ficheiro selecionado.', 'The master password is incorrect or the vault is damaged.': 'A palavra-passe principal está incorreta ou o cofre está danificado.', 'Incorrect export password or damaged export file.': 'Palavra-passe de exportação incorreta ou ficheiro de exportação danificado.', 'No custom User-Agent entered yet': 'Ainda não foi introduzido um User-Agent personalizado', 'Could not refresh translation menu: ': 'Não foi possível atualizar o menu de tradução: ', 'MyMemory: ': 'MyMemory: ', 'The folder could not be deleted.': 'Não foi possível eliminar a pasta.', 'The download has finished:': 'A transferência terminou:', ' items': ' itens', ' matches': ' correspondências'}
+
+# Spanish interface catalogue.
+SPANISH_UI = {'Manage bookmarks': 'Administrar marcadores', '» More': '» Más', 'Clear all browser data': 'Borrar todos los datos del navegador', 'Find on this page': 'Buscar en esta página', 'Matches 0 of 0': 'Coincidencias: 0 de 0', 'Previous match': 'Coincidencia anterior', 'Next match': 'Coincidencia siguiente', 'Close find bar': 'Cerrar barra de búsqueda', 'Developer tools': 'Herramientas para desarrolladores', 'Back': 'Atrás', 'Forward': 'Adelante', 'Reload': 'Recargar', 'Home': 'Inicio', 'Enter address or search': 'Introducir dirección o buscar', 'Translate webpage': 'Traducir página web', 'Show original page': 'Mostrar página original', 'Add current page to bookmarks': 'Añadir página actual a marcadores', 'Unlock password manager – autofill saved logins (Ctrl+Shift+L)': 'Desbloquear el gestor de contraseñas – autocompletar inicios de sesión guardados (Ctrl+Mayús+L)', 'Download manager': 'Gestor de descargas', 'Protection & privacy': 'Protección y privacidad', 'New tab': 'Nueva pestaña', 'Menu': 'Menú', 'Bookmarks': 'Marcadores', 'History': 'Historial', 'Open downloads folder': 'Abrir carpeta de descargas', 'Settings': 'Configuración', 'User guide': 'Manual de usuario', 'Developer tools (F12)': 'Herramientas para desarrolladores (F12)', 'About LunaSurfer': 'Acerca de LunaSurfer', 'Quit': 'Salir', 'Bookmarks bar': 'Barra de marcadores', 'Ad blocker': 'Bloqueador de anuncios', 'Ready': 'Listo', 'Loading translated webpage …': 'Cargando página web traducida…', 'View and manage bookmarks': 'Ver y administrar marcadores', 'Open': 'Abrir', 'Edit bookmark…': 'Editar marcador…', 'Delete bookmark': 'Eliminar marcador', 'Edit bookmark': 'Editar marcador', 'Name:': 'Nombre:', 'Address:': 'Dirección:', 'Bookmark changed': 'Marcador modificado', 'Really delete this bookmark?': '¿Realmente desea eliminar este marcador?', 'Bookmark deleted': 'Marcador eliminado', 'Your bookmarks': 'Sus marcadores', 'Expand folders, search entries and manage them directly.': 'Despliegue carpetas, busque entradas y adminístrelas directamente.', 'Search bookmarks or addresses …': 'Buscar marcadores o direcciones…', 'Edit…': 'Editar…', 'Delete': 'Eliminar', 'Import…': 'Importar…', 'Export…': 'Exportar…', 'Close': 'Cerrar', 'Protection settings: ad blocker and fingerprint': 'Configuración de protección: bloqueador de anuncios y huella digital', 'Saved website permissions': 'Permisos guardados de sitios web', 'Change or remove remembered decisions for each website. Changes are saved immediately.': 'Cambie o elimine las decisiones guardadas para cada sitio web. Los cambios se guardan inmediatamente.', 'Camera': 'Cámara', 'Microphone': 'Micrófono', 'Location': 'Ubicación', 'Notifications': 'Notificaciones', 'Clear all saved permissions': 'Borrar todos los permisos guardados', 'Enable ad blocker': 'Activar bloqueador de anuncios', 'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'El bloqueador filtra dominios conocidos de publicidad y seguimiento. Los niveles más altos bloquean más contenido, pero pueden afectar a algunos sitios web.', 'Enable fingerprint protection': 'Activar protección contra huellas digitales', 'Fingerprint protection': 'Protección contra huellas digitales', 'Save': 'Guardar', 'Cancel': 'Cancelar', 'Download Manager': 'Gestor de descargas', 'Downloads': 'Descargas', 'All active and completed files in one place.': 'Todos los archivos activos y completados en un solo lugar.', 'All downloads': 'Todas las descargas', 'In progress': 'En curso', 'Paused': 'En pausa', 'Completed': 'Completadas', 'Failed / cancelled': 'Fallidas / canceladas', 'Search filename or path …': 'Buscar nombre de archivo o ruta…', 'Cancel download': 'Cancelar descarga', 'Open file': 'Abrir archivo', 'Open folder': 'Abrir carpeta', 'Remove entry': 'Eliminar entrada', 'Clear completed': 'Borrar completadas', 'Clear history': 'Borrar historial', 'Change master password': 'Cambiar contraseña maestra', 'Current master password:': 'Contraseña maestra actual:', 'New master password': 'Nueva contraseña maestra', 'New master password (at least 10 characters):': 'Nueva contraseña maestra (mínimo 10 caracteres):', 'Confirm master password': 'Confirmar contraseña maestra', 'Enter the new master password again:': 'Vuelva a introducir la nueva contraseña maestra:', 'Export password': 'Contraseña de exportación', 'Choose a password for this export file (at least 10 characters):': 'Elija una contraseña para este archivo de exportación (mínimo 10 caracteres):', 'Confirm export password': 'Confirmar contraseña de exportación', 'Enter the export password again:': 'Vuelva a introducir la contraseña de exportación:', 'Enter the password used to encrypt this export file:': 'Introduzca la contraseña utilizada para cifrar este archivo de exportación:', 'Passwords deleted': 'Contraseñas eliminadas', 'All saved website passwords have been deleted. The master password remains.': 'Se han eliminado todas las contraseñas de sitios web guardadas. La contraseña maestra se conserva.', 'Login details': 'Datos de inicio de sesión', 'Website (matched automatically)': 'Sitio web (detectado automáticamente)', 'Username': 'Nombre de usuario', 'Password': 'Contraseña', 'Show password': 'Mostrar contraseña', 'Generate secure password': 'Generar contraseña segura', 'LunaSurfer – Password manager': 'LunaSurfer – Gestor de contraseñas', 'Passwords are encrypted locally. The master password cannot be recovered.': 'Las contraseñas se cifran localmente. La contraseña maestra no se puede recuperar.', 'Add': 'Añadir', 'Edit': 'Editar', 'Export encrypted…': 'Exportar cifrado…', 'Import encrypted…': 'Importar cifrado…', 'Change master password…': 'Cambiar contraseña maestra…', 'Lock now': 'Bloquear ahora', 'Update password?': '¿Actualizar contraseña?', 'Save password?': '¿Guardar contraseña?', 'Login details saved securely.': 'Los datos de inicio de sesión se han guardado de forma segura.', 'LunaSurfer – User guide': 'LunaSurfer – Manual de usuario', 'Open homepage': 'Abrir página de inicio', 'Restore last session': 'Restaurar última sesión', 'Open blank page': 'Abrir página en blanco', 'Google Translate (whole webpage)': 'Google Translate (página web completa)', 'MyMemory (no API key)': 'MyMemory (sin clave API)', 'Google translates the whole webpage. MyMemory translates visible text sections and has a free daily limit.': 'Google traduce la página web completa. MyMemory traduce las secciones de texto visibles y tiene un límite diario gratuito.', 'Dark': 'Oscuro', 'Light': 'Claro', 'Dark (Standard)': 'Oscuro (estándar)', 'Light (Classic)': 'Claro (clásico)', 'Luna (Modern)': 'Luna (moderno)', 'Graphite Blue (Elegant)': 'Azul grafito (elegante)', 'Ocean (Teal Blue)': 'Océano (azul turquesa)', 'Show bookmarks bar below the address bar': 'Mostrar barra de marcadores debajo de la barra de direcciones', 'Choose folder…': 'Elegir carpeta…', 'Ask where to save each download': 'Preguntar dónde guardar cada descarga', 'Show security warning for executable downloads': 'Mostrar advertencia de seguridad para descargas ejecutables', 'Show popup when a download finishes': 'Mostrar aviso al finalizar una descarga', 'Block pop-ups': 'Bloquear ventanas emergentes', 'Enable JavaScript': 'Activar JavaScript', 'Send Do Not Track request': 'Enviar solicitud Do Not Track', 'Ask when closing a tab': 'Preguntar al cerrar una pestaña', 'Automatically clear history on exit': 'Borrar automáticamente el historial al salir', 'Automatically clear cache on exit': 'Borrar automáticamente la caché al salir', 'Automatically clear cookies on exit': 'Borrar automáticamente las cookies al salir', 'Remember window size and position on exit': 'Recordar el tamaño y la posición de la ventana al salir', 'Use LunaSurfer as default browser': 'Usar LunaSurfer como navegador predeterminado', 'General': 'General', 'Language:': 'Idioma:', 'On startup:': 'Al iniciar:', 'Homepage:': 'Página de inicio:', 'Search engine:': 'Motor de búsqueda:', 'Translation provider:': 'Proveedor de traducción:', 'Browser design:': 'Diseño del navegador:', 'Website appearance:': 'Apariencia de los sitios web:', 'Download folder:': 'Carpeta de descargas:', 'Default zoom:': 'Zoom predeterminado:', 'Default font size:': 'Tamaño de fuente predeterminado:', 'Website readability:': 'Legibilidad de los sitios web:', 'Website colors:': 'Colores de los sitios web:', 'Security and permissions': 'Seguridad y permisos', 'Security:': 'Seguridad:', 'User-Agent management': 'Administración del User-Agent', 'Privacy default (reduced Chrome UA)': 'Privacidad predeterminada (User-Agent de Chrome reducido)', 'Native browser User-Agent': 'User-Agent nativo del navegador', 'Custom User-Agent': 'User-Agent personalizado', 'Enter a complete User-Agent string…': 'Introduzca una cadena User-Agent completa…', 'Mode:': 'Modo:', 'Custom value:': 'Valor personalizado:', 'Current:': 'Actual:', 'Offer to save passwords after successful sign-in': 'Ofrecer guardar contraseñas después de iniciar sesión correctamente', 'Password manager must be unlocked before autofill': 'El gestor de contraseñas debe estar desbloqueado antes del autocompletado', 'Open password manager…': 'Abrir gestor de contraseñas…', 'Manage encrypted saved website logins': 'Administrar inicios de sesión cifrados guardados', 'Delete all passwords…': 'Eliminar todas las contraseñas…', 'Passwords:': 'Contraseñas:', 'Edit saved website permissions…': 'Editar permisos guardados de sitios web…', 'Website permissions:': 'Permisos de sitios web:', 'Browser behavior:': 'Comportamiento del navegador:', 'Clear cache': 'Borrar caché', 'Clear cookies': 'Borrar cookies', 'Clear everything': 'Borrar todo', 'Privacy and browser data': 'Privacidad y datos del navegador', 'Cookie mode:': 'Modo de cookies:', 'Browser data:': 'Datos del navegador:', 'Permission request': 'Solicitud de permiso', 'Remember this decision for this website': 'Recordar esta decisión para este sitio web', 'Allow': 'Permitir', 'Block': 'Bloquear', 'Yes': 'Sí', 'No': 'No', 'Close tab': 'Cerrar pestaña', 'Do you really want to close this tab?': '¿Realmente desea cerrar esta pestaña?', 'Stop loading': 'Detener carga', 'Translation': 'Traducción', 'Open a regular webpage first.': 'Primero abra una página web normal.', 'Original page': 'Página original', 'No original page URL is saved for this tab.': 'No hay guardada ninguna URL de página original para esta pestaña.', 'More bookmarks': 'Más marcadores', 'Show more bookmarks': 'Mostrar más marcadores', 'Name': 'Nombre', 'Address': 'Dirección', 'Export bookmarks': 'Exportar marcadores', 'Import bookmarks': 'Importar marcadores', 'Website': 'Sitio web', 'Permission': 'Permiso', 'Decision': 'Decisión', 'Action': 'Acción', 'Blocking strength:': 'Intensidad del bloqueo:', 'Protection level:': 'Nivel de protección:', 'File no longer present': 'El archivo ya no está disponible', 'Cancelled': 'Cancelado', 'Failed': 'Error', 'Interrupted': 'Interrumpido', 'Ⅱ Pause': 'Ⅱ Pausar', 'Download security warning': 'Advertencia de seguridad de descarga', 'This file may be dangerous': 'Este archivo puede ser peligroso', 'Do not show this security warning again': 'No volver a mostrar esta advertencia de seguridad', 'Download anyway': 'Descargar de todos modos', 'History cleared': 'Historial borrado', 'The browsing history has been cleared.': 'Se ha borrado el historial de navegación.', 'Unlock password manager': 'Desbloquear gestor de contraseñas', 'Master password:': 'Contraseña maestra:', 'Set up password manager': 'Configurar gestor de contraseñas', 'Enter master password again:': 'Vuelva a introducir la contraseña maestra:', 'Look in:': 'Buscar en:', 'File name:': 'Nombre de archivo:', 'File type:': 'Tipo de archivo:', 'Too short': 'Demasiado corta', 'Please use at least 10 characters.': 'Utilice al menos 10 caracteres.', 'Passwords do not match': 'Las contraseñas no coinciden', 'The passwords do not match.': 'Las contraseñas no coinciden.', 'Master password changed': 'Contraseña maestra cambiada', 'Use at least 10 characters.': 'Utilice al menos 10 caracteres.', 'Export complete': 'Exportación completada', 'Import complete': 'Importación completada', 'No passwords stored': 'No hay contraseñas guardadas', 'There are no saved passwords to delete.': 'No hay contraseñas guardadas que eliminar.', 'Delete all passwords': 'Eliminar todas las contraseñas', 'Invalid input': 'Entrada no válida', 'Ask': 'Preguntar', 'User-Agent missing': 'Falta el User-Agent', 'Cache cleared': 'Caché borrada', 'Cookies cleared': 'Cookies borradas', 'Folder': 'Carpeta', 'Delete folder': 'Eliminar carpeta', 'Bookmarks exported': 'Marcadores exportados', 'Export': 'Exportar', 'Bookmarks imported': 'Marcadores importados', 'Import': 'Importar', 'Remove': 'Eliminar', 'Clear all permissions': 'Borrar todos los permisos', 'Total': 'Total', 'Download cancelled.': 'Descarga cancelada.', 'Download failed or cancelled.': 'La descarga ha fallado o se ha cancelado.', 'Incorrect password': 'Contraseña incorrecta', 'Change failed': 'Error al cambiar', 'Export failed': 'Error al exportar', 'Nothing to import': 'Nada que importar', 'Import passwords': 'Importar contraseñas', 'Import failed': 'Error al importar', 'Delete password': 'Eliminar contraseña', 'Really delete this saved login?': '¿Realmente desea eliminar este inicio de sesión guardado?', 'Folder deleted': 'Carpeta eliminada', '▶ Resume': '▶ Reanudar', 'Download': 'Descargar', 'Unknown': 'Desconocido', 'Download complete': 'Descarga completada', 'Error': 'Error', 'Active': 'Activo', 'Saved in:': 'Guardado en:', 'Clipboard': 'Portapapeles', 'Allow all cookies': 'Permitir todas las cookies', 'Block third-party cookies': 'Bloquear cookies de terceros', 'Block all cookies': 'Bloquear todas las cookies', 'Allow session cookies only': 'Permitir solo cookies de sesión', 'Strong': 'Fuerte', 'Very strong': 'Muy fuerte', 'Super strong': 'Súper fuerte', 'Mega strong': 'Muy potente', 'Ultra strong': 'Ultrapotente', 'Maximum': 'Máximo', 'Standard': 'Estándar', 'Small': 'Pequeño', 'Medium': 'Mediano', 'Large': 'Grande', 'Very large': 'Muy grande', 'Export encrypted vault': 'Exportar bóveda cifrada', 'Import encrypted vault': 'Importar bóveda cifrada', 'New': 'Nuevo', 'Updated': 'Actualizado', 'Save image as': 'Guardar imagen como', 'Save page as': 'Guardar página como', 'All files (*.*)': 'Todos los archivos (*.*)', 'Web page (*.mhtml)': 'Página web (*.mhtml)', 'Do you really want to clear all browser data?\n\nHistory, cache, cookies, sign-in sessions, Local Storage, IndexedDB and other website data will be removed. You will be signed out of websites.\n\nBookmarks and saved passwords will be kept. The full cleanup will finish the next time LunaSurfer starts.': '¿Realmente desea borrar todos los datos del navegador?\n\nSe eliminarán el historial, la caché, las cookies, las sesiones de inicio de sesión, Local Storage, IndexedDB y otros datos de los sitios web. Se cerrará su sesión en los sitios web.\n\nLos marcadores y las contraseñas guardadas se conservarán. La limpieza completa finalizará la próxima vez que se inicie LunaSurfer.', 'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Estándar: protección de Canvas, audio e información básica del hardware. Fuerte: también oculta los identificadores WebGL. Máxima: protección adicional del hardware y de los Client Hints del navegador. Los cambios se aplican inmediatamente; no es necesario reiniciar.', 'Do you really want to delete the entire browsing history?': '¿Realmente desea eliminar todo el historial de navegación?', 'LunaSurfer vault (*.lsv);;All files (*)': 'Bóveda de LunaSurfer (*.lsv);;Todos los archivos (*)', 'Normal – leave websites unchanged': 'Normal – no modificar los sitios web', 'Gentle contrast': 'Contraste suave', 'Softer contrast': 'Contraste más suave', 'Relaxed contrast': 'Contraste relajado', 'Original – keep website colors': 'Original – mantener los colores del sitio web', 'Black mode – black backgrounds': 'Modo negro – fondos negros', 'The User-Agent changes the browser identification, not the browser engine or its capabilities. With fingerprint protection enabled, Client Hints are reduced to match the Chromium version.': 'El User-Agent cambia la identificación del navegador, no el motor ni sus capacidades. Con la protección contra huellas digitales activada, los Client Hints se reducen para coincidir con la versión de Chromium.', 'When disabled, LunaSurfer asks for the master password only when you focus a login field.': 'Cuando está desactivado, LunaSurfer solo solicita la contraseña maestra al seleccionar un campo de inicio de sesión.', 'Delete all saved website logins; the master password remains': 'Eliminar todos los inicios de sesión guardados; la contraseña maestra se conserva', 'Manage saved permission decisions for individual websites': 'Administrar las decisiones de permisos guardadas para cada sitio web', 'Do you really want to clear the browser cache?': '¿Realmente desea borrar la caché del navegador?', 'Browser data cleared; full cleanup will finish after restart.': 'Datos del navegador borrados; la limpieza completa finalizará después de reiniciar.', 'Browser data is being cleared. Please restart LunaSurfer to remove all stored website data completely. Bookmarks and saved passwords will be kept.': 'Se están borrando los datos del navegador. Reinicie LunaSurfer para eliminar por completo todos los datos almacenados de los sitios web. Los marcadores y las contraseñas guardadas se conservarán.', 'Do you really want to delete all stored cookies?': '¿Realmente desea eliminar todas las cookies guardadas?', 'Provider: MyMemory – starting translation …': 'Proveedor: MyMemory – iniciando traducción…', 'Provider: Google Translate – loading whole webpage …': 'Proveedor: Google Translate – cargando la página web completa…', 'Custom block patterns (separate with semicolons):': 'Patrones de bloqueo personalizados (separados por punto y coma):', 'Whitelist domains (separate with semicolons):': 'Dominios permitidos (separados por punto y coma):', 'This file can run programs or scripts. Only download it if you trust the source.': 'Este archivo puede ejecutar programas o scripts. Descárguelo solo si confía en el origen.', 'The vault has been re-encrypted with the new master password. Keep it safe; it cannot be recovered.': 'La bóveda se ha vuelto a cifrar con la nueva contraseña maestra. Guárdela en un lugar seguro; no se puede recuperar.', 'The vault was exported in encrypted form. Keep the export file and export password separately.': 'La bóveda se ha exportado cifrada. Guarde por separado el archivo exportado y la contraseña de exportación.', 'Do you really want to permanently delete ALL saved website logins? The master password will remain.': '¿Realmente desea eliminar PERMANENTEMENTE TODOS los inicios de sesión guardados? La contraseña maestra se conservará.', 'Enter a valid website address, username and password.': 'Introduzca una dirección web, un nombre de usuario y una contraseña válidos.', 'Enter a complete User-Agent or select another mode.': 'Introduzca un User-Agent completo o seleccione otro modo.', 'The browser cache has been cleared.': 'Se ha borrado la caché del navegador.', 'All stored cookies have been cleared.': 'Se han borrado todas las cookies guardadas.', 'MyMemory could not translate the page. Check connection or daily quota.': 'MyMemory no pudo traducir la página. Compruebe la conexión o el límite diario.', 'Really delete this folder and all bookmarks inside it?': '¿Realmente desea eliminar esta carpeta y todos los marcadores que contiene?', 'Bookmarks were exported, including their folder structure.': 'Los marcadores se han exportado, incluida la estructura de carpetas.', 'Do you really want to clear all saved website permissions?': '¿Realmente desea borrar todos los permisos guardados de los sitios web?', 'Download source: ': 'Origen de la descarga: ', 'The current master password is incorrect or the vault is damaged.': 'La contraseña maestra actual es incorrecta o la bóveda está dañada.', 'The export contains no valid logins.': 'La exportación no contiene inicios de sesión válidos.', 'Translation provider applied immediately: ': 'Proveedor de traducción aplicado inmediatamente: ', 'Qt 6 + QtWebEngine with selectable light/dark website appearance and optional Widevine CDM integration.': 'Qt 6 + QtWebEngine con apariencia clara u oscura seleccionable para los sitios web e integración opcional de Widevine CDM.', ' text sections translated.': ' secciones de texto traducidas.', 'No bookmarks found in the selected file.': 'No se encontraron marcadores en el archivo seleccionado.', 'The master password is incorrect or the vault is damaged.': 'La contraseña maestra es incorrecta o la bóveda está dañada.', 'Incorrect export password or damaged export file.': 'La contraseña de exportación es incorrecta o el archivo está dañado.', 'No custom User-Agent entered yet': 'Todavía no se ha introducido ningún User-Agent personalizado', 'Could not refresh translation menu: ': 'No se pudo actualizar el menú de traducción: ', 'MyMemory: ': 'MyMemory: ', 'The folder could not be deleted.': 'No se pudo eliminar la carpeta.', 'The download has finished:': 'La descarga ha finalizado:', ' items': ' elementos', ' matches': ' coincidencias'}
+
+SPANISH_QT_BUTTON_TRANSLATIONS = {
+    'OK':'OK','Cancel':'Cancelar','Yes':'Sí','No':'No','Apply':'Aplicar','Save':'Guardar','Open':'Abrir','Close':'Cerrar',
+    'Discard':'Descartar','Retry':'Reintentar','Ignore':'Ignorar','Abort':'Abortar','Help':'Ayuda',
+    '&Yes':'&Sí','&No':'&No','&Open':'&Abrir','&Save':'&Guardar','&Cancel':'&Cancelar',
+}
+
+# Italian interface catalogue (0.3.49).
+TURKISH_UI = {'Manage bookmarks': 'Yer imlerini yönet', '» More': '» Daha fazla', 'Clear all browser data': 'Tüm tarayıcı verilerini temizle', 'Find on this page': 'Bu sayfada bul', 'Matches 0 of 0': 'Eşleşme: 0 / 0', 'Previous match': 'Önceki eşleşme', 'Next match': 'Sonraki eşleşme', 'Close find bar': 'Bul çubuğunu kapat', 'Developer tools': 'Geliştirici araçları', 'Back': 'Geri', 'Forward': 'İleri', 'Reload': 'Yenile', 'Home': 'Ana sayfa', 'Enter address or search': 'Adres girin veya arayın', 'Translate webpage': 'Web sayfasını çevir', 'Show original page': 'Orijinal sayfayı göster', 'Add current page to bookmarks': 'Geçerli sayfayı yer imlerine ekle', 'Unlock password manager – autofill saved logins (Ctrl+Shift+L)': 'Parola yöneticisinin kilidini aç – kayıtlı girişleri otomatik doldur (Ctrl+Shift+L)', 'Download manager': 'İndirme yöneticisi', 'Protection & privacy': 'Koruma ve gizlilik', 'New tab': 'Yeni sekme', 'Menu': 'Menü', 'Bookmarks': 'Yer imleri', 'History': 'Geçmiş', 'Open downloads folder': 'İndirilenler klasörünü aç', 'Settings': 'Ayarlar', 'User guide': 'Kullanım kılavuzu', 'Developer tools (F12)': 'Geliştirici araçları (F12)', 'About LunaSurfer': 'LunaSurfer hakkında', 'Quit': 'Çıkış', 'Bookmarks bar': 'Yer imi çubuğu', 'Ad blocker': 'Reklam engelleyici', 'Ready': 'Hazır', 'Loading translated webpage …': 'Çevrilmiş web sayfası yükleniyor…', 'View and manage bookmarks': 'Yer imlerini görüntüleyin ve yönetin', 'Open': 'Aç', 'Edit bookmark…': 'Yer imini düzenle…', 'Delete bookmark': 'Yer imini sil', 'Edit bookmark': 'Yer imini düzenle', 'Name:': 'Ad:', 'Address:': 'Adres:', 'Bookmark changed': 'Yer imi değiştirildi', 'Really delete this bookmark?': 'Bu yer imi gerçekten silinsin mi?', 'Bookmark deleted': 'Yer imi silindi', 'Your bookmarks': 'Yer imleriniz', 'Expand folders, search entries and manage them directly.': 'Klasörleri genişletin, kayıtları arayın ve doğrudan yönetin.', 'Search bookmarks or addresses …': 'Yer imlerinde veya adreslerde ara…', 'Edit…': 'Düzenle…', 'Delete': 'Sil', 'Import…': 'İçe aktar…', 'Export…': 'Dışa aktar…', 'Close': 'Kapat', 'Protection settings: ad blocker and fingerprint': 'Koruma ayarları: reklam engelleyici ve parmak izi koruması', 'Saved website permissions': 'Kaydedilmiş site izinleri', 'Change or remove remembered decisions for each website. Changes are saved immediately.': 'Her web sitesi için hatırlanan kararları değiştirin veya kaldırın. Değişiklikler hemen kaydedilir.', 'Camera': 'Kamera', 'Microphone': 'Mikrofon', 'Location': 'Konum', 'Notifications': 'Bildirimler', 'Clear all saved permissions': 'Kaydedilmiş tüm izinleri temizle', 'Enable ad blocker': 'Reklam engelleyiciyi etkinleştir', 'Enable fingerprint protection': 'Parmak izi korumasını etkinleştir', 'Fingerprint protection': 'Parmak izi koruması', 'Save': 'Kaydet', 'Cancel': 'İptal', 'Download Manager': 'İndirme Yöneticisi', 'Downloads': 'İndirilenler', 'All active and completed files in one place.': 'Tüm etkin ve tamamlanmış dosyalar tek bir yerde.', 'All downloads': 'Tüm indirmeler', 'In progress': 'Devam ediyor', 'Paused': 'Duraklatıldı', 'Completed': 'Tamamlandı', 'Failed / cancelled': 'Başarısız / iptal edildi', 'Search filename or path …': 'Dosya adı veya yol ara…', 'Cancel download': 'İndirmeyi iptal et', 'Open file': 'Dosyayı aç', 'Open folder': 'Klasörü aç', 'Remove entry': 'Kaydı kaldır', 'Clear completed': 'Tamamlananları temizle', 'Clear history': 'Geçmişi temizle', 'Change master password': 'Ana parolayı değiştir', 'Current master password:': 'Geçerli ana parola:', 'New master password': 'Yeni ana parola', 'New master password (at least 10 characters):': 'Yeni ana parola (en az 10 karakter):', 'Confirm master password': 'Ana parolayı onayla', 'Enter the new master password again:': 'Yeni ana parolayı tekrar girin:', 'Export password': 'Dışa aktarma parolası', 'Choose a password for this export file (at least 10 characters):': 'Bu dışa aktarma dosyası için bir parola seçin (en az 10 karakter):', 'Confirm export password': 'Dışa aktarma parolasını onayla', 'Enter the export password again:': 'Dışa aktarma parolasını tekrar girin:', 'Enter the password used to encrypt this export file:': 'Bu dışa aktarma dosyasını şifrelemek için kullanılan parolayı girin:', 'Passwords deleted': 'Parolalar silindi', 'All saved website passwords have been deleted. The master password remains.': 'Kaydedilmiş tüm web sitesi parolaları silindi. Ana parola korunur.', 'Login details': 'Giriş bilgileri', 'Website (matched automatically)': 'Web sitesi (otomatik eşleştirildi)', 'Username': 'Kullanıcı adı', 'Password': 'Parola', 'Show password': 'Parolayı göster', 'Generate secure password': 'Güvenli parola oluştur', 'LunaSurfer – Password manager': 'LunaSurfer – Parola yöneticisi', 'Passwords are encrypted locally. The master password cannot be recovered.': 'Parolalar yerel olarak şifrelenir. Ana parola kurtarılamaz.', 'Add': 'Ekle', 'Edit': 'Düzenle', 'Export encrypted…': 'Şifreli olarak dışa aktar…', 'Import encrypted…': 'Şifreli olarak içe aktar…', 'Change master password…': 'Ana parolayı değiştir…', 'Lock now': 'Şimdi kilitle', 'Update password?': 'Parola güncellensin mi?', 'Save password?': 'Parola kaydedilsin mi?', 'Login details saved securely.': 'Giriş bilgileri güvenli şekilde kaydedildi.', 'LunaSurfer – User guide': 'LunaSurfer – Kullanım kılavuzu', 'Open homepage': 'Ana sayfayı aç', 'Restore last session': 'Son oturumu geri yükle', 'Open blank page': 'Boş sayfa aç', 'Google Translate (whole webpage)': 'Google Translate (tüm web sayfası)', 'MyMemory (no API key)': 'MyMemory (API anahtarı gerekmez)', 'Dark': 'Koyu', 'Light': 'Açık', 'Dark (Standard)': 'Koyu (Standart)', 'Light (Classic)': 'Açık (Klasik)', 'Luna (Modern)': 'Luna (Modern)', 'Graphite Blue (Elegant)': 'Grafit Mavisi (Zarif)', 'Ocean (Teal Blue)': 'Okyanus (Turkuaz)', 'Show bookmarks bar below the address bar': 'Adres çubuğunun altında yer imi çubuğunu göster', 'Choose folder…': 'Klasör seç…', 'Ask where to save each download': 'Her indirme için kaydetme konumunu sor', 'Show security warning for executable downloads': 'Çalıştırılabilir indirmeler için güvenlik uyarısı göster', 'Show popup when a download finishes': 'İndirme tamamlandığında açılır bildirim göster', 'Block pop-ups': 'Açılır pencereleri engelle', 'Enable JavaScript': 'JavaScript’i etkinleştir', 'Send Do Not Track request': 'Do Not Track isteği gönder', 'Ask when closing a tab': 'Sekmeyi kapatırken sor', 'Automatically clear history on exit': 'Çıkışta geçmişi otomatik temizle', 'Automatically clear cache on exit': 'Çıkışta önbelleği otomatik temizle', 'Automatically clear cookies on exit': 'Çıkışta çerezleri otomatik temizle', 'Remember window size and position on exit': 'Çıkışta pencere boyutunu ve konumunu hatırla', 'Use LunaSurfer as default browser': 'LunaSurfer’ı varsayılan tarayıcı olarak kullan', 'General': 'Genel', 'Language:': 'Dil:', 'On startup:': 'Başlangıçta:', 'Homepage:': 'Ana sayfa:', 'Search engine:': 'Arama motoru:', 'Translation provider:': 'Çeviri sağlayıcısı:', 'Browser design:': 'Tarayıcı görünümü:', 'Website appearance:': 'Web sitesi görünümü:', 'Download folder:': 'İndirme klasörü:', 'Default zoom:': 'Varsayılan yakınlaştırma:', 'Default font size:': 'Varsayılan yazı tipi boyutu:', 'Website readability:': 'Web sitesi okunabilirliği:', 'Website colors:': 'Web sitesi renkleri:', 'Security and permissions': 'Güvenlik ve izinler', 'Security:': 'Güvenlik:', 'User-Agent management': 'User-Agent yönetimi', 'Privacy default (reduced Chrome UA)': 'Gizlilik varsayılanı (azaltılmış Chrome UA)', 'Native browser User-Agent': 'Tarayıcının yerel User-Agent değeri', 'Custom User-Agent': 'Özel User-Agent', 'Enter a complete User-Agent string…': 'Tam bir User-Agent dizgesi girin…', 'Mode:': 'Mod:', 'Custom value:': 'Özel değer:', 'Current:': 'Geçerli:', 'Offer to save passwords after successful sign-in': 'Başarılı oturum açma işleminden sonra parolaları kaydetmeyi öner', 'Password manager must be unlocked before autofill': 'Otomatik doldurmadan önce parola yöneticisinin kilidi açılmalı', 'Open password manager…': 'Parola yöneticisini aç…', 'Manage encrypted saved website logins': 'Şifrelenmiş kayıtlı web sitesi girişlerini yönet', 'Delete all passwords…': 'Tüm parolaları sil…', 'Passwords:': 'Parolalar:', 'Edit saved website permissions…': 'Kaydedilmiş web sitesi izinlerini düzenle…', 'Website permissions:': 'Web sitesi izinleri:', 'Browser behavior:': 'Tarayıcı davranışı:', 'Clear cache': 'Önbelleği temizle', 'Clear cookies': 'Çerezleri temizle', 'Clear everything': 'Her şeyi temizle', 'Privacy and browser data': 'Gizlilik ve tarayıcı verileri', 'Cookie mode:': 'Çerez modu:', 'Browser data:': 'Tarayıcı verileri:', 'Permission request': 'İzin isteği', 'Remember this decision for this website': 'Bu kararı bu web sitesi için hatırla', 'Allow': 'İzin ver', 'Block': 'Engelle', 'Yes': 'Evet', 'No': 'Hayır', 'Close tab': 'Sekmeyi kapat', 'Do you really want to close this tab?': 'Bu sekmeyi gerçekten kapatmak istiyor musunuz?', 'Stop loading': 'Yüklemeyi durdur', 'Translation': 'Çeviri', 'Open a regular webpage first.': 'Önce normal bir web sayfası açın.', 'Original page': 'Orijinal sayfa', 'No original page URL is saved for this tab.': 'Bu sekme için orijinal sayfa URL’si kaydedilmemiş.', 'More bookmarks': 'Daha fazla yer imi', 'Show more bookmarks': 'Daha fazla yer imi göster', 'Name': 'Ad', 'Address': 'Adres', 'Export bookmarks': 'Yer imlerini dışa aktar', 'Import bookmarks': 'Yer imlerini içe aktar', 'Website': 'Web sitesi', 'Permission': 'İzin', 'Decision': 'Karar', 'Action': 'İşlem', 'Blocking strength:': 'Engelleme gücü:', 'Protection level:': 'Koruma düzeyi:', 'File no longer present': 'Dosya artık mevcut değil', 'Cancelled': 'İptal edildi', 'Failed': 'Başarısız', 'Interrupted': 'Kesintiye uğradı', 'Ⅱ Pause': 'Ⅱ Duraklat', 'Download security warning': 'İndirme güvenlik uyarısı', 'This file may be dangerous': 'Bu dosya tehlikeli olabilir', 'Do not show this security warning again': 'Bu güvenlik uyarısını tekrar gösterme', 'Download anyway': 'Yine de indir', 'History cleared': 'Geçmiş temizlendi', 'The browsing history has been cleared.': 'Tarama geçmişi temizlendi.', 'Unlock password manager': 'Parola yöneticisinin kilidini aç', 'Master password:': 'Ana parola:', 'Set up password manager': 'Parola yöneticisini kur', 'Enter master password again:': 'Ana parolayı tekrar girin:', 'Look in:': 'Şurada ara:', 'File name:': 'Dosya adı:', 'File type:': 'Dosya türü:', 'Too short': 'Çok kısa', 'Please use at least 10 characters.': 'Lütfen en az 10 karakter kullanın.', 'Passwords do not match': 'Parolalar eşleşmiyor', 'The passwords do not match.': 'Parolalar eşleşmiyor.', 'Master password changed': 'Ana parola değiştirildi', 'Use at least 10 characters.': 'En az 10 karakter kullanın.', 'Export complete': 'Dışa aktarma tamamlandı', 'Import complete': 'İçe aktarma tamamlandı', 'No passwords stored': 'Kayıtlı parola yok', 'There are no saved passwords to delete.': 'Silinecek kayıtlı parola yok.', 'Delete all passwords': 'Tüm parolaları sil', 'Invalid input': 'Geçersiz giriş', 'Ask': 'Sor', 'User-Agent missing': 'User-Agent eksik', 'Cache cleared': 'Önbellek temizlendi', 'Cookies cleared': 'Çerezler temizlendi', 'Folder': 'Klasör', 'Delete folder': 'Klasörü sil', 'Bookmarks exported': 'Yer imleri dışa aktarıldı', 'Export': 'Dışa aktar', 'Bookmarks imported': 'Yer imleri içe aktarıldı', 'Import': 'İçe aktar', 'Remove': 'Kaldır', 'Clear all permissions': 'Tüm izinleri temizle', 'Total': 'Toplam', 'Download cancelled.': 'İndirme iptal edildi.', 'Download failed or cancelled.': 'İndirme başarısız oldu veya iptal edildi.', 'Incorrect password': 'Yanlış parola', 'Change failed': 'Değişiklik başarısız oldu', 'Export failed': 'Dışa aktarma başarısız oldu', 'Nothing to import': 'İçe aktarılacak bir şey yok', 'Import passwords': 'Parolaları içe aktar', 'Import failed': 'İçe aktarma başarısız oldu', 'Delete password': 'Parolayı sil', 'Really delete this saved login?': 'Bu kayıtlı giriş gerçekten silinsin mi?', 'Folder deleted': 'Klasör silindi', '▶ Resume': '▶ Devam et', 'Download': 'İndir', 'Unknown': 'Bilinmiyor', 'Download complete': 'İndirme tamamlandı', 'Error': 'Hata', 'Active': 'Etkin', 'Saved in:': 'Kaydedildiği yer:', 'Clipboard': 'Pano', 'Allow all cookies': 'Tüm çerezlere izin ver', 'Block third-party cookies': 'Üçüncü taraf çerezlerini engelle', 'Block all cookies': 'Tüm çerezleri engelle', 'Allow session cookies only': 'Yalnızca oturum çerezlerine izin ver', 'Strong': 'Güçlü', 'Very strong': 'Çok güçlü', 'Super strong': 'Süper güçlü', 'Mega strong': 'Son derece güçlü', 'Ultra strong': 'Ultra güçlü', 'Maximum': 'Maksimum', 'Standard': 'Standart', 'Small': 'Küçük', 'Medium': 'Orta', 'Large': 'Büyük', 'Very large': 'Çok büyük', 'Export encrypted vault': 'Şifreli kasayı dışa aktar', 'Import encrypted vault': 'Şifreli kasayı içe aktar', 'New': 'Yeni', 'Updated': 'Güncellendi', 'Save image as': 'Resmi farklı kaydet', 'Save page as': 'Sayfayı farklı kaydet', 'All files (*.*)': 'Tüm dosyalar (*.*)', 'Web page (*.mhtml)': 'Web sayfası (*.mhtml)', 'Do you really want to delete the entire browsing history?': 'Tüm tarama geçmişini gerçekten silmek istiyor musunuz?', 'Normal – leave websites unchanged': 'Normal – web sitelerini değiştirme', 'Gentle contrast': 'Hafif kontrast', 'Softer contrast': 'Daha yumuşak kontrast', 'Relaxed contrast': 'Rahat kontrast', 'Original – keep website colors': 'Orijinal – web sitesi renklerini koru', 'Black mode – black backgrounds': 'Siyah mod – siyah arka planlar', 'Custom block patterns (separate with semicolons):': 'Özel engelleme kalıpları (noktalı virgülle ayırın):', 'Whitelist domains (separate with semicolons):': 'İzin verilen alan adları (noktalı virgülle ayırın):', 'The download has finished:': 'İndirme tamamlandı:', ' items': ' öğe', ' matches': ' eşleşme'}
+
+TURKISH_UI.update({'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'Reklam engelleyici, bilinen reklam ve izleme alan adlarını filtreler. Daha yüksek düzeyler daha fazlasını engeller ancak bazı web sitelerini etkileyebilir.', 'Google translates the whole webpage. MyMemory translates visible text sections and has a free daily limit.': 'Google tüm web sayfasını çevirir. MyMemory görünür metin bölümlerini çevirir ve günlük ücretsiz kullanım sınırı vardır.', 'LunaSurfer vault (*.lsv);;All files (*)': 'LunaSurfer kasası (*.lsv);;Tüm dosyalar (*)', 'Do you really want to clear all browser data?\n\nHistory, cache, cookies, sign-in sessions, Local Storage, IndexedDB and other website data will be removed. You will be signed out of websites.\n\nBookmarks and saved passwords will be kept. The full cleanup will finish the next time LunaSurfer starts.': 'Tüm tarayıcı verilerini gerçekten temizlemek istiyor musunuz?\n\nGeçmiş, önbellek, çerezler, oturum açma oturumları, Local Storage, IndexedDB ve diğer web sitesi verileri kaldırılacaktır. Web sitelerinden çıkış yapacaksınız.\n\nYer imleri ve kayıtlı parolalar korunacaktır. Temizlik, LunaSurfer bir sonraki başlatıldığında tamamlanacaktır.', 'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Standart: canvas, ses ve temel donanım koruması. Güçlü: ayrıca WebGL tanımlayıcılarını maskeler. Maksimum: ek donanım ve tarayıcı Client Hints koruması sağlar. Değişiklikler hemen uygulanır; yeniden başlatma gerekmez.', 'The User-Agent changes the browser identification, not the browser engine or its capabilities. With fingerprint protection enabled, Client Hints are reduced to match the Chromium version.': 'User-Agent, tarayıcı motorunu veya yeteneklerini değil, tarayıcı tanımlamasını değiştirir. Parmak izi koruması açıkken Client Hints, Chromium sürümüyle eşleşecek şekilde azaltılır.', 'When disabled, LunaSurfer asks for the master password only when you focus a login field.': 'Devre dışı bırakıldığında LunaSurfer ana parolayı yalnızca bir giriş alanına odaklandığınızda ister.', 'Delete all saved website logins; the master password remains': 'Kaydedilmiş tüm web sitesi girişlerini sil; ana parola korunur', 'Manage saved permission decisions for individual websites': 'Her web sitesi için kaydedilmiş izin kararlarını yönet', 'Do you really want to clear the browser cache?': 'Tarayıcı önbelleğini gerçekten temizlemek istiyor musunuz?', 'Browser data cleared; full cleanup will finish after restart.': 'Tarayıcı verileri temizlendi; tam temizlik yeniden başlatmadan sonra tamamlanacak.', 'Browser data is being cleared. Please restart LunaSurfer to remove all stored website data completely. Bookmarks and saved passwords will be kept.': 'Tarayıcı verileri temizleniyor. Kaydedilmiş tüm web sitesi verilerini tamamen kaldırmak için lütfen LunaSurfer’ı yeniden başlatın. Yer imleri ve kayıtlı parolalar korunacaktır.', 'Do you really want to delete all stored cookies?': 'Kaydedilmiş tüm çerezleri gerçekten silmek istiyor musunuz?', 'Provider: MyMemory – starting translation …': 'Sağlayıcı: MyMemory – çeviri başlatılıyor…', 'Provider: Google Translate – loading whole webpage …': 'Sağlayıcı: Google Translate – tüm web sayfası yükleniyor…', 'This file can run programs or scripts. Only download it if you trust the source.': 'Bu dosya program veya betik çalıştırabilir. Yalnızca kaynağa güveniyorsanız indirin.', 'The vault has been re-encrypted with the new master password. Keep it safe; it cannot be recovered.': 'Kasa yeni ana parola ile yeniden şifrelendi. Parolayı güvenli tutun; kaybolursa kurtarılamaz.', 'The vault was exported in encrypted form. Keep the export file and export password separately.': 'Kasa şifrelenmiş biçimde dışa aktarıldı. Dışa aktarma dosyasını ve parolasını ayrı yerlerde saklayın.', 'Do you really want to permanently delete ALL saved website logins? The master password will remain.': 'KAYITLI TÜM web sitesi girişlerini kalıcı olarak silmek istiyor musunuz? Ana parola korunacaktır.', 'Enter a valid website address, username and password.': 'Geçerli bir web sitesi adresi, kullanıcı adı ve parola girin.', 'Enter a complete User-Agent or select another mode.': 'Tam bir User-Agent girin veya başka bir mod seçin.', 'The browser cache has been cleared.': 'Tarayıcı önbelleği temizlendi.', 'All stored cookies have been cleared.': 'Kaydedilmiş tüm çerezler temizlendi.', 'MyMemory could not translate the page. Check connection or daily quota.': 'MyMemory sayfayı çeviremedi. Bağlantınızı veya günlük kotayı kontrol edin.', 'Really delete this folder and all bookmarks inside it?': 'Bu klasör ve içindeki tüm yer imleri gerçekten silinsin mi?', 'Bookmarks were exported, including their folder structure.': 'Yer imleri klasör yapılarıyla birlikte dışa aktarıldı.', 'Do you really want to clear all saved website permissions?': 'Kaydedilmiş tüm web sitesi izinlerini gerçekten temizlemek istiyor musunuz?', 'Download source: ': 'İndirme kaynağı: ', 'The current master password is incorrect or the vault is damaged.': 'Geçerli ana parola yanlış veya kasa hasarlı.', 'The export contains no valid logins.': 'Dışa aktarma dosyasında geçerli giriş bilgisi yok.', 'Translation provider applied immediately: ': 'Çeviri sağlayıcısı hemen uygulandı: ', 'Qt 6 + QtWebEngine with selectable light/dark website appearance and optional Widevine CDM integration.': 'Seçilebilir açık/koyu web sitesi görünümüne ve isteğe bağlı Widevine CDM entegrasyonuna sahip Qt 6 + QtWebEngine.', ' text sections translated.': ' metin bölümü çevrildi.', 'No bookmarks found in the selected file.': 'Seçilen dosyada yer imi bulunamadı.', 'The master password is incorrect or the vault is damaged.': 'Ana parola yanlış veya kasa hasarlı.', 'Incorrect export password or damaged export file.': 'Dışa aktarma parolası yanlış veya dışa aktarma dosyası hasarlı.', 'No custom User-Agent entered yet': 'Henüz özel User-Agent girilmedi', 'Could not refresh translation menu: ': 'Çeviri menüsü yenilenemedi: ', 'MyMemory: ': 'MyMemory: ', 'The folder could not be deleted.': 'Klasör silinemedi.'})
+
+POLISH_UI = {'Manage bookmarks': 'Zarządzaj zakładkami', '» More': '» Więcej', 'Clear all browser data': 'Wyczyść wszystkie dane przeglądarki', 'Find on this page': 'Znajdź na tej stronie', 'Matches 0 of 0': 'Wyniki: 0 z 0', 'Previous match': 'Poprzedni wynik', 'Next match': 'Następny wynik', 'Close find bar': 'Zamknij pasek wyszukiwania', 'Developer tools': 'Narzędzia deweloperskie', 'Back': 'Wstecz', 'Forward': 'Dalej', 'Reload': 'Odśwież', 'Home': 'Strona główna', 'Enter address or search': 'Wpisz adres lub wyszukaj', 'Translate webpage': 'Przetłumacz stronę', 'Show original page': 'Pokaż oryginalną stronę', 'Add current page to bookmarks': 'Dodaj bieżącą stronę do zakładek', 'Unlock password manager – autofill saved logins (Ctrl+Shift+L)': 'Odblokuj menedżer haseł – automatycznie wypełnij zapisane loginy (Ctrl+Shift+L)', 'Download manager': 'Menedżer pobierania', 'Protection & privacy': 'Ochrona i prywatność', 'New tab': 'Nowa karta', 'Menu': 'Menu', 'Bookmarks': 'Zakładki', 'History': 'Historia', 'Open downloads folder': 'Otwórz folder pobierania', 'Settings': 'Ustawienia', 'User guide': 'Podręcznik użytkownika', 'Developer tools (F12)': 'Narzędzia deweloperskie (F12)', 'About LunaSurfer': 'O programie LunaSurfer', 'Quit': 'Zakończ', 'Bookmarks bar': 'Pasek zakładek', 'Ad blocker': 'Blokowanie reklam', 'Ready': 'Gotowe', 'Loading translated webpage …': 'Ładowanie przetłumaczonej strony…', 'View and manage bookmarks': 'Wyświetlaj i zarządzaj zakładkami', 'Open': 'Otwórz', 'Edit bookmark…': 'Edytuj zakładkę…', 'Delete bookmark': 'Usuń zakładkę', 'Edit bookmark': 'Edytuj zakładkę', 'Name:': 'Nazwa:', 'Address:': 'Adres:', 'Bookmark changed': 'Zakładka została zmieniona', 'Really delete this bookmark?': 'Czy na pewno usunąć tę zakładkę?', 'Bookmark deleted': 'Zakładka została usunięta', 'Your bookmarks': 'Twoje zakładki', 'Expand folders, search entries and manage them directly.': 'Rozwijaj foldery, wyszukuj wpisy i zarządzaj nimi bezpośrednio.', 'Search bookmarks or addresses …': 'Szukaj zakładek lub adresów…', 'Edit…': 'Edytuj…', 'Delete': 'Usuń', 'Import…': 'Importuj…', 'Export…': 'Eksportuj…', 'Close': 'Zamknij', 'Protection settings: ad blocker and fingerprint': 'Ustawienia ochrony: blokowanie reklam i ochrona przed fingerprintingiem', 'Saved website permissions': 'Zapisane uprawnienia witryn', 'Change or remove remembered decisions for each website. Changes are saved immediately.': 'Zmieniaj lub usuwaj zapamiętane decyzje dla poszczególnych witryn. Zmiany są zapisywane natychmiast.', 'Camera': 'Aparat', 'Microphone': 'Mikrofon', 'Location': 'Lokalizacja', 'Notifications': 'Powiadomienia', 'Clear all saved permissions': 'Wyczyść wszystkie zapisane uprawnienia', 'Enable ad blocker': 'Włącz blokowanie reklam', 'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'Blokowanie reklam filtruje znane domeny reklamowe i śledzące. Wyższe poziomy blokują więcej, ale mogą wpływać na działanie niektórych witryn.', 'Enable fingerprint protection': 'Włącz ochronę przed fingerprintingiem', 'Fingerprint protection': 'Ochrona przed fingerprintingiem', 'Save': 'Zapisz', 'Cancel': 'Anuluj', 'Download Manager': 'Menedżer pobierania', 'Downloads': 'Pobrane pliki', 'All active and completed files in one place.': 'Wszystkie aktywne i zakończone pobrania w jednym miejscu.', 'All downloads': 'Wszystkie pobrania', 'In progress': 'W trakcie', 'Paused': 'Wstrzymane', 'Completed': 'Zakończone', 'Failed / cancelled': 'Nieudane / anulowane', 'Search filename or path …': 'Szukaj nazwy pliku lub ścieżki…', 'Cancel download': 'Anuluj pobieranie', 'Open file': 'Otwórz plik', 'Open folder': 'Otwórz folder', 'Remove entry': 'Usuń wpis', 'Clear completed': 'Wyczyść zakończone', 'Clear history': 'Wyczyść historię', 'Change master password': 'Zmień hasło główne', 'Current master password:': 'Obecne hasło główne:', 'New master password': 'Nowe hasło główne', 'New master password (at least 10 characters):': 'Nowe hasło główne (co najmniej 10 znaków):', 'Confirm master password': 'Potwierdź hasło główne', 'Enter the new master password again:': 'Wpisz ponownie nowe hasło główne:', 'Export password': 'Hasło eksportu', 'Choose a password for this export file (at least 10 characters):': 'Wybierz hasło do tego pliku eksportu (co najmniej 10 znaków):', 'Confirm export password': 'Potwierdź hasło eksportu', 'Enter the export password again:': 'Wpisz ponownie hasło eksportu:', 'Enter the password used to encrypt this export file:': 'Wpisz hasło użyte do zaszyfrowania tego pliku eksportu:', 'Passwords deleted': 'Hasła usunięte', 'All saved website passwords have been deleted. The master password remains.': 'Wszystkie zapisane hasła do witryn zostały usunięte. Hasło główne pozostało.', 'Login details': 'Dane logowania', 'Website (matched automatically)': 'Witryna (dopasowana automatycznie)', 'Username': 'Nazwa użytkownika', 'Password': 'Hasło', 'Show password': 'Pokaż hasło', 'Generate secure password': 'Wygeneruj bezpieczne hasło', 'LunaSurfer – Password manager': 'LunaSurfer – Menedżer haseł', 'Passwords are encrypted locally. The master password cannot be recovered.': 'Hasła są szyfrowane lokalnie. Nie można odzyskać hasła głównego.', 'Add': 'Dodaj', 'Edit': 'Edytuj', 'Export encrypted…': 'Eksportuj zaszyfrowane…', 'Import encrypted…': 'Importuj zaszyfrowane…', 'Change master password…': 'Zmień hasło główne…', 'Lock now': 'Zablokuj teraz', 'Update password?': 'Zaktualizować hasło?', 'Save password?': 'Zapisać hasło?', 'Login details saved securely.': 'Dane logowania zostały bezpiecznie zapisane.', 'LunaSurfer – User guide': 'LunaSurfer – Podręcznik użytkownika', 'Open homepage': 'Otwórz stronę startową', 'Restore last session': 'Przywróć ostatnią sesję', 'Open blank page': 'Otwórz pustą stronę', 'Google Translate (whole webpage)': 'Google Translate (cała strona)', 'MyMemory (no API key)': 'MyMemory (bez klucza API)', 'Google translates the whole webpage. MyMemory translates visible text sections and has a free daily limit.': 'Google tłumaczy całą stronę. MyMemory tłumaczy widoczne fragmenty tekstu i ma dzienny bezpłatny limit.', 'Dark': 'Ciemny', 'Light': 'Jasny', 'Dark (Standard)': 'Ciemny (standardowy)', 'Light (Classic)': 'Jasny (klasyczny)', 'Luna (Modern)': 'Luna (nowoczesny)', 'Graphite Blue (Elegant)': 'Grafitowy niebieski (elegancki)', 'Ocean (Teal Blue)': 'Ocean (turkusowy)', 'Show bookmarks bar below the address bar': 'Pokaż pasek zakładek pod paskiem adresu', 'Choose folder…': 'Wybierz folder…', 'Ask where to save each download': 'Pytaj, gdzie zapisać każde pobranie', 'Show security warning for executable downloads': 'Pokazuj ostrzeżenie dla pobieranych plików wykonywalnych', 'Show popup when a download finishes': 'Pokaż powiadomienie po zakończeniu pobierania', 'Block pop-ups': 'Blokuj wyskakujące okna', 'Enable JavaScript': 'Włącz JavaScript', 'Send Do Not Track request': 'Wysyłaj żądanie Do Not Track', 'Ask when closing a tab': 'Pytaj przed zamknięciem karty', 'Automatically clear history on exit': 'Automatycznie czyść historię przy zamykaniu', 'Automatically clear cache on exit': 'Automatycznie czyść pamięć podręczną przy zamykaniu', 'Automatically clear cookies on exit': 'Automatycznie usuwaj pliki cookie przy zamykaniu', 'Remember window size and position on exit': 'Zapamiętaj rozmiar i położenie okna przy zamykaniu', 'Use LunaSurfer as default browser': 'Używaj LunaSurfer jako domyślnej przeglądarki', 'General': 'Ogólne', 'Language:': 'Język:', 'On startup:': 'Przy uruchomieniu:', 'Homepage:': 'Strona startowa:', 'Search engine:': 'Wyszukiwarka:', 'Translation provider:': 'Usługa tłumaczenia:', 'Browser design:': 'Wygląd przeglądarki:', 'Website appearance:': 'Wygląd witryn:', 'Download folder:': 'Folder pobierania:', 'Default zoom:': 'Domyślne powiększenie:', 'Default font size:': 'Domyślny rozmiar czcionki:', 'Website readability:': 'Czytelność witryn:', 'Website colors:': 'Kolory witryn:', 'Security and permissions': 'Bezpieczeństwo i uprawnienia', 'Security:': 'Bezpieczeństwo:', 'User-Agent management': 'Zarządzanie User-Agent', 'Privacy default (reduced Chrome UA)': 'Domyślne ustawienie prywatności (skrócony Chrome UA)', 'Native browser User-Agent': 'Natywny User-Agent przeglądarki', 'Custom User-Agent': 'Niestandardowy User-Agent', 'Enter a complete User-Agent string…': 'Wpisz pełny ciąg User-Agent…', 'Mode:': 'Tryb:', 'Custom value:': 'Własna wartość:', 'Current:': 'Obecnie:', 'Offer to save passwords after successful sign-in': 'Proponuj zapisanie haseł po pomyślnym zalogowaniu', 'Password manager must be unlocked before autofill': 'Menedżer haseł musi być odblokowany przed automatycznym wypełnianiem', 'Open password manager…': 'Otwórz menedżer haseł…', 'Manage encrypted saved website logins': 'Zarządzaj zaszyfrowanymi zapisanymi danymi logowania', 'Delete all passwords…': 'Usuń wszystkie hasła…', 'Passwords:': 'Hasła:', 'Edit saved website permissions…': 'Edytuj zapisane uprawnienia witryn…', 'Website permissions:': 'Uprawnienia witryn:', 'Browser behavior:': 'Zachowanie przeglądarki:', 'Clear cache': 'Wyczyść pamięć podręczną', 'Clear cookies': 'Usuń pliki cookie', 'Clear everything': 'Wyczyść wszystko', 'Privacy and browser data': 'Prywatność i dane przeglądarki', 'Cookie mode:': 'Tryb plików cookie:', 'Browser data:': 'Dane przeglądarki:', 'Permission request': 'Żądanie uprawnienia', 'Remember this decision for this website': 'Zapamiętaj tę decyzję dla tej witryny', 'Allow': 'Zezwól', 'Block': 'Zablokuj', 'Yes': 'Tak', 'No': 'Nie', 'Close tab': 'Zamknij kartę', 'Do you really want to close this tab?': 'Czy na pewno chcesz zamknąć tę kartę?', 'Stop loading': 'Zatrzymaj ładowanie', 'Translation': 'Tłumaczenie', 'Open a regular webpage first.': 'Najpierw otwórz zwykłą stronę internetową.', 'Original page': 'Oryginalna strona', 'No original page URL is saved for this tab.': 'Dla tej karty nie zapisano adresu URL oryginalnej strony.', 'More bookmarks': 'Więcej zakładek', 'Show more bookmarks': 'Pokaż więcej zakładek', 'Name': 'Nazwa', 'Address': 'Adres', 'Export bookmarks': 'Eksportuj zakładki', 'Import bookmarks': 'Importuj zakładki', 'Website': 'Witryna', 'Permission': 'Uprawnienie', 'Decision': 'Decyzja', 'Action': 'Działanie', 'Blocking strength:': 'Poziom blokowania:', 'Protection level:': 'Poziom ochrony:', 'File no longer present': 'Plik już nie istnieje', 'Cancelled': 'Anulowano', 'Failed': 'Niepowodzenie', 'Interrupted': 'Przerwano', 'Ⅱ Pause': 'Ⅱ Wstrzymaj', 'Download security warning': 'Ostrzeżenie dotyczące bezpieczeństwa pobierania', 'This file may be dangerous': 'Ten plik może być niebezpieczny', 'Do not show this security warning again': 'Nie pokazuj ponownie tego ostrzeżenia', 'Download anyway': 'Pobierz mimo to', 'History cleared': 'Historia została wyczyszczona', 'The browsing history has been cleared.': 'Historia przeglądania została wyczyszczona.', 'Unlock password manager': 'Odblokuj menedżer haseł', 'Master password:': 'Hasło główne:', 'Set up password manager': 'Skonfiguruj menedżer haseł', 'Enter master password again:': 'Wpisz ponownie hasło główne:', 'Look in:': 'Szukaj w:', 'File name:': 'Nazwa pliku:', 'File type:': 'Typ pliku:', 'Too short': 'Zbyt krótkie', 'Please use at least 10 characters.': 'Użyj co najmniej 10 znaków.', 'Passwords do not match': 'Hasła nie są zgodne', 'The passwords do not match.': 'Hasła nie są zgodne.', 'Master password changed': 'Hasło główne zostało zmienione', 'Use at least 10 characters.': 'Użyj co najmniej 10 znaków.', 'Export complete': 'Eksport zakończony', 'Import complete': 'Import zakończony', 'No passwords stored': 'Brak zapisanych haseł', 'There are no saved passwords to delete.': 'Nie ma zapisanych haseł do usunięcia.', 'Delete all passwords': 'Usuń wszystkie hasła', 'Invalid input': 'Nieprawidłowe dane wejściowe', 'Ask': 'Pytaj', 'User-Agent missing': 'Brak User-Agent', 'Cache cleared': 'Pamięć podręczna została wyczyszczona', 'Cookies cleared': 'Pliki cookie zostały usunięte', 'Folder': 'Folder', 'Delete folder': 'Usuń folder', 'Bookmarks exported': 'Zakładki wyeksportowane', 'Export': 'Eksportuj', 'Bookmarks imported': 'Zakładki zaimportowane', 'Import': 'Importuj', 'Remove': 'Usuń', 'Clear all permissions': 'Wyczyść wszystkie uprawnienia', 'Total': 'Łącznie', 'Download cancelled.': 'Pobieranie anulowane.', 'Download failed or cancelled.': 'Pobieranie nie powiodło się lub zostało anulowane.', 'Incorrect password': 'Nieprawidłowe hasło', 'Change failed': 'Zmiana nie powiodła się', 'Export failed': 'Eksport nie powiódł się', 'Nothing to import': 'Brak danych do zaimportowania', 'Import passwords': 'Importuj hasła', 'Import failed': 'Import nie powiódł się', 'Delete password': 'Usuń hasło', 'Really delete this saved login?': 'Czy na pewno usunąć te zapisane dane logowania?', 'Folder deleted': 'Folder został usunięty', '▶ Resume': '▶ Wznów', 'Download': 'Pobierz', 'Unknown': 'Nieznany', 'Download complete': 'Pobieranie zakończone', 'Error': 'Błąd', 'Active': 'Aktywne', 'Saved in:': 'Zapisano w:', 'Clipboard': 'Schowek', 'Allow all cookies': 'Zezwalaj na wszystkie pliki cookie', 'Block third-party cookies': 'Blokuj pliki cookie innych firm', 'Block all cookies': 'Blokuj wszystkie pliki cookie', 'Allow session cookies only': 'Zezwalaj tylko na sesyjne pliki cookie', 'Strong': 'Silny', 'Very strong': 'Bardzo silny', 'Super strong': 'Bardzo mocny', 'Mega strong': 'Mega mocny', 'Ultra strong': 'Ultra mocny', 'Maximum': 'Maksymalny', 'Standard': 'Standardowy', 'Small': 'Mały', 'Medium': 'Średni', 'Large': 'Duży', 'Very large': 'Bardzo duży', 'Export encrypted vault': 'Eksportuj zaszyfrowany sejf', 'Import encrypted vault': 'Importuj zaszyfrowany sejf', 'New': 'Nowy', 'Updated': 'Zaktualizowano', 'Save image as': 'Zapisz obraz jako', 'Save page as': 'Zapisz stronę jako', 'All files (*.*)': 'Wszystkie pliki (*.*)', 'Web page (*.mhtml)': 'Strona internetowa (*.mhtml)', 'Do you really want to delete the entire browsing history?': 'Czy na pewno chcesz usunąć całą historię przeglądania?', 'LunaSurfer vault (*.lsv);;All files (*)': 'Sejf LunaSurfer (*.lsv);;Wszystkie pliki (*)', 'Normal – leave websites unchanged': 'Normalny – bez zmian na stronach', 'Gentle contrast': 'Delikatny kontrast', 'Softer contrast': 'Łagodniejszy kontrast', 'Relaxed contrast': 'Umiarkowany kontrast', 'Original – keep website colors': 'Oryginalny – zachowaj kolory witryny', 'Black mode – black backgrounds': 'Tryb czarny – czarne tła', 'Custom block patterns (separate with semicolons):': 'Niestandardowe wzorce blokowania (oddziel średnikami):', 'Whitelist domains (separate with semicolons):': 'Domeny na białej liście (oddziel średnikami):', 'The download has finished:': 'Pobieranie zostało zakończone:', ' items': ' elementów', ' matches': ' wyników', 'Do you really want to clear all browser data?\n\nHistory, cache, cookies, sign-in sessions, Local Storage, IndexedDB and other website data will be removed. You will be signed out of websites.\n\nBookmarks and saved passwords will be kept. The full cleanup will finish the next time LunaSurfer starts.': 'Czy na pewno chcesz wyczyścić wszystkie dane przeglądarki?\n\nHistoria, pamięć podręczna, pliki cookie, sesje logowania, Local Storage, IndexedDB i inne dane witryn zostaną usunięte. Nastąpi wylogowanie z witryn.\n\nZakładki i zapisane hasła zostaną zachowane. Pełne czyszczenie zakończy się przy następnym uruchomieniu LunaSurfer.', 'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Standardowy: ochrona canvas, audio i podstawowych danych sprzętowych. Silny: dodatkowo maskuje identyfikatory WebGL. Maksymalny: dodatkowa ochrona danych sprzętowych i Client Hints przeglądarki. Zmiany są stosowane natychmiast; ponowne uruchomienie nie jest wymagane.', 'The User-Agent changes the browser identification, not the browser engine or its capabilities. With fingerprint protection enabled, Client Hints are reduced to match the Chromium version.': 'User-Agent zmienia identyfikację przeglądarki, a nie silnik przeglądarki ani jego możliwości. Po włączeniu ochrony przed fingerprintingiem Client Hints są ograniczane tak, aby odpowiadały wersji Chromium.', 'When disabled, LunaSurfer asks for the master password only when you focus a login field.': 'Gdy ta opcja jest wyłączona, LunaSurfer pyta o hasło główne dopiero po wybraniu pola logowania.', 'Delete all saved website logins; the master password remains': 'Usuń wszystkie zapisane loginy do witryn; hasło główne pozostanie', 'Manage saved permission decisions for individual websites': 'Zarządzaj zapisanymi decyzjami o uprawnieniach dla poszczególnych witryn', 'Do you really want to clear the browser cache?': 'Czy na pewno chcesz wyczyścić pamięć podręczną przeglądarki?', 'Browser data cleared; full cleanup will finish after restart.': 'Dane przeglądarki wyczyszczono; pełne czyszczenie zakończy się po ponownym uruchomieniu.', 'Browser data is being cleared. Please restart LunaSurfer to remove all stored website data completely. Bookmarks and saved passwords will be kept.': 'Trwa czyszczenie danych przeglądarki. Uruchom ponownie LunaSurfer, aby całkowicie usunąć wszystkie zapisane dane witryn. Zakładki i zapisane hasła zostaną zachowane.', 'Do you really want to delete all stored cookies?': 'Czy na pewno chcesz usunąć wszystkie zapisane pliki cookie?', 'Provider: MyMemory – starting translation …': 'Usługa: MyMemory – rozpoczynanie tłumaczenia…', 'Provider: Google Translate – loading whole webpage …': 'Usługa: Google Translate – ładowanie całej strony…', 'This file can run programs or scripts. Only download it if you trust the source.': 'Ten plik może uruchamiać programy lub skrypty. Pobieraj go tylko wtedy, gdy ufasz źródłu.', 'The vault has been re-encrypted with the new master password. Keep it safe; it cannot be recovered.': 'Sejf został ponownie zaszyfrowany nowym hasłem głównym. Przechowuj je bezpiecznie; nie można go odzyskać.', 'The vault was exported in encrypted form. Keep the export file and export password separately.': 'Sejf wyeksportowano w postaci zaszyfrowanej. Przechowuj plik eksportu i hasło do eksportu oddzielnie.', 'Do you really want to permanently delete ALL saved website logins? The master password will remain.': 'Czy na pewno chcesz trwale usunąć WSZYSTKIE zapisane loginy do witryn? Hasło główne pozostanie.', 'Enter a valid website address, username and password.': 'Wpisz prawidłowy adres witryny, nazwę użytkownika i hasło.', 'Enter a complete User-Agent or select another mode.': 'Wpisz pełny User-Agent lub wybierz inny tryb.', 'The browser cache has been cleared.': 'Pamięć podręczna przeglądarki została wyczyszczona.', 'All stored cookies have been cleared.': 'Wszystkie zapisane pliki cookie zostały usunięte.', 'MyMemory could not translate the page. Check connection or daily quota.': 'MyMemory nie może przetłumaczyć strony. Sprawdź połączenie lub dzienny limit.', 'Really delete this folder and all bookmarks inside it?': 'Czy na pewno usunąć ten folder i wszystkie znajdujące się w nim zakładki?', 'Bookmarks were exported, including their folder structure.': 'Zakładki zostały wyeksportowane wraz ze strukturą folderów.', 'Do you really want to clear all saved website permissions?': 'Czy na pewno chcesz wyczyścić wszystkie zapisane uprawnienia witryn?', 'Download source: ': 'Źródło pobierania: ', 'The current master password is incorrect or the vault is damaged.': 'Obecne hasło główne jest nieprawidłowe lub sejf jest uszkodzony.', 'The export contains no valid logins.': 'Eksport nie zawiera prawidłowych danych logowania.', 'Translation provider applied immediately: ': 'Usługa tłumaczenia zastosowana natychmiast: ', 'Qt 6 + QtWebEngine with selectable light/dark website appearance and optional Widevine CDM integration.': 'Qt 6 + QtWebEngine z możliwością wyboru jasnego lub ciemnego wyglądu witryn i opcjonalną integracją Widevine CDM.', ' text sections translated.': ' przetłumaczonych fragmentów tekstu.', 'No bookmarks found in the selected file.': 'W wybranym pliku nie znaleziono zakładek.', 'The master password is incorrect or the vault is damaged.': 'Hasło główne jest nieprawidłowe lub sejf jest uszkodzony.', 'Incorrect export password or damaged export file.': 'Nieprawidłowe hasło eksportu lub uszkodzony plik eksportu.', 'No custom User-Agent entered yet': 'Nie wpisano jeszcze niestandardowego User-Agent', 'Could not refresh translation menu: ': 'Nie można odświeżyć menu tłumaczenia: ', 'MyMemory: ': 'MyMemory: ', 'The folder could not be deleted.': 'Nie można usunąć folderu.'}
+
+POLISH_QT_BUTTON_TRANSLATIONS = {'OK': 'OK', 'Cancel': 'Anuluj', 'Yes': 'Tak', 'No': 'Nie', 'Apply': 'Zastosuj', 'Save': 'Zapisz', 'Open': 'Otwórz', 'Close': 'Zamknij', 'Discard': 'Odrzuć', 'Retry': 'Ponów próbę', 'Ignore': 'Ignoruj', 'Abort': 'Przerwij', 'Help': 'Pomoc', '&Yes': '&Tak', '&No': '&Nie', '&Open': '&Otwórz', '&Save': '&Zapisz', '&Cancel': '&Anuluj'}
+
+ITALIAN_UI = {'Manage bookmarks': 'Gestisci segnalibri', '» More': '» Altro', 'Clear all browser data': 'Cancella tutti i dati del browser', 'Do you really want to clear all browser data?\n\nHistory, cache, cookies, sign-in sessions, Local Storage, IndexedDB and other website data will be removed. You will be signed out of websites.\n\nBookmarks and saved passwords will be kept. The full cleanup will finish the next time LunaSurfer starts.': 'Vuoi davvero cancellare tutti i dati del browser?\n\nLa cronologia, la cache, i cookie, le sessioni di accesso, il Local Storage, l’IndexedDB e gli altri dati dei siti web verranno rimossi. Verrai disconnesso dai siti web.\n\nI segnalibri e le password salvate verranno conservati. La pulizia completa terminerà al prossimo avvio di LunaSurfer.', 'Find on this page': 'Trova nella pagina', 'Matches 0 of 0': 'Corrispondenze: 0 di 0', 'Previous match': 'Risultato precedente', 'Next match': 'Risultato successivo', 'Close find bar': 'Chiudi barra di ricerca', 'Developer tools': 'Strumenti per sviluppatori', 'Back': 'Indietro', 'Forward': 'Avanti', 'Reload': 'Ricarica', 'Home': 'Home', 'Enter address or search': 'Inserisci un indirizzo o cerca', 'Translate webpage': 'Traduci pagina web', 'Show original page': 'Mostra pagina originale', 'Add current page to bookmarks': 'Aggiungi la pagina corrente ai segnalibri', 'Unlock password manager – autofill saved logins (Ctrl+Shift+L)': 'Sblocca il gestore password – compila automaticamente gli accessi salvati (Ctrl+Shift+L)', 'Download manager': 'Gestione download', 'Protection & privacy': 'Protezione e privacy', 'New tab': 'Nuova scheda', 'Menu': 'Menu', 'Bookmarks': 'Segnalibri', 'History': 'Cronologia', 'Open downloads folder': 'Apri cartella dei download', 'Settings': 'Impostazioni', 'User guide': 'Guida utente', 'Developer tools (F12)': 'Strumenti per sviluppatori (F12)', 'About LunaSurfer': 'Informazioni su LunaSurfer', 'Quit': 'Esci', 'Bookmarks bar': 'Barra dei segnalibri', 'Ad blocker': 'Blocco pubblicità', 'Ready': 'Pronto', 'Loading translated webpage …': 'Caricamento della pagina web tradotta…', 'View and manage bookmarks': 'Visualizza e gestisci i segnalibri', 'Open': 'Apri', 'Edit bookmark…': 'Modifica segnalibro…', 'Delete bookmark': 'Elimina segnalibro', 'Edit bookmark': 'Modifica segnalibro', 'Name:': 'Nome:', 'Address:': 'Indirizzo:', 'Bookmark changed': 'Segnalibro modificato', 'Really delete this bookmark?': 'Vuoi davvero eliminare questo segnalibro?', 'Bookmark deleted': 'Segnalibro eliminato', 'Your bookmarks': 'I tuoi segnalibri', 'Expand folders, search entries and manage them directly.': 'Espandi le cartelle, cerca le voci e gestiscile direttamente.', 'Search bookmarks or addresses …': 'Cerca segnalibri o indirizzi…', 'Edit…': 'Modifica…', 'Delete': 'Elimina', 'Import…': 'Importa…', 'Export…': 'Esporta…', 'Close': 'Chiudi', 'Protection settings: ad blocker and fingerprint': 'Impostazioni di protezione: blocco pubblicità e impronta digitale', 'Saved website permissions': 'Autorizzazioni dei siti web salvate', 'Change or remove remembered decisions for each website. Changes are saved immediately.': 'Modifica o rimuovi le decisioni memorizzate per ogni sito web. Le modifiche vengono salvate immediatamente.', 'Camera': 'Fotocamera', 'Microphone': 'Microfono', 'Location': 'Posizione', 'Notifications': 'Notifiche', 'Clear all saved permissions': 'Cancella tutte le autorizzazioni salvate', 'Enable ad blocker': 'Attiva il blocco pubblicità', 'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'Il blocco pubblicità filtra i domini noti per pubblicità e tracciamento. I livelli più elevati bloccano di più, ma possono influire su alcuni siti web.', 'Enable fingerprint protection': 'Attiva la protezione dell’impronta digitale', 'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Standard: protezione di canvas, audio e hardware di base. Forte: maschera anche gli identificatori WebGL. Massima: aggiunge la protezione dell’hardware e dei Client Hints del browser. Le modifiche vengono applicate subito; non è necessario riavviare.', 'Fingerprint protection': 'Protezione dell’impronta digitale', 'Save': 'Salva', 'Cancel': 'Annulla', 'Download Manager': 'Gestione download', 'Downloads': 'Download', 'All active and completed files in one place.': 'Tutti i file attivi e completati in un unico posto.', 'All downloads': 'Tutti i download', 'In progress': 'In corso', 'Paused': 'In pausa', 'Completed': 'Completati', 'Failed / cancelled': 'Non riusciti / annullati', 'Search filename or path …': 'Cerca nome file o percorso…', 'Cancel download': 'Annulla download', 'Open file': 'Apri file', 'Open folder': 'Apri cartella', 'Remove entry': 'Rimuovi voce', 'Clear completed': 'Cancella completati', 'Clear history': 'Cancella cronologia', 'Do you really want to delete the entire browsing history?': 'Vuoi davvero eliminare tutta la cronologia di navigazione?', 'LunaSurfer vault (*.lsv);;All files (*)': 'Archivio LunaSurfer (*.lsv);;Tutti i file (*)', 'Change master password': 'Cambia password principale', 'Current master password:': 'Password principale attuale:', 'New master password': 'Nuova password principale', 'New master password (at least 10 characters):': 'Nuova password principale (almeno 10 caratteri):', 'Confirm master password': 'Conferma password principale', 'Enter the new master password again:': 'Inserisci nuovamente la nuova password principale:', 'Export password': 'Password di esportazione', 'Choose a password for this export file (at least 10 characters):': 'Scegli una password per questo file di esportazione (almeno 10 caratteri):', 'Confirm export password': 'Conferma password di esportazione', 'Enter the export password again:': 'Inserisci nuovamente la password di esportazione:', 'Enter the password used to encrypt this export file:': 'Inserisci la password usata per crittografare questo file di esportazione:', 'Passwords deleted': 'Password eliminate', 'All saved website passwords have been deleted. The master password remains.': 'Tutte le password dei siti web salvate sono state eliminate. La password principale è rimasta invariata.', 'Login details': 'Dati di accesso', 'Website (matched automatically)': 'Sito web (rilevato automaticamente)', 'Username': 'Nome utente', 'Password': 'Password', 'Show password': 'Mostra password', 'Generate secure password': 'Genera password sicura', 'LunaSurfer – Password manager': 'LunaSurfer – Gestore password', 'Passwords are encrypted locally. The master password cannot be recovered.': 'Le password vengono crittografate localmente. La password principale non può essere recuperata.', 'Add': 'Aggiungi', 'Edit': 'Modifica', 'Export encrypted…': 'Esporta in forma crittografata…', 'Import encrypted…': 'Importa in forma crittografata…', 'Change master password…': 'Cambia password principale…', 'Lock now': 'Blocca ora', 'Update password?': 'Aggiornare la password?', 'Save password?': 'Salvare la password?', 'Login details saved securely.': 'Dati di accesso salvati in modo sicuro.', 'LunaSurfer – User guide': 'LunaSurfer – Guida utente', 'Open homepage': 'Apri pagina iniziale', 'Restore last session': 'Ripristina ultima sessione', 'Open blank page': 'Apri pagina vuota', 'Google Translate (whole webpage)': 'Google Translate (intera pagina web)', 'MyMemory (no API key)': 'MyMemory (senza chiave API)', 'Google translates the whole webpage. MyMemory translates visible text sections and has a free daily limit.': 'Google traduce l’intera pagina web. MyMemory traduce le sezioni di testo visibili e ha un limite giornaliero gratuito.', 'Dark': 'Scuro', 'Light': 'Chiaro', 'Dark (Standard)': 'Scuro (standard)', 'Light (Classic)': 'Chiaro (classico)', 'Luna (Modern)': 'Luna (moderno)', 'Graphite Blue (Elegant)': 'Grafite blu (elegante)', 'Ocean (Teal Blue)': 'Oceano (blu petrolio)', 'Show bookmarks bar below the address bar': 'Mostra la barra dei segnalibri sotto la barra degli indirizzi', 'Choose folder…': 'Scegli cartella…', 'Ask where to save each download': 'Chiedi dove salvare ogni download', 'Show security warning for executable downloads': 'Mostra un avviso di sicurezza per i download eseguibili', 'Show popup when a download finishes': 'Mostra una notifica al termine di un download', 'Normal – leave websites unchanged': 'Normale – lascia invariati i siti web', 'Gentle contrast': 'Contrasto delicato', 'Softer contrast': 'Contrasto più morbido', 'Relaxed contrast': 'Contrasto rilassato', 'Original – keep website colors': 'Originale – mantieni i colori dei siti web', 'Black mode – black backgrounds': 'Modalità nera – sfondi neri', 'Block pop-ups': 'Blocca finestre pop-up', 'Enable JavaScript': 'Attiva JavaScript', 'Send Do Not Track request': 'Invia richiesta Do Not Track', 'Ask when closing a tab': 'Chiedi prima di chiudere una scheda', 'Automatically clear history on exit': 'Cancella automaticamente la cronologia all’uscita', 'Automatically clear cache on exit': 'Cancella automaticamente la cache all’uscita', 'Automatically clear cookies on exit': 'Cancella automaticamente i cookie all’uscita', 'Remember window size and position on exit': 'Ricorda dimensioni e posizione della finestra all’uscita', 'Use LunaSurfer as default browser': 'Usa LunaSurfer come browser predefinito', 'General': 'Generale', 'Language:': 'Lingua:', 'On startup:': 'All’avvio:', 'Homepage:': 'Pagina iniziale:', 'Search engine:': 'Motore di ricerca:', 'Translation provider:': 'Servizio di traduzione:', 'Browser design:': 'Aspetto del browser:', 'Website appearance:': 'Aspetto dei siti web:', 'Download folder:': 'Cartella dei download:', 'Default zoom:': 'Zoom predefinito:', 'Default font size:': 'Dimensione carattere predefinita:', 'Website readability:': 'Leggibilità dei siti web:', 'Website colors:': 'Colori dei siti web:', 'Security and permissions': 'Sicurezza e autorizzazioni', 'Security:': 'Sicurezza:', 'User-Agent management': 'Gestione User-Agent', 'Privacy default (reduced Chrome UA)': 'Predefinito privacy (User-Agent Chrome ridotto)', 'Native browser User-Agent': 'User-Agent nativo del browser', 'Custom User-Agent': 'User-Agent personalizzato', 'Enter a complete User-Agent string…': 'Inserisci una stringa User-Agent completa…', 'The User-Agent changes the browser identification, not the browser engine or its capabilities. With fingerprint protection enabled, Client Hints are reduced to match the Chromium version.': 'Lo User-Agent modifica l’identificazione del browser, non il motore né le sue funzionalità. Con la protezione dell’impronta digitale attiva, i Client Hints vengono ridotti per corrispondere alla versione di Chromium.', 'Mode:': 'Modalità:', 'Custom value:': 'Valore personalizzato:', 'Current:': 'Attuale:', 'Offer to save passwords after successful sign-in': 'Proponi di salvare le password dopo un accesso riuscito', 'Password manager must be unlocked before autofill': 'Il gestore password deve essere sbloccato prima della compilazione automatica', 'When disabled, LunaSurfer asks for the master password only when you focus a login field.': 'Se disattivato, LunaSurfer chiede la password principale solo quando selezioni un campo di accesso.', 'Open password manager…': 'Apri gestore password…', 'Manage encrypted saved website logins': 'Gestisci gli accessi ai siti web salvati e crittografati', 'Delete all passwords…': 'Elimina tutte le password…', 'Delete all saved website logins; the master password remains': 'Elimina tutti gli accessi salvati ai siti web; la password principale rimane', 'Passwords:': 'Password:', 'Edit saved website permissions…': 'Modifica autorizzazioni dei siti web salvate…', 'Manage saved permission decisions for individual websites': 'Gestisci le decisioni di autorizzazione salvate per i singoli siti web', 'Website permissions:': 'Autorizzazioni dei siti web:', 'Browser behavior:': 'Comportamento del browser:', 'Clear cache': 'Cancella cache', 'Clear cookies': 'Cancella cookie', 'Clear everything': 'Cancella tutto', 'Privacy and browser data': 'Privacy e dati del browser', 'Cookie mode:': 'Modalità cookie:', 'Browser data:': 'Dati del browser:', 'Do you really want to clear the browser cache?': 'Vuoi davvero cancellare la cache del browser?', 'Browser data cleared; full cleanup will finish after restart.': 'Dati del browser cancellati; la pulizia completa terminerà dopo il riavvio.', 'Browser data is being cleared. Please restart LunaSurfer to remove all stored website data completely. Bookmarks and saved passwords will be kept.': 'I dati del browser vengono cancellati. Riavvia LunaSurfer per rimuovere completamente tutti i dati dei siti web memorizzati. I segnalibri e le password salvate verranno conservati.', 'Do you really want to delete all stored cookies?': 'Vuoi davvero eliminare tutti i cookie memorizzati?', 'Permission request': 'Richiesta di autorizzazione', 'Remember this decision for this website': 'Ricorda questa decisione per questo sito web', 'Allow': 'Consenti', 'Block': 'Blocca', 'Yes': 'Sì', 'No': 'No', 'Close tab': 'Chiudi scheda', 'Do you really want to close this tab?': 'Vuoi davvero chiudere questa scheda?', 'Stop loading': 'Interrompi caricamento', 'Provider: MyMemory – starting translation …': 'Servizio: MyMemory – avvio traduzione…', 'Provider: Google Translate – loading whole webpage …': 'Servizio: Google Translate – caricamento dell’intera pagina web…', 'Translation': 'Traduzione', 'Open a regular webpage first.': 'Apri prima una normale pagina web.', 'Original page': 'Pagina originale', 'No original page URL is saved for this tab.': 'Nessun URL della pagina originale è salvato per questa scheda.', 'More bookmarks': 'Altri segnalibri', 'Show more bookmarks': 'Mostra altri segnalibri', 'Name': 'Nome', 'Address': 'Indirizzo', 'Export bookmarks': 'Esporta segnalibri', 'Import bookmarks': 'Importa segnalibri', 'Website': 'Sito web', 'Permission': 'Autorizzazione', 'Decision': 'Decisione', 'Action': 'Azione', 'Blocking strength:': 'Intensità del blocco:', 'Custom block patterns (separate with semicolons):': 'Regole di blocco personalizzate (separate da punto e virgola):', 'Whitelist domains (separate with semicolons):': 'Domini consentiti (separati da punto e virgola):', 'Protection level:': 'Livello di protezione:', 'File no longer present': 'File non più presente', 'Cancelled': 'Annullato', 'Failed': 'Non riuscito', 'Interrupted': 'Interrotto', 'Ⅱ Pause': 'Ⅱ Pausa', 'Download security warning': 'Avviso di sicurezza del download', 'This file may be dangerous': 'Questo file potrebbe essere pericoloso', 'This file can run programs or scripts. Only download it if you trust the source.': 'Questo file può eseguire programmi o script. Scaricalo solo se ti fidi della fonte.', 'Do not show this security warning again': 'Non mostrare più questo avviso di sicurezza', 'Download anyway': 'Scarica comunque', 'History cleared': 'Cronologia cancellata', 'The browsing history has been cleared.': 'La cronologia di navigazione è stata cancellata.', 'Unlock password manager': 'Sblocca gestore password', 'Master password:': 'Password principale:', 'Set up password manager': 'Configura gestore password', 'Enter master password again:': 'Inserisci nuovamente la password principale:', 'Look in:': 'Cerca in:', 'File name:': 'Nome file:', 'File type:': 'Tipo di file:', 'Too short': 'Troppo corta', 'Please use at least 10 characters.': 'Usa almeno 10 caratteri.', 'Passwords do not match': 'Le password non corrispondono', 'The passwords do not match.': 'Le password non corrispondono.', 'Master password changed': 'Password principale modificata', 'The vault has been re-encrypted with the new master password. Keep it safe; it cannot be recovered.': 'L’archivio è stato nuovamente crittografato con la nuova password principale. Conservala con cura: non può essere recuperata.', 'Use at least 10 characters.': 'Usa almeno 10 caratteri.', 'Export complete': 'Esportazione completata', 'The vault was exported in encrypted form. Keep the export file and export password separately.': 'L’archivio è stato esportato in forma crittografata. Conserva separatamente il file esportato e la relativa password.', 'Import complete': 'Importazione completata', 'No passwords stored': 'Nessuna password memorizzata', 'There are no saved passwords to delete.': 'Non ci sono password salvate da eliminare.', 'Delete all passwords': 'Elimina tutte le password', 'Do you really want to permanently delete ALL saved website logins? The master password will remain.': 'Vuoi davvero eliminare definitivamente TUTTI gli accessi salvati ai siti web? La password principale rimarrà.', 'Invalid input': 'Input non valido', 'Enter a valid website address, username and password.': 'Inserisci un indirizzo web, un nome utente e una password validi.', 'Ask': 'Chiedi', 'User-Agent missing': 'User-Agent mancante', 'Enter a complete User-Agent or select another mode.': 'Inserisci uno User-Agent completo o seleziona un’altra modalità.', 'Cache cleared': 'Cache cancellata', 'The browser cache has been cleared.': 'La cache del browser è stata cancellata.', 'Cookies cleared': 'Cookie cancellati', 'All stored cookies have been cleared.': 'Tutti i cookie memorizzati sono stati cancellati.', 'Folder': 'Cartella', 'MyMemory could not translate the page. Check connection or daily quota.': 'MyMemory non è riuscito a tradurre la pagina. Controlla la connessione o il limite giornaliero.', 'Delete folder': 'Elimina cartella', 'Really delete this folder and all bookmarks inside it?': 'Vuoi davvero eliminare questa cartella e tutti i segnalibri al suo interno?', 'Bookmarks exported': 'Segnalibri esportati', 'Export': 'Esporta', 'Bookmarks were exported, including their folder structure.': 'I segnalibri sono stati esportati, inclusa la struttura delle cartelle.', 'Bookmarks imported': 'Segnalibri importati', 'Import': 'Importa', 'Remove': 'Rimuovi', 'Clear all permissions': 'Cancella tutte le autorizzazioni', 'Do you really want to clear all saved website permissions?': 'Vuoi davvero cancellare tutte le autorizzazioni dei siti web salvate?', 'Total': 'Totale', 'Download source: ': 'Origine del download: ', 'Download cancelled.': 'Download annullato.', 'Download failed or cancelled.': 'Download non riuscito o annullato.', 'Incorrect password': 'Password errata', 'The current master password is incorrect or the vault is damaged.': 'La password principale attuale non è corretta oppure l’archivio è danneggiato.', 'Change failed': 'Modifica non riuscita', 'Export failed': 'Esportazione non riuscita', 'Nothing to import': 'Nessun elemento da importare', 'The export contains no valid logins.': 'Il file di esportazione non contiene accessi validi.', 'Import passwords': 'Importa password', 'Import failed': 'Importazione non riuscita', 'Delete password': 'Elimina password', 'Really delete this saved login?': 'Vuoi davvero eliminare questo accesso salvato?', 'Translation provider applied immediately: ': 'Servizio di traduzione applicato immediatamente: ', 'Qt 6 + QtWebEngine with selectable light/dark website appearance and optional Widevine CDM integration.': 'Qt 6 + QtWebEngine con aspetto chiaro/scuro dei siti web selezionabile e integrazione opzionale di Widevine CDM.', ' text sections translated.': ' sezioni di testo tradotte.', 'Folder deleted': 'Cartella eliminata', 'No bookmarks found in the selected file.': 'Nessun segnalibro trovato nel file selezionato.', '▶ Resume': '▶ Riprendi', 'Download': 'Download', 'Unknown': 'Sconosciuto', 'Download complete': 'Download completato', 'The master password is incorrect or the vault is damaged.': 'La password principale non è corretta oppure l’archivio è danneggiato.', 'Incorrect export password or damaged export file.': 'Password di esportazione errata o file di esportazione danneggiato.', 'No custom User-Agent entered yet': 'Non è stato ancora inserito uno User-Agent personalizzato', 'Could not refresh translation menu: ': 'Impossibile aggiornare il menu di traduzione: ', 'MyMemory: ': 'MyMemory: ', 'Error': 'Errore', 'The folder could not be deleted.': 'Impossibile eliminare la cartella.', 'Active': 'Attivo', 'Saved in:': 'Salvato in:', 'Clipboard': 'Appunti', 'The download has finished:': 'Il download è terminato:', 'Allow all cookies': 'Consenti tutti i cookie', 'Block third-party cookies': 'Blocca i cookie di terze parti', 'Block all cookies': 'Blocca tutti i cookie', 'Allow session cookies only': 'Consenti solo i cookie di sessione'}
+
+
+
+# French interface catalogue (0.3.49).
+FRENCH_UI = {'Manage bookmarks': 'Gérer les favoris', '» More': '» Plus', 'Clear all browser data': 'Effacer toutes les données du navigateur', 'Do you really want to clear all browser data?\n\nHistory, cache, cookies, sign-in sessions, Local Storage, IndexedDB and other website data will be removed. You will be signed out of websites.\n\nBookmarks and saved passwords will be kept. The full cleanup will finish the next time LunaSurfer starts.': 'Voulez-vous vraiment effacer toutes les données du navigateur ?\n\nL’historique, le cache, les cookies, les sessions de connexion, le Local Storage, IndexedDB et les autres données des sites seront supprimés. Vous serez déconnecté des sites web.\n\nLes favoris et les mots de passe enregistrés seront conservés. Le nettoyage complet sera terminé au prochain démarrage de LunaSurfer.', 'Find on this page': 'Rechercher dans la page', 'Matches 0 of 0': 'Résultats : 0 sur 0', 'Previous match': 'Résultat précédent', 'Next match': 'Résultat suivant', 'Close find bar': 'Fermer la barre de recherche', 'Developer tools': 'Outils de développement', 'Back': 'Précédent', 'Forward': 'Suivant', 'Reload': 'Actualiser', 'Home': 'Accueil', 'Enter address or search': 'Saisir une adresse ou rechercher', 'Translate webpage': 'Traduire la page web', 'Show original page': 'Afficher la page d’origine', 'Add current page to bookmarks': 'Ajouter la page actuelle aux favoris', 'Unlock password manager – autofill saved logins (Ctrl+Shift+L)': 'Déverrouiller le gestionnaire de mots de passe – remplir les identifiants enregistrés (Ctrl+Maj+L)', 'Download manager': 'Gestionnaire de téléchargements', 'Protection & privacy': 'Protection et confidentialité', 'New tab': 'Nouvel onglet', 'Menu': 'Menu', 'Bookmarks': 'Favoris', 'History': 'Historique', 'Open downloads folder': 'Ouvrir le dossier des téléchargements', 'Settings': 'Paramètres', 'User guide': 'Guide d’utilisation', 'Developer tools (F12)': 'Outils de développement (F12)', 'About LunaSurfer': 'À propos de LunaSurfer', 'Quit': 'Quitter', 'Bookmarks bar': 'Barre des favoris', 'Ad blocker': 'Bloqueur de publicités', 'Ready': 'Prêt', 'Loading translated webpage …': 'Chargement de la page traduite…', 'View and manage bookmarks': 'Afficher et gérer les favoris', 'Open': 'Ouvrir', 'Edit bookmark…': 'Modifier le favori…', 'Delete bookmark': 'Supprimer le favori', 'Edit bookmark': 'Modifier le favori', 'Name:': 'Nom :', 'Address:': 'Adresse :', 'Bookmark changed': 'Favori modifié', 'Really delete this bookmark?': 'Voulez-vous vraiment supprimer ce favori ?', 'Bookmark deleted': 'Favori supprimé', 'Your bookmarks': 'Vos favoris', 'Expand folders, search entries and manage them directly.': 'Développez les dossiers, recherchez des éléments et gérez-les directement.', 'Search bookmarks or addresses …': 'Rechercher des favoris ou des adresses…', 'Edit…': 'Modifier…', 'Delete': 'Supprimer', 'Import…': 'Importer…', 'Export…': 'Exporter…', 'Close': 'Fermer', 'Protection settings: ad blocker and fingerprint': 'Paramètres de protection : bloqueur de publicités et empreinte numérique', 'Saved website permissions': 'Autorisations des sites web enregistrées', 'Change or remove remembered decisions for each website. Changes are saved immediately.': 'Modifiez ou supprimez les décisions mémorisées pour chaque site web. Les modifications sont enregistrées immédiatement.', 'Camera': 'Caméra', 'Microphone': 'Microphone', 'Location': 'Localisation', 'Notifications': 'Notifications', 'Clear all saved permissions': 'Effacer toutes les autorisations enregistrées', 'Enable ad blocker': 'Activer le bloqueur de publicités', 'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'Le bloqueur filtre les domaines connus pour la publicité et le suivi. Les niveaux supérieurs bloquent davantage de contenus, mais peuvent affecter certains sites web.', 'Enable fingerprint protection': 'Activer la protection contre l’empreinte numérique', 'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Standard : protection de Canvas, de l’audio et des informations matérielles de base. Renforcée : masque également les identifiants WebGL. Maximale : protège davantage les informations matérielles et les Client Hints du navigateur. Les modifications sont appliquées immédiatement, sans redémarrage.', 'Fingerprint protection': 'Protection contre l’empreinte numérique', 'Save': 'Enregistrer', 'Cancel': 'Annuler', 'Download Manager': 'Gestionnaire de téléchargements', 'Downloads': 'Téléchargements', 'All active and completed files in one place.': 'Tous les fichiers en cours et terminés au même endroit.', 'All downloads': 'Tous les téléchargements', 'In progress': 'En cours', 'Paused': 'En pause', 'Completed': 'Terminés', 'Failed / cancelled': 'Échoués / annulés', 'Search filename or path …': 'Rechercher un nom de fichier ou un chemin…', 'Cancel download': 'Annuler le téléchargement', 'Open file': 'Ouvrir le fichier', 'Open folder': 'Ouvrir le dossier', 'Remove entry': 'Supprimer l’entrée', 'Clear completed': 'Effacer les téléchargements terminés', 'Clear history': 'Effacer l’historique', 'Do you really want to delete the entire browsing history?': 'Voulez-vous vraiment supprimer tout l’historique de navigation ?', 'LunaSurfer vault (*.lsv);;All files (*)': 'Coffre LunaSurfer (*.lsv);;Tous les fichiers (*)', 'Change master password': 'Modifier le mot de passe principal', 'Current master password:': 'Mot de passe principal actuel :', 'New master password': 'Nouveau mot de passe principal', 'New master password (at least 10 characters):': 'Nouveau mot de passe principal (10 caractères minimum) :', 'Confirm master password': 'Confirmer le mot de passe principal', 'Enter the new master password again:': 'Saisissez à nouveau le nouveau mot de passe principal :', 'Export password': 'Mot de passe d’exportation', 'Choose a password for this export file (at least 10 characters):': 'Choisissez un mot de passe pour ce fichier d’exportation (10 caractères minimum) :', 'Confirm export password': 'Confirmer le mot de passe d’exportation', 'Enter the export password again:': 'Saisissez à nouveau le mot de passe d’exportation :', 'Enter the password used to encrypt this export file:': 'Saisissez le mot de passe utilisé pour chiffrer ce fichier d’exportation :', 'Passwords deleted': 'Mots de passe supprimés', 'All saved website passwords have been deleted. The master password remains.': 'Tous les mots de passe des sites web enregistrés ont été supprimés. Le mot de passe principal est conservé.', 'Login details': 'Identifiants de connexion', 'Website (matched automatically)': 'Site web (détecté automatiquement)', 'Username': 'Nom d’utilisateur', 'Password': 'Mot de passe', 'Show password': 'Afficher le mot de passe', 'Generate secure password': 'Générer un mot de passe sécurisé', 'LunaSurfer – Password manager': 'LunaSurfer – Gestionnaire de mots de passe', 'Passwords are encrypted locally. The master password cannot be recovered.': 'Les mots de passe sont chiffrés localement. Le mot de passe principal ne peut pas être récupéré.', 'Add': 'Ajouter', 'Edit': 'Modifier', 'Export encrypted…': 'Exporter de manière chiffrée…', 'Import encrypted…': 'Importer de manière chiffrée…', 'Change master password…': 'Modifier le mot de passe principal…', 'Lock now': 'Verrouiller maintenant', 'Update password?': 'Mettre à jour le mot de passe ?', 'Save password?': 'Enregistrer le mot de passe ?', 'Login details saved securely.': 'Les identifiants ont été enregistrés de manière sécurisée.', 'LunaSurfer – User guide': 'LunaSurfer – Guide d’utilisation', 'Open homepage': 'Ouvrir la page d’accueil', 'Restore last session': 'Restaurer la dernière session', 'Open blank page': 'Ouvrir une page vierge', 'Google Translate (whole webpage)': 'Google Traduction (page web entière)', 'MyMemory (no API key)': 'MyMemory (sans clé API)', 'Google translates the whole webpage. MyMemory translates visible text sections and has a free daily limit.': 'Google traduit la page web entière. MyMemory traduit les sections de texte visibles et dispose d’une limite quotidienne gratuite.', 'Dark': 'Sombre', 'Light': 'Clair', 'Dark (Standard)': 'Sombre (standard)', 'Light (Classic)': 'Clair (classique)', 'Luna (Modern)': 'Luna (moderne)', 'Graphite Blue (Elegant)': 'Bleu graphite (élégant)', 'Ocean (Teal Blue)': 'Océan (bleu sarcelle)', 'Show bookmarks bar below the address bar': 'Afficher la barre des favoris sous la barre d’adresse', 'Choose folder…': 'Choisir un dossier…', 'Ask where to save each download': 'Demander où enregistrer chaque téléchargement', 'Show security warning for executable downloads': 'Afficher un avertissement de sécurité pour les téléchargements exécutables', 'Show popup when a download finishes': 'Afficher une notification à la fin d’un téléchargement', 'Normal – leave websites unchanged': 'Normal – ne pas modifier les sites web', 'Gentle contrast': 'Contraste doux', 'Softer contrast': 'Contraste plus léger', 'Relaxed contrast': 'Contraste atténué', 'Original – keep website colors': 'Original – conserver les couleurs du site', 'Black mode – black backgrounds': 'Mode noir – arrière-plans noirs', 'Block pop-ups': 'Bloquer les fenêtres pop-up', 'Enable JavaScript': 'Activer JavaScript', 'Send Do Not Track request': 'Envoyer une demande Do Not Track', 'Ask when closing a tab': 'Demander confirmation à la fermeture d’un onglet', 'Automatically clear history on exit': 'Effacer automatiquement l’historique à la fermeture', 'Automatically clear cache on exit': 'Effacer automatiquement le cache à la fermeture', 'Automatically clear cookies on exit': 'Effacer automatiquement les cookies à la fermeture', 'Remember window size and position on exit': 'Mémoriser la taille et la position de la fenêtre à la fermeture', 'Use LunaSurfer as default browser': 'Utiliser LunaSurfer comme navigateur par défaut', 'General': 'Général', 'Language:': 'Langue :', 'On startup:': 'Au démarrage :', 'Homepage:': 'Page d’accueil :', 'Search engine:': 'Moteur de recherche :', 'Translation provider:': 'Service de traduction :', 'Browser design:': 'Apparence du navigateur :', 'Website appearance:': 'Apparence des sites web :', 'Download folder:': 'Dossier de téléchargement :', 'Default zoom:': 'Zoom par défaut :', 'Default font size:': 'Taille de police par défaut :', 'Website readability:': 'Lisibilité des sites web :', 'Website colors:': 'Couleurs des sites web :', 'Security and permissions': 'Sécurité et autorisations', 'Security:': 'Sécurité :', 'User-Agent management': 'Gestion du User-Agent', 'Privacy default (reduced Chrome UA)': 'Paramètre de confidentialité par défaut (User-Agent Chrome réduit)', 'Native browser User-Agent': 'User-Agent natif du navigateur', 'Custom User-Agent': 'User-Agent personnalisé', 'Enter a complete User-Agent string…': 'Saisissez une chaîne User-Agent complète…', 'The User-Agent changes the browser identification, not the browser engine or its capabilities. With fingerprint protection enabled, Client Hints are reduced to match the Chromium version.': 'Le User-Agent modifie l’identification du navigateur, pas son moteur ni ses fonctionnalités. Lorsque la protection contre l’empreinte numérique est activée, les Client Hints sont réduits pour correspondre à la version de Chromium.', 'Mode:': 'Mode :', 'Custom value:': 'Valeur personnalisée :', 'Current:': 'Actuel :', 'Offer to save passwords after successful sign-in': 'Proposer d’enregistrer les mots de passe après une connexion réussie', 'Password manager must be unlocked before autofill': 'Le gestionnaire de mots de passe doit être déverrouillé avant le remplissage automatique', 'When disabled, LunaSurfer asks for the master password only when you focus a login field.': 'Lorsque cette option est désactivée, LunaSurfer demande le mot de passe principal uniquement lorsque vous sélectionnez un champ de connexion.', 'Open password manager…': 'Ouvrir le gestionnaire de mots de passe…', 'Manage encrypted saved website logins': 'Gérer les identifiants de sites web enregistrés et chiffrés', 'Delete all passwords…': 'Supprimer tous les mots de passe…', 'Delete all saved website logins; the master password remains': 'Supprimer tous les identifiants enregistrés ; le mot de passe principal est conservé', 'Passwords:': 'Mots de passe :', 'Edit saved website permissions…': 'Modifier les autorisations enregistrées des sites web…', 'Manage saved permission decisions for individual websites': 'Gérer les décisions d’autorisation mémorisées pour chaque site web', 'Website permissions:': 'Autorisations des sites web :', 'Browser behavior:': 'Comportement du navigateur :', 'Clear cache': 'Effacer le cache', 'Clear cookies': 'Effacer les cookies', 'Clear everything': 'Tout effacer', 'Privacy and browser data': 'Confidentialité et données du navigateur', 'Cookie mode:': 'Mode des cookies :', 'Browser data:': 'Données du navigateur :', 'Do you really want to clear the browser cache?': 'Voulez-vous vraiment effacer le cache du navigateur ?', 'Browser data cleared; full cleanup will finish after restart.': 'Les données du navigateur ont été effacées ; le nettoyage complet sera terminé après le redémarrage.', 'Browser data is being cleared. Please restart LunaSurfer to remove all stored website data completely. Bookmarks and saved passwords will be kept.': 'Les données du navigateur sont en cours d’effacement. Veuillez redémarrer LunaSurfer pour supprimer complètement toutes les données des sites web. Les favoris et les mots de passe enregistrés seront conservés.', 'Do you really want to delete all stored cookies?': 'Voulez-vous vraiment supprimer tous les cookies enregistrés ?', 'Permission request': 'Demande d’autorisation', 'Remember this decision for this website': 'Mémoriser cette décision pour ce site web', 'Allow': 'Autoriser', 'Block': 'Bloquer', 'Yes': 'Oui', 'No': 'Non', 'Close tab': 'Fermer l’onglet', 'Do you really want to close this tab?': 'Voulez-vous vraiment fermer cet onglet ?', 'Stop loading': 'Arrêter le chargement', 'Provider: MyMemory – starting translation …': 'Service : MyMemory – démarrage de la traduction…', 'Provider: Google Translate – loading whole webpage …': 'Service : Google Traduction – chargement de la page web entière…', 'Translation': 'Traduction', 'Open a regular webpage first.': 'Ouvrez d’abord une page web classique.', 'Original page': 'Page d’origine', 'No original page URL is saved for this tab.': 'Aucune adresse de page d’origine n’est enregistrée pour cet onglet.', 'More bookmarks': 'Plus de favoris', 'Show more bookmarks': 'Afficher plus de favoris', 'Name': 'Nom', 'Address': 'Adresse', 'Export bookmarks': 'Exporter les favoris', 'Import bookmarks': 'Importer les favoris', 'Website': 'Site web', 'Permission': 'Autorisation', 'Decision': 'Décision', 'Action': 'Action', 'Blocking strength:': 'Intensité du blocage :', 'Custom block patterns (separate with semicolons):': 'Règles de blocage personnalisées (séparées par des points-virgules) :', 'Whitelist domains (separate with semicolons):': 'Domaines autorisés (séparés par des points-virgules) :', 'Protection level:': 'Niveau de protection :', 'File no longer present': 'Fichier introuvable', 'Cancelled': 'Annulé', 'Failed': 'Échec', 'Interrupted': 'Interrompu', 'Ⅱ Pause': 'Ⅱ Pause', 'Download security warning': 'Avertissement de sécurité du téléchargement', 'This file may be dangerous': 'Ce fichier peut être dangereux', 'This file can run programs or scripts. Only download it if you trust the source.': 'Ce fichier peut exécuter des programmes ou des scripts. Ne le téléchargez que si vous faites confiance à la source.', 'Do not show this security warning again': 'Ne plus afficher cet avertissement de sécurité', 'Download anyway': 'Télécharger quand même', 'History cleared': 'Historique effacé', 'The browsing history has been cleared.': 'L’historique de navigation a été effacé.', 'Unlock password manager': 'Déverrouiller le gestionnaire de mots de passe', 'Master password:': 'Mot de passe principal :', 'Set up password manager': 'Configurer le gestionnaire de mots de passe', 'Enter master password again:': 'Saisissez à nouveau le mot de passe principal :', 'Look in:': 'Regarder dans :', 'File name:': 'Nom du fichier :', 'File type:': 'Type de fichier :', 'Too short': 'Trop court', 'Please use at least 10 characters.': 'Veuillez utiliser au moins 10 caractères.', 'Passwords do not match': 'Les mots de passe ne correspondent pas', 'The passwords do not match.': 'Les mots de passe ne correspondent pas.', 'Master password changed': 'Mot de passe principal modifié', 'The vault has been re-encrypted with the new master password. Keep it safe; it cannot be recovered.': 'Le coffre a été rechiffré avec le nouveau mot de passe principal. Conservez-le précieusement : il ne peut pas être récupéré.', 'Use at least 10 characters.': 'Utilisez au moins 10 caractères.', 'Export complete': 'Exportation terminée', 'The vault was exported in encrypted form. Keep the export file and export password separately.': 'Le coffre a été exporté sous forme chiffrée. Conservez séparément le fichier exporté et son mot de passe.', 'Import complete': 'Importation terminée', 'No passwords stored': 'Aucun mot de passe enregistré', 'There are no saved passwords to delete.': 'Il n’y a aucun mot de passe enregistré à supprimer.', 'Delete all passwords': 'Supprimer tous les mots de passe', 'Do you really want to permanently delete ALL saved website logins? The master password will remain.': 'Voulez-vous vraiment supprimer définitivement TOUS les identifiants enregistrés des sites web ? Le mot de passe principal sera conservé.', 'Invalid input': 'Saisie invalide', 'Enter a valid website address, username and password.': 'Saisissez une adresse de site web, un nom d’utilisateur et un mot de passe valides.', 'Ask': 'Demander', 'User-Agent missing': 'User-Agent manquant', 'Enter a complete User-Agent or select another mode.': 'Saisissez un User-Agent complet ou sélectionnez un autre mode.', 'Cache cleared': 'Cache effacé', 'The browser cache has been cleared.': 'Le cache du navigateur a été effacé.', 'Cookies cleared': 'Cookies effacés', 'All stored cookies have been cleared.': 'Tous les cookies enregistrés ont été effacés.', 'Folder': 'Dossier', 'MyMemory could not translate the page. Check connection or daily quota.': 'MyMemory n’a pas pu traduire la page. Vérifiez la connexion ou le quota quotidien.', 'Delete folder': 'Supprimer le dossier', 'Really delete this folder and all bookmarks inside it?': 'Voulez-vous vraiment supprimer ce dossier et tous les favoris qu’il contient ?', 'Bookmarks exported': 'Favoris exportés', 'Export': 'Exporter', 'Bookmarks were exported, including their folder structure.': 'Les favoris ont été exportés, y compris leur structure de dossiers.', 'Bookmarks imported': 'Favoris importés', 'Import': 'Importer', 'Remove': 'Supprimer', 'Clear all permissions': 'Effacer toutes les autorisations', 'Do you really want to clear all saved website permissions?': 'Voulez-vous vraiment effacer toutes les autorisations enregistrées des sites web ?', 'Total': 'Total', 'Download source: ': 'Source du téléchargement : ', 'Download cancelled.': 'Téléchargement annulé.', 'Download failed or cancelled.': 'Téléchargement échoué ou annulé.', 'Incorrect password': 'Mot de passe incorrect', 'The current master password is incorrect or the vault is damaged.': 'Le mot de passe principal actuel est incorrect ou le coffre est endommagé.', 'Change failed': 'Échec de la modification', 'Export failed': 'Échec de l’exportation', 'Nothing to import': 'Rien à importer', 'The export contains no valid logins.': 'L’exportation ne contient aucun identifiant valide.', 'Import passwords': 'Importer des mots de passe', 'Import failed': 'Échec de l’importation', 'Delete password': 'Supprimer le mot de passe', 'Really delete this saved login?': 'Voulez-vous vraiment supprimer cet identifiant enregistré ?', 'Translation provider applied immediately: ': 'Service de traduction appliqué immédiatement : ', 'Qt 6 + QtWebEngine with selectable light/dark website appearance and optional Widevine CDM integration.': 'Qt 6 + QtWebEngine avec apparence claire ou sombre des sites web et intégration facultative de Widevine CDM.', ' text sections translated.': ' sections de texte traduites.', 'Folder deleted': 'Dossier supprimé', 'No bookmarks found in the selected file.': 'Aucun favori trouvé dans le fichier sélectionné.', '▶ Resume': '▶ Reprendre', 'Download': 'Téléchargement', 'Unknown': 'Inconnu', 'Download complete': 'Téléchargement terminé', 'The master password is incorrect or the vault is damaged.': 'Le mot de passe principal est incorrect ou le coffre est endommagé.', 'Incorrect export password or damaged export file.': 'Mot de passe d’exportation incorrect ou fichier d’exportation endommagé.', 'No custom User-Agent entered yet': 'Aucun User-Agent personnalisé n’a encore été saisi', 'Could not refresh translation menu: ': 'Impossible d’actualiser le menu de traduction : ', 'MyMemory: ': 'MyMemory : ', 'Error': 'Erreur', 'The folder could not be deleted.': 'Impossible de supprimer le dossier.', 'Active': 'Actif', 'Saved in:': 'Enregistré dans :', 'Clipboard': 'Presse-papiers', 'The download has finished:': 'Le téléchargement est terminé :', 'Allow all cookies': 'Autoriser tous les cookies', 'Block third-party cookies': 'Bloquer les cookies tiers', 'Block all cookies': 'Bloquer tous les cookies', 'Allow session cookies only': 'Autoriser uniquement les cookies de session', 'Strong': 'Renforcée', 'Very strong': 'Très renforcée', 'Super strong': 'Super renforcée', 'Mega strong': 'Méga renforcée', 'Ultra strong': 'Ultra renforcée', 'Maximum': 'Maximale', 'Standard': 'Standard', 'Small': 'Petite', 'Medium': 'Moyenne', 'Large': 'Grande', 'Very large': 'Très grande', 'Export encrypted vault': 'Exporter le coffre chiffré', 'Import encrypted vault': 'Importer le coffre chiffré', ' items': ' éléments', ' matches': ' résultats', 'New': 'Nouveau', 'Updated': 'Mis à jour'}
+
+DUTCH_UI = {'Manage bookmarks': 'Bladwijzers beheren', '» More': '» Meer', 'Clear all browser data': 'Alle browsergegevens wissen', 'Do you really want to clear all browser data?\n\nHistory, cache, cookies, sign-in sessions, Local Storage, IndexedDB and other website data will be removed. You will be signed out of websites.\n\nBookmarks and saved passwords will be kept. The full cleanup will finish the next time LunaSurfer starts.': 'Wilt u echt alle browsergegevens wissen?\n\nDe geschiedenis, cache, cookies, aanmeldsessies, Local Storage, IndexedDB en andere websitegegevens worden verwijderd. U wordt afgemeld bij websites.\n\nBladwijzers en opgeslagen wachtwoorden blijven behouden. Het volledig opschonen wordt voltooid wanneer LunaSurfer opnieuw wordt gestart.', 'Find on this page': 'Zoeken op deze pagina', 'Matches 0 of 0': 'Resultaten 0 van 0', 'Previous match': 'Vorige resultaat', 'Next match': 'Volgende resultaat', 'Close find bar': 'Zoekbalk sluiten', 'Developer tools': 'Ontwikkelaarstools', 'Back': 'Terug', 'Forward': 'Verder', 'Reload': 'Herladen', 'Home': 'Startpagina', 'Enter address or search': 'Adres invoeren of zoeken', 'Translate webpage': 'Webpagina vertalen', 'Show original page': 'Originele pagina weergeven', 'Add current page to bookmarks': 'Huidige pagina aan bladwijzers toevoegen', 'Unlock password manager – autofill saved logins (Ctrl+Shift+L)': 'Wachtwoordbeheerder ontgrendelen – opgeslagen aanmeldgegevens automatisch invullen (Ctrl+Shift+L)', 'Download manager': 'Downloadbeheer', 'Protection & privacy': 'Bescherming en privacy', 'New tab': 'Nieuw tabblad', 'Menu': 'Menu', 'Bookmarks': 'Bladwijzers', 'History': 'Geschiedenis', 'Open downloads folder': 'Downloadmap openen', 'Settings': 'Instellingen', 'User guide': 'Gebruikershandleiding', 'Developer tools (F12)': 'Ontwikkelaarstools (F12)', 'About LunaSurfer': 'Over LunaSurfer', 'Quit': 'Afsluiten', 'Bookmarks bar': 'Bladwijzerbalk', 'Ad blocker': 'Advertentieblokkering', 'Ready': 'Gereed', 'Loading translated webpage …': 'Vertaalde webpagina laden …', 'View and manage bookmarks': 'Bladwijzers bekijken en beheren', 'Open': 'Openen', 'Edit bookmark…': 'Bladwijzer bewerken…', 'Delete bookmark': 'Bladwijzer verwijderen', 'Edit bookmark': 'Bladwijzer bewerken', 'Name:': 'Naam:', 'Address:': 'Adres:', 'Bookmark changed': 'Bladwijzer gewijzigd', 'Really delete this bookmark?': 'Deze bladwijzer echt verwijderen?', 'Bookmark deleted': 'Bladwijzer verwijderd', 'Your bookmarks': 'Uw bladwijzers', 'Expand folders, search entries and manage them directly.': 'Vouw mappen uit, zoek items en beheer ze direct.', 'Search bookmarks or addresses …': 'Zoek bladwijzers of adressen …', 'Edit…': 'Bewerken…', 'Delete': 'Verwijderen', 'Import…': 'Importeren…', 'Export…': 'Exporteren…', 'Close': 'Sluiten', 'Protection settings: ad blocker and fingerprint': 'Beschermingsinstellingen: advertentieblokkering en digitale vingerafdruk', 'Saved website permissions': 'Opgeslagen websitemachtigingen', 'Change or remove remembered decisions for each website. Changes are saved immediately.': 'Wijzig of verwijder onthouden keuzes per website. Wijzigingen worden direct opgeslagen.', 'Camera': 'Camera', 'Microphone': 'Microfoon', 'Location': 'Locatie', 'Notifications': 'Meldingen', 'Clear all saved permissions': 'Alle opgeslagen machtigingen wissen', 'Enable ad blocker': 'Advertentieblokkering inschakelen', 'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'De advertentieblokkering filtert bekende advertentie- en trackingdomeinen. Hogere niveaus blokkeren meer, maar kunnen sommige websites beïnvloeden.', 'Enable fingerprint protection': 'Bescherming tegen digitale vingerafdruk inschakelen', 'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Standaard: bescherming van canvas, audio en basis-hardwaregegevens. Sterk: maskeert ook WebGL-identificaties. Maximaal: extra bescherming van hardwaregegevens en browser-Client Hints. Wijzigingen worden direct toegepast; opnieuw starten is niet nodig.', 'Fingerprint protection': 'Bescherming tegen digitale vingerafdruk', 'Save': 'Opslaan', 'Cancel': 'Annuleren', 'Download Manager': 'Downloadbeheer', 'Downloads': 'Downloads', 'All active and completed files in one place.': 'Alle actieve en voltooide bestanden op één plek.', 'All downloads': 'Alle downloads', 'In progress': 'Bezig', 'Paused': 'Gepauzeerd', 'Completed': 'Voltooid', 'Failed / cancelled': 'Mislukt / geannuleerd', 'Search filename or path …': 'Zoek bestandsnaam of pad …', 'Cancel download': 'Download annuleren', 'Open file': 'Bestand openen', 'Open folder': 'Map openen', 'Remove entry': 'Item verwijderen', 'Clear completed': 'Voltooide downloads wissen', 'Clear history': 'Geschiedenis wissen', 'Do you really want to delete the entire browsing history?': 'Wilt u de volledige browsegeschiedenis echt verwijderen?', 'LunaSurfer vault (*.lsv);;All files (*)': 'LunaSurfer-kluis (*.lsv);;Alle bestanden (*)', 'Change master password': 'Hoofdwachtwoord wijzigen', 'Current master password:': 'Huidig hoofdwachtwoord:', 'New master password': 'Nieuw hoofdwachtwoord', 'New master password (at least 10 characters):': 'Nieuw hoofdwachtwoord (minimaal 10 tekens):', 'Confirm master password': 'Hoofdwachtwoord bevestigen', 'Enter the new master password again:': 'Voer het nieuwe hoofdwachtwoord opnieuw in:', 'Export password': 'Exportwachtwoord', 'Choose a password for this export file (at least 10 characters):': 'Kies een wachtwoord voor dit exportbestand (minimaal 10 tekens):', 'Confirm export password': 'Exportwachtwoord bevestigen', 'Enter the export password again:': 'Voer het exportwachtwoord opnieuw in:', 'Enter the password used to encrypt this export file:': 'Voer het wachtwoord in waarmee dit exportbestand is versleuteld:', 'Passwords deleted': 'Wachtwoorden verwijderd', 'All saved website passwords have been deleted. The master password remains.': 'Alle opgeslagen websitewachtwoorden zijn verwijderd. Het hoofdwachtwoord blijft behouden.', 'Login details': 'Aanmeldgegevens', 'Website (matched automatically)': 'Website (automatisch herkend)', 'Username': 'Gebruikersnaam', 'Password': 'Wachtwoord', 'Show password': 'Wachtwoord tonen', 'Generate secure password': 'Veilig wachtwoord genereren', 'LunaSurfer – Password manager': 'LunaSurfer – Wachtwoordbeheerder', 'Passwords are encrypted locally. The master password cannot be recovered.': 'Wachtwoorden worden lokaal versleuteld. Het hoofdwachtwoord kan niet worden hersteld.', 'Add': 'Toevoegen', 'Edit': 'Bewerken', 'Export encrypted…': 'Versleuteld exporteren…', 'Import encrypted…': 'Versleuteld importeren…', 'Change master password…': 'Hoofdwachtwoord wijzigen…', 'Lock now': 'Nu vergrendelen', 'Update password?': 'Wachtwoord bijwerken?', 'Save password?': 'Wachtwoord opslaan?', 'Login details saved securely.': 'Aanmeldgegevens zijn veilig opgeslagen.', 'LunaSurfer – User guide': 'LunaSurfer – Gebruikershandleiding', 'Open homepage': 'Startpagina openen', 'Restore last session': 'Vorige sessie herstellen', 'Open blank page': 'Lege pagina openen', 'Google Translate (whole webpage)': 'Google Translate (hele webpagina)', 'MyMemory (no API key)': 'MyMemory (geen API-sleutel)', 'Google translates the whole webpage. MyMemory translates visible text sections and has a free daily limit.': 'Google vertaalt de hele webpagina. MyMemory vertaalt zichtbare tekstdelen en heeft een dagelijkse gratis limiet.', 'Dark': 'Donker', 'Light': 'Licht', 'Dark (Standard)': 'Donker (standaard)', 'Light (Classic)': 'Licht (klassiek)', 'Luna (Modern)': 'Luna (modern)', 'Graphite Blue (Elegant)': 'Grafietblauw (elegant)', 'Ocean (Teal Blue)': 'Oceaan (blauwgroen)', 'Show bookmarks bar below the address bar': 'Bladwijzerbalk onder de adresbalk tonen', 'Choose folder…': 'Map kiezen…', 'Ask where to save each download': 'Bij elke download vragen waar deze moet worden opgeslagen', 'Show security warning for executable downloads': 'Beveiligingswaarschuwing tonen voor uitvoerbare downloads', 'Show popup when a download finishes': 'Melding tonen wanneer een download is voltooid', 'Normal – leave websites unchanged': 'Normaal – websites ongewijzigd laten', 'Gentle contrast': 'Zacht contrast', 'Softer contrast': 'Lichter contrast', 'Relaxed contrast': 'Rustig contrast', 'Original – keep website colors': 'Origineel – websitekleuren behouden', 'Black mode – black backgrounds': 'Zwarte modus – zwarte achtergronden', 'Block pop-ups': 'Pop-ups blokkeren', 'Enable JavaScript': 'JavaScript inschakelen', 'Send Do Not Track request': 'Do Not Track-verzoek verzenden', 'Ask when closing a tab': 'Bevestiging vragen bij het sluiten van een tabblad', 'Automatically clear history on exit': 'Geschiedenis automatisch wissen bij afsluiten', 'Automatically clear cache on exit': 'Cache automatisch wissen bij afsluiten', 'Automatically clear cookies on exit': 'Cookies automatisch wissen bij afsluiten', 'Remember window size and position on exit': 'Venstergrootte en -positie onthouden bij afsluiten', 'Use LunaSurfer as default browser': 'LunaSurfer als standaardbrowser gebruiken', 'General': 'Algemeen', 'Language:': 'Taal:', 'On startup:': 'Bij opstarten:', 'Homepage:': 'Startpagina:', 'Search engine:': 'Zoekmachine:', 'Translation provider:': 'Vertaalservice:', 'Browser design:': 'Browserweergave:', 'Website appearance:': 'Weergave van websites:', 'Download folder:': 'Downloadmap:', 'Default zoom:': 'Standaardzoom:', 'Default font size:': 'Standaardlettergrootte:', 'Website readability:': 'Leesbaarheid van websites:', 'Website colors:': 'Websitekleuren:', 'Security and permissions': 'Beveiliging en machtigingen', 'Security:': 'Beveiliging:', 'User-Agent management': 'User-Agent-beheer', 'Privacy default (reduced Chrome UA)': 'Privacystandaard (verkorte Chrome-User-Agent)', 'Native browser User-Agent': 'Native browser-User-Agent', 'Custom User-Agent': 'Aangepaste User-Agent', 'Enter a complete User-Agent string…': 'Voer een volledige User-Agent-tekenreeks in…', 'The User-Agent changes the browser identification, not the browser engine or its capabilities. With fingerprint protection enabled, Client Hints are reduced to match the Chromium version.': 'De User-Agent wijzigt de browseridentificatie, niet de browserengine of de mogelijkheden ervan. Wanneer bescherming tegen digitale vingerafdrukken is ingeschakeld, worden Client Hints beperkt zodat ze overeenkomen met de Chromium-versie.', 'Mode:': 'Modus:', 'Custom value:': 'Aangepaste waarde:', 'Current:': 'Huidig:', 'Offer to save passwords after successful sign-in': 'Aanbieden wachtwoorden op te slaan na geslaagde aanmelding', 'Password manager must be unlocked before autofill': 'Wachtwoordbeheerder moet ontgrendeld zijn vóór automatisch invullen', 'When disabled, LunaSurfer asks for the master password only when you focus a login field.': 'Als dit is uitgeschakeld, vraagt LunaSurfer alleen om het hoofdwachtwoord wanneer u een aanmeldveld selecteert.', 'Open password manager…': 'Wachtwoordbeheerder openen…', 'Manage encrypted saved website logins': 'Versleutelde opgeslagen website-aanmeldingen beheren', 'Delete all passwords…': 'Alle wachtwoorden verwijderen…', 'Delete all saved website logins; the master password remains': 'Alle opgeslagen website-aanmeldingen verwijderen; het hoofdwachtwoord blijft behouden', 'Passwords:': 'Wachtwoorden:', 'Edit saved website permissions…': 'Opgeslagen websitemachtigingen bewerken…', 'Manage saved permission decisions for individual websites': 'Opgeslagen machtigingskeuzes voor afzonderlijke websites beheren', 'Website permissions:': 'Websitemachtigingen:', 'Browser behavior:': 'Browsergedrag:', 'Clear cache': 'Cache wissen', 'Clear cookies': 'Cookies wissen', 'Clear everything': 'Alles wissen', 'Privacy and browser data': 'Privacy en browsergegevens', 'Cookie mode:': 'Cookiemodus:', 'Browser data:': 'Browsergegevens:', 'Do you really want to clear the browser cache?': 'Wilt u de browsercache echt wissen?', 'Browser data cleared; full cleanup will finish after restart.': 'Browsergegevens gewist; het volledig opschonen wordt na opnieuw starten voltooid.', 'Browser data is being cleared. Please restart LunaSurfer to remove all stored website data completely. Bookmarks and saved passwords will be kept.': 'Browsergegevens worden gewist. Start LunaSurfer opnieuw om alle opgeslagen websitegegevens volledig te verwijderen. Bladwijzers en opgeslagen wachtwoorden blijven behouden.', 'Do you really want to delete all stored cookies?': 'Wilt u alle opgeslagen cookies echt verwijderen?', 'Permission request': 'Toestemmingsverzoek', 'Remember this decision for this website': 'Deze keuze voor deze website onthouden', 'Allow': 'Toestaan', 'Block': 'Blokkeren', 'Yes': 'Ja', 'No': 'Nee', 'Close tab': 'Tabblad sluiten', 'Do you really want to close this tab?': 'Wilt u dit tabblad echt sluiten?', 'Stop loading': 'Laden stoppen', 'Provider: MyMemory – starting translation …': 'Service: MyMemory – vertaling starten …', 'Provider: Google Translate – loading whole webpage …': 'Service: Google Translate – volledige webpagina laden …', 'Translation': 'Vertaling', 'Open a regular webpage first.': 'Open eerst een gewone webpagina.', 'Original page': 'Originele pagina', 'No original page URL is saved for this tab.': 'Voor dit tabblad is geen URL van de originele pagina opgeslagen.', 'More bookmarks': 'Meer bladwijzers', 'Show more bookmarks': 'Meer bladwijzers tonen', 'Name': 'Naam', 'Address': 'Adres', 'Export bookmarks': 'Bladwijzers exporteren', 'Import bookmarks': 'Bladwijzers importeren', 'Website': 'Website', 'Permission': 'Machtiging', 'Decision': 'Beslissing', 'Action': 'Actie', 'Blocking strength:': 'Blokkeersterkte:', 'Custom block patterns (separate with semicolons):': "Aangepaste blokkeerregels (scheiden met puntkomma's):", 'Whitelist domains (separate with semicolons):': "Domeinen op de toelatingslijst (scheiden met puntkomma's):", 'Protection level:': 'Beschermingsniveau:', 'File no longer present': 'Bestand niet meer aanwezig', 'Cancelled': 'Geannuleerd', 'Failed': 'Mislukt', 'Interrupted': 'Onderbroken', 'Ⅱ Pause': 'Ⅱ Pauzeren', 'Download security warning': 'Beveiligingswaarschuwing download', 'This file may be dangerous': 'Dit bestand kan gevaarlijk zijn', 'This file can run programs or scripts. Only download it if you trust the source.': "Dit bestand kan programma's of scripts uitvoeren. Download het alleen als u de bron vertrouwt.", 'Do not show this security warning again': 'Deze beveiligingswaarschuwing niet meer tonen', 'Download anyway': 'Toch downloaden', 'History cleared': 'Geschiedenis gewist', 'The browsing history has been cleared.': 'De browsegeschiedenis is gewist.', 'Unlock password manager': 'Wachtwoordbeheerder ontgrendelen', 'Master password:': 'Hoofdwachtwoord:', 'Set up password manager': 'Wachtwoordbeheerder instellen', 'Enter master password again:': 'Voer het hoofdwachtwoord opnieuw in:', 'Look in:': 'Zoeken in:', 'File name:': 'Bestandsnaam:', 'File type:': 'Bestandstype:', 'Too short': 'Te kort', 'Please use at least 10 characters.': 'Gebruik minimaal 10 tekens.', 'Passwords do not match': 'Wachtwoorden komen niet overeen', 'The passwords do not match.': 'De wachtwoorden komen niet overeen.', 'Master password changed': 'Hoofdwachtwoord gewijzigd', 'The vault has been re-encrypted with the new master password. Keep it safe; it cannot be recovered.': 'De kluis is opnieuw versleuteld met het nieuwe hoofdwachtwoord. Bewaar het goed; het kan niet worden hersteld.', 'Use at least 10 characters.': 'Gebruik minimaal 10 tekens.', 'Export complete': 'Export voltooid', 'The vault was exported in encrypted form. Keep the export file and export password separately.': 'De kluis is versleuteld geëxporteerd. Bewaar het exportbestand en het exportwachtwoord afzonderlijk.', 'Import complete': 'Import voltooid', 'No passwords stored': 'Geen wachtwoorden opgeslagen', 'There are no saved passwords to delete.': 'Er zijn geen opgeslagen wachtwoorden om te verwijderen.', 'Delete all passwords': 'Alle wachtwoorden verwijderen', 'Do you really want to permanently delete ALL saved website logins? The master password will remain.': 'Wilt u echt ALLE opgeslagen website-aanmeldingen permanent verwijderen? Het hoofdwachtwoord blijft behouden.', 'Invalid input': 'Ongeldige invoer', 'Enter a valid website address, username and password.': 'Voer een geldig websiteadres, een gebruikersnaam en een wachtwoord in.', 'Ask': 'Vragen', 'User-Agent missing': 'User-Agent ontbreekt', 'Enter a complete User-Agent or select another mode.': 'Voer een volledige User-Agent in of kies een andere modus.', 'Cache cleared': 'Cache gewist', 'The browser cache has been cleared.': 'De browsercache is gewist.', 'Cookies cleared': 'Cookies gewist', 'All stored cookies have been cleared.': 'Alle opgeslagen cookies zijn gewist.', 'Folder': 'Map', 'MyMemory could not translate the page. Check connection or daily quota.': 'MyMemory kon de pagina niet vertalen. Controleer de verbinding of het dagelijkse quotum.', 'Delete folder': 'Map verwijderen', 'Really delete this folder and all bookmarks inside it?': 'Deze map en alle bladwijzers erin echt verwijderen?', 'Bookmarks exported': 'Bladwijzers geëxporteerd', 'Export': 'Exporteren', 'Bookmarks were exported, including their folder structure.': 'De bladwijzers zijn geëxporteerd, inclusief de mappenstructuur.', 'Bookmarks imported': 'Bladwijzers geïmporteerd', 'Import': 'Importeren', 'Remove': 'Verwijderen', 'Clear all permissions': 'Alle machtigingen wissen', 'Do you really want to clear all saved website permissions?': 'Wilt u alle opgeslagen websitemachtigingen echt wissen?', 'Total': 'Totaal', 'Download source: ': 'Downloadbron: ', 'Download cancelled.': 'Download geannuleerd.', 'Download failed or cancelled.': 'Download mislukt of geannuleerd.', 'Incorrect password': 'Onjuist wachtwoord', 'The current master password is incorrect or the vault is damaged.': 'Het huidige hoofdwachtwoord is onjuist of de kluis is beschadigd.', 'Change failed': 'Wijzigen mislukt', 'Export failed': 'Export mislukt', 'Nothing to import': 'Niets om te importeren', 'The export contains no valid logins.': 'De export bevat geen geldige aanmeldgegevens.', 'Import passwords': 'Wachtwoorden importeren', 'Import failed': 'Import mislukt', 'Delete password': 'Wachtwoord verwijderen', 'Really delete this saved login?': 'Deze opgeslagen aanmelding echt verwijderen?', 'Translation provider applied immediately: ': 'Vertaalservice direct toegepast: ', 'Qt 6 + QtWebEngine with selectable light/dark website appearance and optional Widevine CDM integration.': 'Qt 6 + QtWebEngine met instelbare lichte/donkere websiteweergave en optionele Widevine CDM-integratie.', ' text sections translated.': ' tekstdelen vertaald.', 'Folder deleted': 'Map verwijderd', 'No bookmarks found in the selected file.': 'Geen bladwijzers gevonden in het geselecteerde bestand.', '▶ Resume': '▶ Hervatten', 'Download': 'Download', 'Unknown': 'Onbekend', 'Download complete': 'Download voltooid', 'The master password is incorrect or the vault is damaged.': 'Het hoofdwachtwoord is onjuist of de kluis is beschadigd.', 'Incorrect export password or damaged export file.': 'Onjuist exportwachtwoord of beschadigd exportbestand.', 'No custom User-Agent entered yet': 'Er is nog geen aangepaste User-Agent ingevoerd', 'Could not refresh translation menu: ': 'Kan het vertaalmenu niet vernieuwen: ', 'MyMemory: ': 'MyMemory: ', 'Error': 'Fout', 'The folder could not be deleted.': 'De map kon niet worden verwijderd.', 'Active': 'Actief', 'Saved in:': 'Opgeslagen in:', 'Clipboard': 'Klembord', 'The download has finished:': 'De download is voltooid:', 'Allow all cookies': 'Alle cookies toestaan', 'Block third-party cookies': 'Cookies van derden blokkeren', 'Block all cookies': 'Alle cookies blokkeren', 'Allow session cookies only': 'Alleen sessiecookies toestaan', 'Strong': 'Sterk', 'Very strong': 'Zeer sterk', 'Super strong': 'Supersterk', 'Mega strong': 'Megasterk', 'Ultra strong': 'Ultrasterk', 'Maximum': 'Maximaal', 'Standard': 'Standaard', 'Small': 'Klein', 'Medium': 'Gemiddeld', 'Large': 'Groot', 'Very large': 'Zeer groot', 'Export encrypted vault': 'Versleutelde kluis exporteren', 'Import encrypted vault': 'Versleutelde kluis importeren', ' items': ' items', ' matches': ' resultaten', 'New': 'Nieuw', 'Updated': 'Bijgewerkt'}
+
+# Italian translations for standard Qt dialog buttons.
+QT_BUTTON_TRANSLATIONS = {
+    "OK": "OK", "Cancel": "Annulla", "Yes": "Sì", "No": "No",
+    "Apply": "Applica", "Save": "Salva", "Open": "Apri", "Close": "Chiudi",
+    "Discard": "Scarta", "Retry": "Riprova", "Ignore": "Ignora",
+    "Abort": "Interrompi", "Help": "Aiuto",
+    "&Yes": "&Sì", "&No": "&No", "&Open": "&Apri",
+    "&Save": "&Salva", "&Cancel": "&Annulla",
+}
+
+
+FRENCH_QT_BUTTON_TRANSLATIONS = {
+    "OK": "OK", "Cancel": "Annuler", "Yes": "Oui", "No": "Non",
+    "Apply": "Appliquer", "Save": "Enregistrer", "Open": "Ouvrir",
+    "Close": "Fermer", "Discard": "Abandonner", "Retry": "Réessayer",
+    "Ignore": "Ignorer", "Abort": "Abandonner", "Help": "Aide",
+    "&Yes": "&Oui", "&No": "&Non", "&Open": "&Ouvrir",
+    "&Save": "&Enregistrer", "&Cancel": "&Annuler",
+}
+
+class LunaFrenchQtTranslator(QTranslator):
+    def translate(self, context, sourceText, disambiguation=None, n=-1):
+        return FRENCH_QT_BUTTON_TRANSLATIONS.get(sourceText, "")
+
+DUTCH_QT_BUTTON_TRANSLATIONS = {
+    "OK": "OK", "Cancel": "Annuleren", "Yes": "Ja", "No": "Nee",
+    "Apply": "Toepassen", "Save": "Opslaan", "Open": "Openen",
+    "Close": "Sluiten", "Discard": "Verwerpen", "Retry": "Opnieuw proberen",
+    "Ignore": "Negeren", "Abort": "Afbreken", "Help": "Help",
+    "&Yes": "&Ja", "&No": "&Nee", "&Open": "&Openen",
+    "&Save": "&Opslaan", "&Cancel": "&Annuleren",
+}
+
+class LunaDutchQtTranslator(QTranslator):
+    def translate(self, context, sourceText, disambiguation=None, n=-1):
+        return DUTCH_QT_BUTTON_TRANSLATIONS.get(sourceText, "")
+
+
+
+class LunaItalianQtTranslator(QTranslator):
+    def translate(self, context, sourceText, disambiguation=None, n=-1):
+        return QT_BUTTON_TRANSLATIONS.get(sourceText, "")
+
+
+TURKISH_QT_BUTTON_TRANSLATIONS = {
+    "OK": "Tamam", "Cancel": "İptal", "Yes": "Evet", "No": "Hayır",
+    "Apply": "Uygula", "Save": "Kaydet", "Open": "Aç", "Close": "Kapat",
+    "Discard": "At", "Retry": "Yeniden dene", "Ignore": "Yoksay",
+    "Abort": "Durdur", "Help": "Yardım", "&Yes": "&Evet", "&No": "&Hayır",
+    "&Open": "&Aç", "&Save": "&Kaydet", "&Cancel": "&İptal",
+}
+
+
+PORTUGUESE_QT_BUTTON_TRANSLATIONS = {
+    "OK": "OK", "Cancel": "Cancelar", "Yes": "Sim", "No": "Não",
+    "Apply": "Aplicar", "Save": "Guardar", "Open": "Abrir", "Close": "Fechar",
+    "Discard": "Descartar", "Retry": "Tentar novamente", "Ignore": "Ignorar",
+    "Abort": "Anular", "Help": "Ajuda", "&Yes": "&Sim", "&No": "&Não",
+    "&Open": "&Abrir", "&Save": "&Guardar", "&Cancel": "&Cancelar",
+}
+
+RUSSIAN_QT_BUTTON_TRANSLATIONS = {
+    "OK": "ОК", "Cancel": "Отмена", "Yes": "Да", "No": "Нет",
+    "Apply": "Применить", "Save": "Сохранить", "Open": "Открыть", "Close": "Закрыть",
+    "Discard": "Отбросить", "Retry": "Повторить", "Ignore": "Игнорировать",
+    "Abort": "Прервать", "Help": "Справка", "&Yes": "&Да", "&No": "&Нет",
+    "&Open": "&Открыть", "&Save": "&Сохранить", "&Cancel": "&Отмена",
+}
+CHINESE_QT_BUTTON_TRANSLATIONS = {
+    "OK": "确定", "Cancel": "取消", "Yes": "是", "No": "否",
+    "Apply": "应用", "Save": "保存", "Open": "打开", "Close": "关闭",
+    "Discard": "放弃", "Retry": "重试", "Ignore": "忽略", "Abort": "中止", "Help": "帮助",
+    "&Yes": "是(&Y)", "&No": "否(&N)", "&Open": "打开(&O)", "&Save": "保存(&S)", "&Cancel": "取消(&C)",
+}
+JAPANESE_QT_BUTTON_TRANSLATIONS = {
+    "OK": "OK", "Cancel": "キャンセル", "Yes": "はい", "No": "いいえ",
+    "Apply": "適用", "Save": "保存", "Open": "開く", "Close": "閉じる",
+    "Discard": "破棄", "Retry": "再試行", "Ignore": "無視",
+    "Abort": "中止", "Help": "ヘルプ",
+    "&Yes": "はい(&Y)", "&No": "いいえ(&N)", "&Open": "開く(&O)",
+    "&Save": "保存(&S)", "&Cancel": "キャンセル(&C)",
+}
+
+ENGLISH_QT_BUTTON_TRANSLATIONS = {
+    "OK": "OK", "Cancel": "Cancel", "Yes": "Yes", "No": "No",
+    "Apply": "Apply", "Save": "Save", "Open": "Open", "Close": "Close",
+    "Discard": "Discard", "Retry": "Retry", "Ignore": "Ignore",
+    "Abort": "Abort", "Help": "Help",
+    "&Yes": "&Yes", "&No": "&No", "&Open": "&Open",
+    "&Save": "&Save", "&Cancel": "&Cancel",
+}
+
+
+class LunaQtButtonTranslator(QTranslator):
+    """Application-owned Qt button translations, refreshed when UI language changes."""
+    def __init__(self, language, parent=None):
+        super().__init__(parent)
+        self.language = language
+
+    def translate(self, context, sourceText, disambiguation=None, n=-1):
+        catalogs = {
+            "en": ENGLISH_QT_BUTTON_TRANSLATIONS,
+            "fr": FRENCH_QT_BUTTON_TRANSLATIONS,
+            "nl": DUTCH_QT_BUTTON_TRANSLATIONS,
+            "it": QT_BUTTON_TRANSLATIONS,
+            "es": SPANISH_QT_BUTTON_TRANSLATIONS,
+            "pt": PORTUGUESE_QT_BUTTON_TRANSLATIONS,
+            "pl": POLISH_QT_BUTTON_TRANSLATIONS,
+            "tr": TURKISH_QT_BUTTON_TRANSLATIONS,
+            "ru": RUSSIAN_QT_BUTTON_TRANSLATIONS,
+            "ja": JAPANESE_QT_BUTTON_TRANSLATIONS,
+            "zh-CN": CHINESE_QT_BUTTON_TRANSLATIONS,
+        }
+        return catalogs.get(self.language, {}).get(sourceText, "")
+
+
+def refresh_qt_dialog_language(language):
+    """Replace stale Qt translators so dialogs follow the currently selected language."""
+    app = QApplication.instance()
+    if app is None:
+        return
+    language = language if language in ("de", "en", "fr", "it", "nl", "es", "pt", "pl", "tr", "ru", "ja", "zh-CN") else "de"
+    for attr in ("_luna_qt_base_translator", "_luna_qt_button_translator"):
+        old = getattr(app, attr, None)
+        if old is not None:
+            app.removeTranslator(old)
+            setattr(app, attr, None)
+    qt_language = ("zh_CN" if language == "zh-CN" else language) if language in ("fr", "it", "nl", "es", "pt", "pl", "tr", "ru", "ja", "zh-CN") else ("en" if language == "en" else "de")
+    base = QTranslator(app)
+    translations_path = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
+    if base.load(f"qtbase_{qt_language}", translations_path):
+        app.installTranslator(base)
+        app._luna_qt_base_translator = base
+    buttons = LunaQtButtonTranslator(language, app)
+    app.installTranslator(buttons)
+    app._luna_qt_button_translator = buttons
+    QLocale.setDefault(QLocale(qt_language))
+
+
 class StoredDownload:
     """Read-only completed download restored from the persistent history."""
     def __init__(self, record):
@@ -435,12 +1530,31 @@ class AddressLineEdit(QLineEdit):
 
     def contextMenuEvent(self, event):
         menu = QMenu(self)
-        de = self.window_ref.settings_data.get("language", "de") != "en"
-        labels = (
-            ("Rückgängig", "Wiederholen", "Ausschneiden", "Kopieren", "Einfügen", "Löschen", "Alles auswählen")
-            if de else
-            ("Undo", "Redo", "Cut", "Copy", "Paste", "Delete", "Select All")
-        )
+        language = self.window_ref.settings_data.get("language", "de")
+        if language == "zh-CN":
+            labels = ("撤销", "重做", "剪切", "复制", "粘贴", "删除", "全选")
+        elif language == "ja":
+            labels = ("元に戻す", "やり直す", "切り取り", "コピー", "貼り付け", "削除", "すべて選択")
+        elif language == "ru":
+            labels = ("Отменить", "Повторить", "Вырезать", "Копировать", "Вставить", "Удалить", "Выделить всё")
+        elif language == "tr":
+            labels = ("Geri al", "Yinele", "Kes", "Kopyala", "Yapıştır", "Sil", "Tümünü seç")
+        elif language == "pl":
+            labels = ("Cofnij", "Ponów", "Wytnij", "Kopiuj", "Wklej", "Usuń", "Zaznacz wszystko")
+        elif language == "nl":
+            labels = ("Ongedaan maken", "Opnieuw", "Knippen", "Kopiëren", "Plakken", "Verwijderen", "Alles selecteren")
+        elif language == "fr":
+            labels = ("Annuler", "Rétablir", "Couper", "Copier", "Coller", "Supprimer", "Tout sélectionner")
+        elif language == "it":
+            labels = ("Annulla", "Ripeti", "Taglia", "Copia", "Incolla", "Elimina", "Seleziona tutto")
+        elif language == "pt":
+            labels = ("Anular", "Refazer", "Cortar", "Copiar", "Colar", "Eliminar", "Selecionar tudo")
+        elif language == "es":
+            labels = ("Deshacer", "Rehacer", "Cortar", "Copiar", "Pegar", "Eliminar", "Seleccionar todo")
+        elif language == "en":
+            labels = ("Undo", "Redo", "Cut", "Copy", "Paste", "Delete", "Select All")
+        else:
+            labels = ("Rückgängig", "Wiederholen", "Ausschneiden", "Kopieren", "Einfügen", "Löschen", "Alles auswählen")
         actions = [
             menu.addAction(labels[0], self.undo),
             menu.addAction(labels[1], self.redo),
@@ -1054,30 +2168,150 @@ class BrowserView(QWebEngineView):
     def _show_context_menu_at(self, global_pos, clicked_link="", clicked_image=""):
         """Build a lightweight, icon-free menu using only ordinary QMenu actions."""
         menu = QMenu(self)
-        is_english = self.window_ref.settings_data.get("language", "de") == "en"
-
-        labels = {
-            "back": "Back" if is_english else "Zurück",
-            "forward": "Forward" if is_english else "Vorwärts",
-            "reload": "Reload" if is_english else "Neu laden",
-            "open_link": "Open link in new tab" if is_english else "Link in neuem Tab öffnen",
-            "open_page": "Open page in new tab" if is_english else "Seite in neuem Tab öffnen",
-            "copy_link": "Copy link address" if is_english else "Link-Adresse kopieren",
-            "copy_page": "Copy page address" if is_english else "Seitenadresse kopieren",
-            "save_page": "Save page as…" if is_english else "Seite speichern unter…",
-            "view_source": "View page source" if is_english else "Quelltext anzeigen",
-            "reload_cache": "Reload (bypass cache)" if is_english else "Neu laden (Cache umgehen)",
-            "devtools": "Open developer tools (F12)" if is_english else "Entwicklerwerkzeuge öffnen (F12)",
-            "copy_selection": "Copy selection" if is_english else "Auswahl kopieren",
-            "cut": "Cut" if is_english else "Ausschneiden",
-            "copy": "Copy" if is_english else "Kopieren",
-            "paste": "Paste" if is_english else "Einfügen",
-            "find_page": "Find on this page…" if is_english else "Diese Seite durchsuchen…",
-            "view_image": "View image" if is_english else "Bild anzeigen",
-            "copy_image": "Copy image address" if is_english else "Bild-Adresse kopieren",
-            "save_image": "Save image" if is_english else "Bild speichern",
-            "save_image_as": "Save image as…" if is_english else "Bild speichern unter …",
-        }
+        language = self.window_ref.settings_data.get("language", "de")
+        is_english = language == "en"
+        if language == "zh-CN":
+            labels = {
+                "back": "后退", "forward": "前进", "reload": "重新加载",
+                "open_link": "在新标签页中打开链接", "open_page": "在新标签页中打开页面",
+                "copy_link": "复制链接地址", "copy_page": "复制页面地址",
+                "save_page": "网页另存为…", "view_source": "查看网页源代码",
+                "reload_cache": "忽略缓存并重新加载", "devtools": "打开开发者工具 (F12)",
+                "copy_selection": "复制所选内容", "cut": "剪切", "copy": "复制", "paste": "粘贴",
+                "find_page": "在页面中查找…", "view_image": "查看图片",
+                "copy_image": "复制图片地址", "save_image": "保存图片", "save_image_as": "图片另存为…",
+            }
+        elif language == "ja":
+            labels = {
+                "back": "戻る", "forward": "進む", "reload": "再読み込み",
+                "open_link": "リンクを新しいタブで開く", "open_page": "ページを新しいタブで開く",
+                "copy_link": "リンクアドレスをコピー", "copy_page": "ページアドレスをコピー",
+                "save_page": "ページを名前を付けて保存…", "view_source": "ページのソースを表示",
+                "reload_cache": "キャッシュを使わずに再読み込み", "devtools": "開発者ツールを開く (F12)",
+                "copy_selection": "選択範囲をコピー", "cut": "切り取り", "copy": "コピー", "paste": "貼り付け",
+                "find_page": "ページ内を検索…", "view_image": "画像を表示",
+                "copy_image": "画像アドレスをコピー", "save_image": "画像を保存",
+                "save_image_as": "画像を名前を付けて保存…",
+            }
+        elif language == "ru":
+            labels = {
+                "back": "Назад", "forward": "Вперёд", "reload": "Обновить",
+                "open_link": "Открыть ссылку в новой вкладке", "open_page": "Открыть страницу в новой вкладке",
+                "copy_link": "Копировать адрес ссылки", "copy_page": "Копировать адрес страницы",
+                "save_page": "Сохранить страницу как…", "view_source": "Просмотреть исходный код страницы",
+                "reload_cache": "Обновить без использования кэша", "devtools": "Открыть инструменты разработчика (F12)",
+                "copy_selection": "Копировать выделенное", "cut": "Вырезать", "copy": "Копировать", "paste": "Вставить",
+                "find_page": "Найти на странице…", "view_image": "Открыть изображение",
+                "copy_image": "Копировать адрес изображения", "save_image": "Сохранить изображение",
+                "save_image_as": "Сохранить изображение как…",
+            }
+        elif language == "nl":
+            labels = {
+                "back": "Terug", "forward": "Verder", "reload": "Herladen",
+                "open_link": "Link openen in nieuw tabblad", "open_page": "Pagina openen in nieuw tabblad",
+                "copy_link": "Linkadres kopiëren", "copy_page": "Pagina-adres kopiëren",
+                "save_page": "Pagina opslaan als…", "view_source": "Paginabron weergeven",
+                "reload_cache": "Herladen (cache negeren)", "devtools": "Ontwikkelaarstools openen (F12)",
+                "copy_selection": "Selectie kopiëren", "cut": "Knippen", "copy": "Kopiëren", "paste": "Plakken",
+                "find_page": "Zoeken op pagina…", "view_image": "Afbeelding weergeven",
+                "copy_image": "Afbeeldingsadres kopiëren", "save_image": "Afbeelding opslaan",
+                "save_image_as": "Afbeelding opslaan als…",
+            }
+        elif language == "fr":
+            labels = {
+                "back": "Précédent", "forward": "Suivant", "reload": "Actualiser",
+                "open_link": "Ouvrir le lien dans un nouvel onglet", "open_page": "Ouvrir la page dans un nouvel onglet",
+                "copy_link": "Copier l’adresse du lien", "copy_page": "Copier l’adresse de la page",
+                "save_page": "Enregistrer la page sous…", "view_source": "Afficher le code source",
+                "reload_cache": "Actualiser (sans utiliser le cache)", "devtools": "Ouvrir les outils de développement (F12)",
+                "copy_selection": "Copier la sélection", "cut": "Couper", "copy": "Copier", "paste": "Coller",
+                "find_page": "Rechercher dans la page…", "view_image": "Afficher l’image",
+                "copy_image": "Copier l’adresse de l’image", "save_image": "Enregistrer l’image",
+                "save_image_as": "Enregistrer l’image sous…",
+            }
+        elif language == "it":
+            labels = {
+                "back": "Indietro", "forward": "Avanti", "reload": "Ricarica",
+                "open_link": "Apri link in una nuova scheda", "open_page": "Apri pagina in una nuova scheda",
+                "copy_link": "Copia indirizzo del link", "copy_page": "Copia indirizzo della pagina",
+                "save_page": "Salva pagina con nome…", "view_source": "Visualizza sorgente pagina",
+                "reload_cache": "Ricarica (ignora cache)", "devtools": "Apri strumenti per sviluppatori (F12)",
+                "copy_selection": "Copia selezione", "cut": "Taglia", "copy": "Copia", "paste": "Incolla",
+                "find_page": "Trova nella pagina…", "view_image": "Visualizza immagine",
+                "copy_image": "Copia indirizzo immagine", "save_image": "Salva immagine",
+                "save_image_as": "Salva immagine con nome…",
+            }
+        elif language == "es":
+            labels = {
+                "back": "Atrás", "forward": "Adelante", "reload": "Recargar",
+                "open_link": "Abrir enlace en una pestaña nueva", "open_page": "Abrir página en una pestaña nueva",
+                "copy_link": "Copiar dirección del enlace", "copy_page": "Copiar dirección de la página",
+                "save_page": "Guardar página como…", "view_source": "Ver código fuente de la página",
+                "reload_cache": "Recargar (sin caché)", "devtools": "Abrir herramientas para desarrolladores (F12)",
+                "copy_selection": "Copiar selección", "cut": "Cortar", "copy": "Copiar", "paste": "Pegar",
+                "find_page": "Buscar en la página…", "view_image": "Ver imagen",
+                "copy_image": "Copiar dirección de la imagen", "save_image": "Guardar imagen",
+                "save_image_as": "Guardar imagen como…",
+            }
+        elif language == "pt":
+            labels = {
+                "back": "Anterior", "forward": "Seguinte", "reload": "Recarregar",
+                "open_link": "Abrir ligação num novo separador", "open_page": "Abrir página num novo separador",
+                "copy_link": "Copiar endereço da ligação", "copy_page": "Copiar endereço da página",
+                "save_page": "Guardar página como…", "view_source": "Ver código-fonte da página",
+                "reload_cache": "Recarregar (ignorar cache)", "devtools": "Abrir ferramentas de programador (F12)",
+                "copy_selection": "Copiar seleção", "cut": "Cortar", "copy": "Copiar", "paste": "Colar",
+                "find_page": "Localizar nesta página…", "view_image": "Ver imagem",
+                "copy_image": "Copiar endereço da imagem", "save_image": "Guardar imagem",
+                "save_image_as": "Guardar imagem como…",
+            }
+        elif language == "tr":
+            labels = {
+                "back": "Geri", "forward": "İleri", "reload": "Yenile",
+                "open_link": "Bağlantıyı yeni sekmede aç", "open_page": "Sayfayı yeni sekmede aç",
+                "copy_link": "Bağlantı adresini kopyala", "copy_page": "Sayfa adresini kopyala",
+                "save_page": "Sayfayı farklı kaydet…", "view_source": "Sayfa kaynağını görüntüle",
+                "reload_cache": "Yenile (önbelleği yok say)", "devtools": "Geliştirici araçlarını aç (F12)",
+                "copy_selection": "Seçimi kopyala", "cut": "Kes", "copy": "Kopyala", "paste": "Yapıştır",
+                "find_page": "Sayfada bul…", "view_image": "Resmi görüntüle",
+                "copy_image": "Resim adresini kopyala", "save_image": "Resmi kaydet",
+                "save_image_as": "Resmi farklı kaydet…",
+            }
+        elif language == "pl":
+            labels = {
+                "back": "Wstecz", "forward": "Dalej", "reload": "Odśwież",
+                "open_link": "Otwórz link w nowej karcie", "open_page": "Otwórz stronę w nowej karcie",
+                "copy_link": "Kopiuj adres linku", "copy_page": "Kopiuj adres strony",
+                "save_page": "Zapisz stronę jako…", "view_source": "Wyświetl źródło strony",
+                "reload_cache": "Odśwież (z pominięciem pamięci podręcznej)", "devtools": "Otwórz narzędzia deweloperskie (F12)",
+                "copy_selection": "Kopiuj zaznaczenie", "cut": "Wytnij", "copy": "Kopiuj", "paste": "Wklej",
+                "find_page": "Znajdź na tej stronie…", "view_image": "Wyświetl obraz",
+                "copy_image": "Kopiuj adres obrazu", "save_image": "Zapisz obraz",
+                "save_image_as": "Zapisz obraz jako…",
+            }
+        else:
+            labels = {
+                "back": "Back" if is_english else "Zurück",
+                "forward": "Forward" if is_english else "Vorwärts",
+                "reload": "Reload" if is_english else "Neu laden",
+                "open_link": "Open link in new tab" if is_english else "Link in neuem Tab öffnen",
+                "open_page": "Open page in new tab" if is_english else "Seite in neuem Tab öffnen",
+                "copy_link": "Copy link address" if is_english else "Link-Adresse kopieren",
+                "copy_page": "Copy page address" if is_english else "Seitenadresse kopieren",
+                "save_page": "Save page as…" if is_english else "Seite speichern unter…",
+                "view_source": "View page source" if is_english else "Quelltext anzeigen",
+                "reload_cache": "Reload (bypass cache)" if is_english else "Neu laden (Cache umgehen)",
+                "devtools": "Open developer tools (F12)" if is_english else "Entwicklerwerkzeuge öffnen (F12)",
+                "copy_selection": "Copy selection" if is_english else "Auswahl kopieren",
+                "cut": "Cut" if is_english else "Ausschneiden",
+                "copy": "Copy" if is_english else "Kopieren",
+                "paste": "Paste" if is_english else "Einfügen",
+                "find_page": "Find on this page…" if is_english else "Diese Seite durchsuchen…",
+                "view_image": "View image" if is_english else "Bild anzeigen",
+                "copy_image": "Copy image address" if is_english else "Bild-Adresse kopieren",
+                "save_image": "Save image" if is_english else "Bild speichern",
+                "save_image_as": "Save image as…" if is_english else "Bild speichern unter …",
+            }
 
         history = self.history()
         back_action = menu.addAction(labels["back"], self.back)
@@ -1175,11 +2409,22 @@ class BrowserView(QWebEngineView):
                 urllib.parse.urlparse(str(image_url)).path
             ).name or "image"
             suggested = self.window_ref.download_dir / safe_download_filename(image_name)
-            title = "Save image as" if self.window_ref.settings_data.get("language", "de") == "en" else "Bild speichern unter"
-            selected, _ = QFileDialog.getSaveFileName(
-                self.window_ref, title, str(suggested),
-                "All files (*.*)" if self.window_ref.settings_data.get("language", "de") == "en" else "Alle Dateien (*.*)"
-            )
+            language = self.window_ref.settings_data.get("language", "de")
+            image_dialog_titles = {
+                "de": "Bild speichern unter", "en": "Save image as", "fr": "Enregistrer l’image sous",
+                "nl": "Afbeelding opslaan als", "it": "Salva immagine con nome", "es": "Guardar imagen como",
+                "pt": "Guardar imagem como", "pl": "Zapisz obraz jako", "tr": "Resmi farklı kaydet",
+                "ru": "Сохранить изображение как", "ja": "画像を名前を付けて保存", "zh-CN": "图片另存为",
+            }
+            image_file_filters = {
+                "de": "Alle Dateien (*.*)", "en": "All files (*.*)", "fr": "Tous les fichiers (*.*)",
+                "nl": "Alle bestanden (*.*)", "it": "Tutti i file (*.*)", "es": "Todos los archivos (*.*)",
+                "pt": "Todos os ficheiros (*.*)", "pl": "Wszystkie pliki (*.*)", "tr": "Tüm dosyalar (*.*)",
+                "ru": "Все файлы (*.*)", "ja": "すべてのファイル (*.*)", "zh-CN": "所有文件 (*.*)",
+            }
+            title = image_dialog_titles.get(language, image_dialog_titles["de"])
+            file_filter = image_file_filters.get(language, image_file_filters["de"])
+            selected, _ = QFileDialog.getSaveFileName(self.window_ref, title, str(suggested), file_filter)
             if not selected:
                 return
             self.window_ref._next_download_path = pathlib.Path(selected).expanduser()
@@ -1190,15 +2435,39 @@ class BrowserView(QWebEngineView):
         title = (self.title() or "Webseite").strip()
         safe_title = "".join(ch for ch in title if ch not in '<>:"/\\\\|?*').strip() or "Webseite"
         suggested = self.window_ref.download_dir / (safe_title[:100] + ".mhtml")
-        is_english = self.window_ref.settings_data.get("language", "de") == "en"
+        language = self.window_ref.settings_data.get("language", "de")
+        is_english = language == "en"
+        is_dutch = language == "nl"
+        is_french = language == "fr"
+        is_italian = language == "it"
+        is_spanish = language == "es"
+        is_portuguese = language == "pt"
+        is_russian = language == "ru"
         dialog = QFileDialog(self.window_ref)
-        dialog.setWindowTitle("Save page as" if is_english else "Seite speichern unter")
+        dialog_titles = {
+            "de": "Seite speichern unter", "en": "Save page as", "fr": "Enregistrer la page sous",
+            "nl": "Pagina opslaan als", "it": "Salva pagina con nome", "es": "Guardar página como",
+            "pt": "Guardar página como", "pl": "Zapisz stronę jako", "tr": "Sayfayı farklı kaydet",
+            "ru": "Сохранить страницу как", "ja": "ページを名前を付けて保存", "zh-CN": "网页另存为",
+        }
+        dialog.setWindowTitle(dialog_titles.get(language, "Seite speichern unter"))
         dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
         dialog.setFileMode(QFileDialog.FileMode.AnyFile)
-        dialog.setNameFilters(
-            ["Web page (*.mhtml)", "All files (*.*)"] if is_english else
-            ["Webseite (*.mhtml)", "Alle Dateien (*.*)"]
-        )
+        page_filters = {
+            "de": ["Webseite (*.mhtml)", "Alle Dateien (*.*)"],
+            "en": ["Web page (*.mhtml)", "All files (*.*)"],
+            "fr": ["Page web (*.mhtml)", "Tous les fichiers (*.*)"],
+            "nl": ["Webpagina (*.mhtml)", "Alle bestanden (*.*)"],
+            "it": ["Pagina web (*.mhtml)", "Tutti i file (*.*)"],
+            "es": ["Página web (*.mhtml)", "Todos los archivos (*.*)"],
+            "pt": ["Página Web (*.mhtml)", "Todos os ficheiros (*.*)"],
+            "pl": ["Strona internetowa (*.mhtml)", "Wszystkie pliki (*.*)"],
+            "tr": ["Web sayfası (*.mhtml)", "Tüm dosyalar (*.*)"],
+            "ru": ["Веб-страница (*.mhtml)", "Все файлы (*.*)"],
+            "ja": ["ウェブページ (*.mhtml)", "すべてのファイル (*.*)"],
+            "zh-CN": ["网页 (*.mhtml)", "所有文件 (*.*)"],
+        }
+        dialog.setNameFilters(page_filters.get(language, page_filters["de"]))
         dialog.setDirectory(str(suggested.parent))
         dialog.selectFile(suggested.name)
         dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
@@ -1209,9 +2478,11 @@ class BrowserView(QWebEngineView):
             accept_button = button_box.button(QDialogButtonBox.StandardButton.Save)
             cancel_button = button_box.button(QDialogButtonBox.StandardButton.Cancel)
             if accept_button is not None:
-                accept_button.setText("Save" if is_english else "Speichern")
+                accept_labels = {"zh-CN": "保存", "ja": "保存", "ru": "Сохранить", "en": "Save", "es": "Guardar", "pt": "Guardar", "nl": "Opslaan", "fr": "Enregistrer", "it": "Salva", "pl": "Zapisz", "tr": "Kaydet"}
+                accept_button.setText(accept_labels.get(language, "Speichern"))
             if cancel_button is not None:
-                cancel_button.setText("Cancel" if is_english else "Abbrechen")
+                cancel_labels = {"zh-CN": "取消", "ja": "キャンセル", "ru": "Отмена", "en": "Cancel", "es": "Cancelar", "pt": "Cancelar", "nl": "Annuleren", "fr": "Annuler", "it": "Annulla", "pl": "Anuluj", "tr": "İptal"}
+                cancel_button.setText(cancel_labels.get(language, "Abbrechen"))
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         selected = dialog.selectedFiles()[0] if dialog.selectedFiles() else ""
@@ -1883,7 +3154,124 @@ class LunaSurfer(QMainWindow):
 
     def tr(self, de, en):
         """Return the selected application language."""
-        return en if self.settings_data.get("language", "de") == "en" else de
+        language = self.settings_data.get("language", "de")
+        if language == "nl":
+            translated = DUTCH_UI.get(en)
+            if translated is not None:
+                return translated
+            match = re.fullmatch(r"(\\d+) items", en)
+            if match:
+                return f"{match.group(1)} items"
+            match = re.fullmatch(r"(\\d+) matches", en)
+            if match:
+                return f"{match.group(1)} resultaten"
+            match = re.fullmatch(r"(\\d+) bookmarks found\\.\\n\\nYes: replace existing bookmarks\\nNo: add to existing bookmarks", en)
+            if match:
+                return f"{match.group(1)} bladwijzers gevonden.\\n\\nJa: bestaande bladwijzers vervangen\\nNee: toevoegen aan bestaande bladwijzers"
+            match = re.fullmatch(r"(\\d+) bookmark folders/items were imported\\.", en)
+            if match:
+                return f"{match.group(1)} bladwijzermappen/-items geïmporteerd."
+            match = re.fullmatch(r"(\\d+) new, (\\d+) updated\\.", en)
+            if match:
+                return f"{match.group(1)} nieuw, {match.group(2)} bijgewerkt."
+            match = re.fullmatch(r"Found (\\d+) login\\(s\\)\\. Entries for the same website and username will be updated; all others will be kept\\.", en)
+            if match:
+                return f"{match.group(1)} aanmeldgegevens gevonden. Items voor dezelfde website en gebruikersnaam worden bijgewerkt; alle andere blijven behouden."
+            match = re.fullmatch(r"(Update|Save) the password for (.+) on (.+)\\?", en)
+            if match:
+                verb = "Werk" if match.group(1) == "Update" else "Sla"
+                tail = "bij" if match.group(1) == "Update" else "op"
+                return f"{verb} het wachtwoord voor {match.group(2)} op {match.group(3)} {tail}?"
+            return en
+        if language == "fr":
+            translated = FRENCH_UI.get(en)
+            if translated is not None:
+                return translated
+            # Dynamic text used by counters and confirmation dialogs is translated
+            # here as well; keep the English source strings intact for English users.
+            match = re.fullmatch(r"(\d+) items", en)
+            if match:
+                return f"{match.group(1)} éléments"
+            match = re.fullmatch(r"(\d+) matches", en)
+            if match:
+                return f"{match.group(1)} résultats"
+            match = re.fullmatch(r"(\d+) bookmarks found\.\n\nYes: replace existing bookmarks\nNo: add to existing bookmarks", en)
+            if match:
+                return f"{match.group(1)} favoris trouvés.\n\nOui : remplacer les favoris existants\nNon : ajouter aux favoris existants"
+            match = re.fullmatch(r"(\d+) bookmark folders/items were imported\.", en)
+            if match:
+                return f"{match.group(1)} dossiers/éléments de favoris ont été importés."
+            match = re.fullmatch(r"(\d+) new, (\d+) updated\.", en)
+            if match:
+                return f"{match.group(1)} nouveaux, {match.group(2)} mis à jour."
+            match = re.fullmatch(r"Found (\d+) login\(s\)\. Entries for the same website and username will be updated; all others will be kept\.", en)
+            if match:
+                return f"{match.group(1)} identifiant(s) trouvé(s). Les entrées du même site web et du même nom d’utilisateur seront mises à jour ; les autres seront conservées."
+            match = re.fullmatch(r"(Update|Save) the password for (.+) on (.+)\?", en)
+            if match:
+                verb = "Mettre à jour" if match.group(1) == "Update" else "Enregistrer"
+                return f"{verb} le mot de passe de {match.group(2)} sur {match.group(3)} ?"
+            return en
+        if language == "zh-CN":
+            match = re.fullmatch(r"(\d+) items", en)
+            if match: return f"{match.group(1)} 项"
+            match = re.fullmatch(r"(\d+) matches", en)
+            if match: return f"{match.group(1)} 个匹配项"
+            return CHINESE_UI.get(en, en)
+        if language == "ja":
+            match = re.fullmatch(r"(\d+) items", en)
+            if match: return f"{match.group(1)} 件"
+            match = re.fullmatch(r"(\d+) matches", en)
+            if match: return f"{match.group(1)} 件一致"
+            return JAPANESE_UI.get(en, en)
+        if language == "ru":
+            match = re.fullmatch(r"(\d+) items", en)
+            if match: return f"{match.group(1)} элементов"
+            match = re.fullmatch(r"(\d+) matches", en)
+            if match: return f"{match.group(1)} совпадений"
+            return RUSSIAN_UI.get(en, en)
+        if language == "pt":
+            return PORTUGUESE_UI.get(en, en)
+        if language == "tr":
+            translated = TURKISH_UI.get(en)
+            if translated is not None:
+                return translated
+            match = re.fullmatch(r"(\d+) items", en)
+            if match:
+                return f"{match.group(1)} öğe"
+            match = re.fullmatch(r"(\d+) matches", en)
+            if match:
+                return f"{match.group(1)} eşleşme"
+            return en
+        if language == "pl":
+            return POLISH_UI.get(en, en)
+        if language == "it":
+            return ITALIAN_UI.get(en, en)
+        if language == "es":
+            translated = SPANISH_UI.get(en)
+            if translated is not None:
+                return translated
+            match = re.fullmatch(r"(\d+) items", en)
+            if match:
+                return f"{match.group(1)} elementos"
+            match = re.fullmatch(r"(\d+) matches", en)
+            if match:
+                return f"{match.group(1)} coincidencias"
+            match = re.fullmatch(r"(\d+) bookmarks found\.\n\nYes: replace existing bookmarks\nNo: add to existing bookmarks", en)
+            if match:
+                return f"{match.group(1)} marcadores encontrados.\n\nSí: reemplazar los marcadores existentes\nNo: añadir a los marcadores existentes"
+            match = re.fullmatch(r"(\d+) bookmark folders/items were imported\.", en)
+            if match:
+                return f"Se han importado {match.group(1)} carpetas/elementos de marcadores."
+            match = re.fullmatch(r"(\d+) new, (\d+) updated\.", en)
+            if match:
+                return f"{match.group(1)} nuevos, {match.group(2)} actualizados."
+            match = re.fullmatch(r"(Update|Save) the password for (.+) on (.+)\?", en)
+            if match:
+                verb = "¿Actualizar" if match.group(1) == "Update" else "¿Guardar"
+                return f"{verb} la contraseña de {match.group(2)} en {match.group(3)}?"
+            return en
+        return en if language == "en" else de
 
     def handle_permission_request(self, permission):
         """Ask the user for website permissions and optionally remember the decision."""
@@ -1998,6 +3386,7 @@ class LunaSurfer(QMainWindow):
 
     def apply_language_live(self):
         """Update visible application texts immediately after a language change."""
+        refresh_qt_dialog_language(self.settings_data.get("language", "de"))
         self.back_action.setToolTip(self.tr("Zurück", "Back"))
         self.forward_action.setToolTip(self.tr("Vorwärts", "Forward"))
         self.update_reload_stop_button()
@@ -2458,12 +3847,20 @@ class LunaSurfer(QMainWindow):
             self.forward_action.setEnabled(view.history().canGoForward())
 
     def offer_page_translation(self, url, detected_language):
-        """Show a small status-bar prompt with a one-click German translation action."""
-        is_english = self.settings_data.get("language", "de") == "en"
-        message = ("This page does not appear to be in German. Translate it?"
-                   if is_english else
-                   "Diese Seite scheint nicht auf Deutsch zu sein. Übersetzen?")
-        action_text = "Translate" if is_english else "Übersetzen"
+        """Show a status-bar prompt localized to the selected application language."""
+        language = self.settings_data.get("language", "de")
+        notices = {
+            "de": ("Diese Seite scheint nicht auf Deutsch zu sein. Übersetzen?", "Übersetzen"),
+            "en": ("This page does not appear to be in German. Translate it?", "Translate"),
+            "fr": ("Cette page ne semble pas être en allemand. Voulez-vous la traduire ?", "Traduire"),
+            "nl": ("Deze pagina lijkt niet in het Duits te zijn. Wilt u deze vertalen?", "Vertalen"),
+            "it": ("Questa pagina non sembra essere in tedesco. Vuoi tradurla?", "Traduci"),
+            "es": ("Esta página no parece estar en alemán. ¿Desea traducirla?", "Traducir"),
+            "pt": ("Esta página não parece estar em alemão. Pretende traduzi-la?", "Traduzir"),
+            "pl": ("Ta strona nie wygląda na niemiecką. Czy chcesz ją przetłumaczyć?", "Przetłumacz"),
+            "tr": ("Bu sayfa Almanca görünmüyor. Çevirmek ister misiniz?", "Çevir"),
+        }
+        message, action_text = notices.get(language, notices["de"])
         try:
             if self._translation_notice_button is not None:
                 self.statusBar().removeWidget(self._translation_notice_button)
@@ -2471,7 +3868,13 @@ class LunaSurfer(QMainWindow):
             button = QToolButton(self)
             button.setText(action_text)
             button.setCursor(Qt.CursorShape.PointingHandCursor)
-            button.setStyleSheet("QToolButton { color: #8bd5ff; font-weight: 600; padding: 2px 9px; }")
+            button.setStyleSheet(
+                "QToolButton { background-color: #c7a6ff; color: #11151d; "
+                "border: 1px solid #e0ccff; border-radius: 5px; "
+                "font-weight: 700; padding: 5px 12px; min-height: 24px; }"
+                "QToolButton:hover { background-color: #d8c0ff; border-color: #ffffff; }"
+                "QToolButton:pressed { background-color: #a879f5; color: #11151d; }"
+            )
             button.clicked.connect(lambda checked=False, u=url: self._translate_noticed_page(u))
             self._translation_notice_button = button
             self.statusBar().showMessage(message, 12000)
@@ -5751,7 +7154,8 @@ class LunaSurfer(QMainWindow):
 
     def show_manual(self):
         """Display the built-in guide in the selected application language."""
-        en = self.settings_data.get("language", "de") == "en"
+        selected_language = self.settings_data.get("language", "de")
+        en = selected_language == "en"
         dialog = QDialog(self)
         dialog.setWindowTitle(self.tr("LunaSurfer – Anleitung", "LunaSurfer – User guide"))
         dialog.resize(900, 760)
@@ -5761,12 +7165,55 @@ class LunaSurfer(QMainWindow):
         browser.setReadOnly(True)
         browser.setOpenExternalLinks(True)
         style = "<style>body{font-family:sans-serif;line-height:1.55;color:#e8edf5;font-size:14px}h1{color:#c7a6ff;font-size:27px}h2{color:#b99af0;font-size:19px;margin-top:26px;border-bottom:1px solid #39465b;padding-bottom:5px}p,li{color:#d5dbea}.tip{background:#222d3d;border-left:4px solid #9870d5;padding:10px 14px;border-radius:5px}</style>"
-        if en:
+        if selected_language == "pt":
+            content = """<h1>LunaSurfer – Manual do utilizador</h1>
+<p>Este manual explica as principais funções do LunaSurfer e as opções disponíveis nas Definições.</p>
+<h2>1. Geral</h2><ul><li><b>Idioma:</b> seleciona o idioma da interface, menus e caixas de diálogo.</li><li><b>Ao iniciar:</b> pode abrir a página inicial, restaurar a última sessão ou abrir uma página em branco.</li><li><b>Página inicial:</b> define o endereço aberto pelo botão Início.</li><li><b>Motor de pesquisa:</b> escolhe o serviço utilizado nas pesquisas da barra de endereços.</li><li><b>Serviço de tradução:</b> o Google traduz a página completa; o MyMemory traduz secções de texto visíveis e tem um limite diário gratuito.</li><li><b>Aspeto do navegador:</b> permite escolher os temas disponíveis.</li><li><b>Pasta de transferências:</b> define onde são guardados os ficheiros transferidos.</li></ul>
+<h2>2. Segurança e privacidade</h2><ul><li><b>Bloquear pop-ups:</b> bloqueia janelas emergentes indesejadas.</li><li><b>JavaScript:</b> permite que os sites executem scripts; desativá-lo pode limitar algumas páginas.</li><li><b>User-Agent:</b> gere a identificação apresentada aos sites, sem alterar o motor do navegador.</li><li><b>Proteção contra impressão digital:</b> limita a exposição de identificadores do navegador e do hardware.</li></ul>
+<h2>3. Gestor de palavras-passe</h2><ul><li>As credenciais guardadas são encriptadas localmente e protegidas pela palavra-passe principal.</li><li>Guarde a palavra-passe principal em segurança; não é possível recuperá-la.</li><li>O gestor pode ter de ser desbloqueado antes do preenchimento automático.</li></ul>
+<h2>4. Permissões de sites</h2><p>Configure as permissões de câmara, microfone, localização e notificações. Permita apenas sites em que confia.</p>
+<h2>5. Dados do navegador</h2><p>Pode limpar o histórico, a cache e os cookies. Os marcadores e as palavras-passe guardadas são mantidos.</p>"""
+        elif selected_language == "tr":
+            content = """<h1>LunaSurfer – Kullanım kılavuzu</h1>
+<p>Bu kılavuz, LunaSurfer tarayıcısının temel işlevlerini ve Ayarlar bölümündeki seçenekleri açıklar.</p>
+<h2>1. Genel</h2>
+<ul>
+<li><b>Dil:</b> Tarayıcı arayüzünün dilini seçer. Değişiklikler kaydedildikten sonra menüler ve iletişim kutuları seçilen dili kullanır.</li>
+<li><b>Başlangıçta:</b> Ana sayfayı açabilir, son oturumu geri yükleyebilir veya boş bir sayfa başlatabilirsiniz.</li>
+<li><b>Ana sayfa:</b> Ana sayfa düğmesiyle açılacak adresi belirler. Tam bir URL girin.</li>
+<li><b>Arama motoru:</b> Adres çubuğuna yazılan aramalar için Google, DuckDuckGo veya Bing'i seçer.</li>
+<li><b>Çeviri sağlayıcısı:</b> Google Translate tüm sayfayı çevirir. MyMemory görünür metin bölümlerini çevirir ve günlük ücretsiz kullanım sınırına sahiptir.</li>
+<li><b>Tarayıcı görünümü:</b> Koyu, Açık, Luna, Grafit Mavisi veya Okyanus tasarımını seçer.</li>
+<li><b>İndirme klasörü:</b> İndirilen dosyaların kaydedileceği klasörü belirler. Her indirme için ayrı konum sorulmasını da etkinleştirebilirsiniz.</li>
+</ul>
+<h2>2. Güvenlik ve gizlilik</h2>
+<ul>
+<li><b>Açılır pencereleri engelle:</b> İstenmeyen açılır pencereleri engeller.</li>
+<li><b>JavaScript:</b> Web sitelerinin betik çalıştırmasına izin verir. Devre dışı bırakılması bazı sitelerin işlevlerini bozabilir.</li>
+<li><b>User-Agent:</b> Tarayıcının web sitelerine sunduğu tanımlayıcıyı yönetir. Bu ayar tarayıcı motorunu veya gerçek yeteneklerini değiştirmez.</li>
+<li><b>Parmak izi koruması:</b> Canvas, ses, WebGL ve donanım tanımlayıcılarının açığa çıkmasını sınırlar. Değişiklikler hemen uygulanır.</li>
+</ul>
+<h2>3. Parola yöneticisi</h2>
+<ul>
+<li>Kaydedilmiş giriş bilgileri yerel olarak şifrelenir ve ana parola ile korunur.</li>
+<li>Ana parolanızı güvenli bir yerde saklayın. Kaybedilirse şifreli kasa kurtarılamayabilir.</li>
+<li>Otomatik doldurma için parola yöneticisinin kilidini açmanız gerekebilir.</li>
+</ul>
+<h2>4. Web sitesi izinleri</h2>
+<p>Kamera, mikrofon, konum ve bildirim izinleri için Sor, İzin ver veya Engelle seçeneklerini kullanın. Yalnızca güvendiğiniz sitelere izin verin.</p>
+<h2>5. Tarayıcı verileri</h2>
+<p>Geçmişi, önbelleği ve çerezleri ayrı ayrı veya birlikte temizleyebilirsiniz. Yer imleri ve kaydedilmiş parolalar tarayıcı verilerini temizleme işleminde korunur.</p>
+<h2>6. Yer imleri ve indirmeler</h2>
+<p>Yer imlerini klasörlerle düzenleyebilir, içe ve dışa aktarabilirsiniz. İndirme yöneticisi etkin ve tamamlanmış indirmeleri gösterir; dosyaları veya indirme klasörlerini buradan açabilirsiniz.</p>
+"""
+        elif en:
             content = """<h1>LunaSurfer – Complete user guide</h1>
+
+
 <p>This guide describes the browser and every control currently shown on the Settings page, plus the separate Protection &amp; Privacy panel. The names below correspond to the English interface.</p>
 <h2>1. General</h2>
 <ul>
-<li><b>Language:</b> switches the LunaSurfer interface between Deutsch and English. The guide follows this choice and opens in one language only.</li>
+<li><b>Language:</b> switches the LunaSurfer interface between Deutsch, English, Français, Italiano, Nederlands, Español, Português, Polski and Türkçe. The guide follows this choice and opens in one language only.</li>
 <li><b>On startup:</b> <i>Open homepage</i> loads the configured homepage; <i>Restore last session</i> reopens the previous browsing session; <i>Open blank page</i> starts without loading a website.</li>
 <li><b>Homepage:</b> sets the page opened by Home and by a new tab when the selected startup behavior uses it. Enter a complete URL, including https://.</li>
 <li><b>Search engine:</b> chooses Google, DuckDuckGo or Bing for searches entered as plain text in the address bar.</li>
@@ -5843,6 +7290,554 @@ class LunaSurfer(QMainWindow):
 <p><b>Usage notes:</b> The LunaSurfer window must be active. Shortcuts are context-sensitive: while typing in a website field, the website or field may consume a key combination. Press F12 again to hide Developer Tools. Developer Tools are intended for advanced users; changing page code or storage can affect the current website session.</p>
 <h2>10. Troubleshooting and safety</h2><ul><li>If a website breaks, test whether JavaScript, cookies, pop-up blocking, ad blocking or fingerprint protection is responsible. Change one setting at a time.</li><li>If autofill does not appear, unlock the vault and check that an entry exists for the exact website.</li><li>If media does not play, check system codecs and browser compatibility. Protected streaming may require supported DRM components.</li><li>Check the domain before entering credentials. Keep LunaSurfer and Debian updated from trusted sources.</li></ul>
 <p class='tip'><b>Privacy note:</b> privacy controls reduce selected browser signals and requests; they do not make a user anonymous. Websites, network providers and the operating system may still process activity data.</p><p><i>Goldisoft · LunaSurfer 0.3.38</i></p>"""
+        elif self.settings_data.get("language", "de") == "fr":
+            content = """<h1>LunaSurfer – Guide complet</h1>
+<p>Ce guide décrit le navigateur, les options de la page Paramètres et le panneau séparé Protection et confidentialité. Les noms correspondent à l’interface française.</p>
+<h2>1. Général</h2>
+<ul>
+<li><b>Langue :</b> modifie la langue de l’interface LunaSurfer. Le guide suit ce choix et s’affiche dans une seule langue.</li>
+<li><b>Au démarrage :</b> <i>Ouvrir la page d’accueil</i> charge la page d’accueil configurée ; <i>Restaurer la dernière session</i> rouvre la session précédente ; <i>Ouvrir une page vierge</i> démarre sans charger de site web.</li>
+<li><b>Page d’accueil :</b> définit la page ouverte avec le bouton Accueil et, selon le comportement de démarrage, dans un nouvel onglet. Saisissez une adresse complète, y compris https://.</li>
+<li><b>Moteur de recherche :</b> choisit Google, DuckDuckGo ou Bing pour les recherches saisies dans la barre d’adresse.</li>
+<li><b>Service de traduction :</b> <i>Google Traduction (page web entière)</i> ouvre la page complète dans Google Traduction. <i>MyMemory</i> traduit les sections de texte visibles sans clé API et dispose d’un quota quotidien gratuit. La qualité et la disponibilité dépendent du service.</li>
+<li><b>Apparence du navigateur :</b> choisit l’apparence de la fenêtre : Sombre (standard), Clair (classique), Luna (moderne), Bleu graphite (élégant) ou Océan (bleu sarcelle).</li>
+<li><b>Apparence des sites web :</b> choisit le thème clair ou sombre des pages. Ce réglage est indépendant de l’apparence du navigateur et des couleurs propres aux sites.</li>
+<li><b>Afficher la barre des favoris sous la barre d’adresse :</b> affiche ou masque la barre des favoris.</li>
+<li><b>Dossier de téléchargement :</b> définit le dossier dans lequel les fichiers téléchargés sont enregistrés. Utilisez <i>Choisir un dossier…</i> pour sélectionner un autre emplacement.</li>
+<li><b>Demander où enregistrer chaque téléchargement :</b> demande un emplacement à chaque nouveau téléchargement. Sinon, le dossier configuré est utilisé.</li>
+<li><b>Zoom par défaut :</b> définit le zoom initial des pages. Chaque onglet peut ensuite utiliser son propre niveau de zoom.</li>
+<li><b>Taille de police par défaut :</b> définit la taille initiale du texte des pages web.</li>
+<li><b>Lisibilité des sites web :</b> <i>Normal</i> ne modifie pas les pages. Les options de contraste doux, plus léger et atténué appliquent des ajustements progressifs. Revenez à Normal si un site s’affiche incorrectement.</li>
+<li><b>Couleurs des sites web :</b> <i>Original</i> conserve les couleurs du site ; <i>Mode noir</i> demande des arrière-plans noirs. Certains sites peuvent être affichés imparfaitement en mode sombre forcé.</li>
+</ul>
+<h2>2. Sécurité et autorisations</h2>
+<ul>
+<li><b>Bloquer les fenêtres pop-up :</b> bloque les fenêtres indésirables. Désactivez temporairement cette option uniquement si un site fiable en a besoin pour une connexion ou un paiement.</li>
+<li><b>Activer JavaScript :</b> autorise l’exécution des scripts. De nombreux sites modernes en ont besoin ; sa désactivation peut empêcher les menus, connexions, vidéos et autres fonctions de fonctionner.</li>
+<li><b>Envoyer une demande Do Not Track :</b> envoie le signal DNT facultatif. Les sites web ne sont pas obligés de le respecter.</li>
+<li><b>Demander confirmation à la fermeture d’un onglet :</b> affiche une confirmation avant la fermeture pour éviter les fermetures accidentelles.</li>
+</ul>
+<h2>3. Gestion du User-Agent</h2>
+<ul>
+<li><b>Paramètre de confidentialité par défaut (User-Agent Chrome réduit) :</b> présente une identification de type Chrome avec moins de détails sur la version et la plateforme.</li>
+<li><b>User-Agent natif du navigateur :</b> utilise la chaîne User-Agent normale du moteur du navigateur.</li>
+<li><b>User-Agent personnalisé :</b> utilise exactement la chaîne saisie dans Valeur personnalisée. Saisissez une chaîne complète et valide ; une valeur vide ne peut pas être enregistrée.</li>
+<li><b>Actuel :</b> affiche le User-Agent effectivement utilisé. Vous pouvez le sélectionner et le copier.</li>
+<li><b>Important :</b> le User-Agent modifie l’identification du navigateur, pas son moteur ni ses capacités. Lorsque la protection contre l’empreinte numérique est active, les Client Hints peuvent également être réduits.</li>
+</ul>
+<h2>4. Gestionnaire de mots de passe</h2>
+<ul>
+<li><b>Ouvrir le gestionnaire de mots de passe… :</b> ouvre le coffre chiffré des identifiants de sites web. Déverrouillez-le avec le mot de passe principal pour gérer les entrées enregistrées.</li>
+<li><b>Supprimer tous les mots de passe… :</b> supprime tous les identifiants enregistrés. Le mot de passe principal est conservé. Cette opération ne modifie pas les mots de passe stockés sur les sites web.</li>
+<li><b>Proposer d’enregistrer les mots de passe après une connexion réussie :</b> détermine si LunaSurfer propose d’enregistrer un identifiant après une connexion détectée.</li>
+<li><b>Le gestionnaire doit être déverrouillé avant le remplissage automatique :</b> si cette option est activée, déverrouillez le coffre avant le remplissage automatique. Sinon, LunaSurfer demande le mot de passe principal lorsque vous sélectionnez un champ de connexion.</li>
+<li>Les identifiants sont associés au site web concerné, et pas seulement à une adresse e-mail. Une même adresse peut être utilisée sur plusieurs services : chacun doit avoir sa propre entrée. Vérifiez toujours le site et le compte avant d’accepter une proposition d’enregistrement ou de mise à jour.</li>
+<li>Conservez soigneusement le mot de passe principal. S’il est perdu, le coffre chiffré peut être irrécupérable. Effectuez des sauvegardes sûres et ne partagez jamais ce mot de passe.</li>
+</ul>
+<h2>5. Autorisations des sites web</h2>
+<p><b>Modifier les autorisations enregistrées des sites web…</b> ouvre la gestion des décisions mémorisées pour chaque site. Les réglages généraux s’appliquent lorsqu’un site demande un accès :</p>
+<ul>
+<li><b>Caméra, Microphone, Localisation, Notifications :</b> chaque autorisation peut être réglée sur <i>Demander</i>, <i>Autoriser</i> ou <i>Bloquer</i>. Demander affiche une invite ; Autoriser accorde l’accès ; Bloquer le refuse. N’accordez l’accès qu’aux sites fiables et lorsque la fonction est nécessaire.</li>
+<li><b>Envoyer une demande Do Not Track :</b> transmet le signal DNT facultatif. Les sites ne sont pas tenus de le respecter.</li>
+<li><b>Comportement du navigateur – Demander confirmation à la fermeture d’un onglet :</b> demande une confirmation avant de fermer un onglet.</li>
+</ul>
+<h2>6. Confidentialité et données du navigateur</h2>
+<ul>
+<li><b>Mode des cookies – Autoriser tous les cookies :</b> autorise les cookies internes et tiers. La compatibilité est meilleure, mais davantage de données peuvent être partagées entre les sites.</li>
+<li><b>Bloquer les cookies tiers :</b> bloque les cookies provenant d’autres domaines que celui du site visité. Certains contenus intégrés ou processus de connexion peuvent être affectés.</li>
+<li><b>Bloquer tous les cookies :</b> empêche les sites d’enregistrer des cookies et peut perturber les connexions, préférences et paniers d’achat.</li>
+<li><b>Autoriser uniquement les cookies de session :</b> autorise les cookies temporaires de session, mais limite les cookies persistants.</li>
+<li><b>Effacer l’historique :</b> supprime l’historique de navigation enregistré.</li>
+<li><b>Effacer le cache :</b> supprime les ressources de pages mises en cache. Le prochain chargement peut être plus lent.</li>
+<li><b>Effacer les cookies :</b> supprime les cookies des sites web et peut vous déconnecter ou réinitialiser les préférences des sites.</li>
+<li><b>Tout effacer :</b> nettoie les données disponibles de l’historique, du cache et des cookies. Lisez attentivement la demande de confirmation.</li>
+<li><b>Effacer automatiquement l’historique/le cache/les cookies à la fermeture :</b> chaque option efface séparément la catégorie correspondante lorsque LunaSurfer se ferme.</li>
+<li><b>Mémoriser la taille et la position de la fenêtre à la fermeture :</b> restaure la géométrie de la fenêtre au prochain démarrage.</li>
+<li><b>Utiliser LunaSurfer comme navigateur par défaut :</b> demande à l’environnement de bureau d’enregistrer LunaSurfer comme navigateur préféré pour les liens web.</li>
+</ul>
+<h2>7. Panneau Protection et confidentialité</h2>
+<h3>Bloqueur de publicités</h3>
+<ul>
+<li><b>Activer le bloqueur de publicités :</b> active ou désactive le filtrage.</li>
+<li><b>Intensité du blocage :</b> les niveaux plus élevés filtrent davantage de règles, mais peuvent perturber certaines fonctions ou masquer du contenu.</li>
+<li><b>Règles de blocage personnalisées :</b> ajoutez des domaines ou règles séparés par des points-virgules.</li>
+<li><b>Domaines autorisés :</b> liste les domaines exclus du blocage. Utilisez cette option pour les sites fiables qui ne fonctionnent pas correctement.</li>
+</ul>
+<h3>Protection contre l’empreinte numérique</h3>
+<ul>
+<li><b>Activer la protection :</b> réduit certains signaux d’identification du navigateur et de l’appareil.</li>
+<li><b>Standard :</b> protection de Canvas, de l’audio et des informations matérielles de base.</li>
+<li><b>Renforcée :</b> ajoute le masquage des identifiants WebGL.</li>
+<li><b>Maximale :</b> protège davantage les détails matériels et les Client Hints du navigateur.</li>
+<li>Les modifications sont appliquées immédiatement ; un redémarrage n’est normalement pas nécessaire. Une protection plus forte peut réduire la compatibilité et ne garantit pas l’anonymat.</li>
+</ul>
+<h2>8. Enregistrement et application des modifications</h2>
+<p>Utilisez <b>Enregistrer</b> pour mémoriser les choix de la page Paramètres. Utilisez <b>Annuler</b> pour fermer sans enregistrer les modifications en attente. Certains réglages s’appliquent immédiatement ; d’autres prennent effet après le rechargement des pages ouvertes. Le panneau de protection possède ses propres boutons Enregistrer et Annuler.</p>
+<h2>9. Autres fonctions du navigateur</h2>
+<ul>
+<li><b>Favoris :</b> utilisez l’étoile pour enregistrer une page. Le gestionnaire de favoris permet d’organiser les dossiers et d’importer ou d’exporter les favoris.</li>
+<li><b>Téléchargements :</b> consultez les transferts en cours et terminés dans le gestionnaire de téléchargements. En cas d’échec, vérifiez le dossier de destination et l’espace disque disponible.</li>
+<li><b>Traduction des sites web :</b> utilisez le bouton de traduction pour choisir une langue cible ou revenir à la page d’origine. La traduction dépend du service sélectionné et peut contenir des erreurs.</li>
+<li><b>Onglets et raccourcis :</b> Ctrl+T ouvre un nouvel onglet ; Ctrl+W ferme l’onglet actuel ; Ctrl+L sélectionne la barre d’adresse ; Ctrl+R actualise la page ; Alt+Flèche gauche revient en arrière ; Alt+Flèche droite avance ; Ctrl+Maj+L ouvre le gestionnaire de mots de passe ; F12 affiche ou masque les outils de développement.</li>
+</ul>
+<h2>10. Référence des raccourcis clavier</h2>
+<table border="1" cellpadding="7" cellspacing="0"><tr><th>Raccourci</th><th>Action</th></tr>
+<tr><td><b>Ctrl+L</b></td><td>Active la barre d’adresse et sélectionne son contenu.</td></tr>
+<tr><td><b>Ctrl+T</b></td><td>Ouvre un nouvel onglet avec la page d’accueil configurée.</td></tr>
+<tr><td><b>Ctrl+W</b></td><td>Ferme l’onglet actif.</td></tr>
+<tr><td><b>Ctrl+R</b></td><td>Actualise la page de l’onglet actif.</td></tr>
+<tr><td><b>Alt+Flèche gauche</b></td><td>Revient à la page précédente de l’onglet actuel.</td></tr>
+<tr><td><b>Alt+Flèche droite</b></td><td>Avance dans l’historique de l’onglet actuel.</td></tr>
+<tr><td><b>Ctrl+Maj+L</b></td><td>Ouvre le gestionnaire de mots de passe.</td></tr>
+<tr><td><b>F12</b></td><td>Affiche ou masque le panneau des outils de développement.</td></tr></table>
+<p><b>Remarques :</b> la fenêtre LunaSurfer doit être active. Les raccourcis dépendent du contexte ; un site web ou un champ de saisie peut intercepter certaines combinaisons. Appuyez de nouveau sur F12 pour masquer les outils de développement.</p>
+<h2>11. Dépannage et sécurité</h2>
+<ul>
+<li>Si un site ne fonctionne pas, vérifiez JavaScript, les cookies, le blocage des fenêtres pop-up, le bloqueur de publicités et la protection contre l’empreinte numérique. Ne modifiez qu’un réglage à la fois.</li>
+<li>Si le remplissage automatique ne s’affiche pas, déverrouillez le coffre et vérifiez qu’une entrée existe pour l’adresse exacte du site.</li>
+<li>Si les médias ne sont pas lus, vérifiez les codecs du système et la compatibilité du navigateur. Les contenus en streaming protégés peuvent nécessiter des composants DRM pris en charge.</li>
+<li>Vérifiez le domaine avant de saisir vos identifiants. Maintenez LunaSurfer et Debian à jour à partir de sources fiables.</li>
+</ul>
+<p class='tip'><b>Confidentialité :</b> les protections réduisent certains signaux et certaines requêtes du navigateur, mais ne rendent pas anonyme. Les sites web, les fournisseurs réseau et le système d’exploitation peuvent toujours traiter des données d’activité.</p><p><i>Goldisoft · LunaSurfer 0.3.49</i></p>"""
+
+        elif self.settings_data.get("language", "de") == "nl":
+            content = """<h1>LunaSurfer – Volledige gebruikershandleiding</h1>
+<p>Deze handleiding beschrijft de browser, de instellingen en het afzonderlijke paneel Bescherming en privacy. De benamingen komen overeen met de Nederlandse programma-interface.</p>
+<h2>1. Algemeen</h2>
+<ul>
+<li><b>Taal:</b> wijzigt de taal van de LunaSurfer-interface. De handleiding volgt deze keuze.</li>
+<li><b>Bij opstarten:</b> <i>Startpagina openen</i> laadt de ingestelde startpagina; <i>Vorige sessie herstellen</i> opent de vorige browsersessie opnieuw; <i>Lege pagina openen</i> start zonder website.</li>
+<li><b>Startpagina:</b> bepaalt welke pagina met de startknop en eventueel in een nieuw tabblad wordt geopend. Voer een volledig adres in, inclusief https://.</li>
+<li><b>Zoekmachine:</b> kiest Google, DuckDuckGo of Bing voor zoekopdrachten in de adresbalk.</li>
+<li><b>Vertaalservice:</b> Google Translate vertaalt de volledige webpagina. MyMemory vertaalt zichtbare tekstgedeelten zonder API-sleutel en heeft een dagelijkse gratis limiet. Kwaliteit en beschikbaarheid zijn afhankelijk van de dienst.</li>
+<li><b>Browserweergave:</b> kiest het uiterlijk van het browservenster: Donker (standaard), Licht (klassiek), Luna (modern), Grafietblauw (elegant) of Oceaan (blauwgroen).</li>
+<li><b>Weergave van websites:</b> kiest een lichte of donkere weergave van webpagina's. Deze instelling staat los van het browserontwerp.</li>
+<li><b>Bladwijzerbalk onder de adresbalk tonen:</b> toont of verbergt de bladwijzerbalk.</li>
+<li><b>Downloadmap:</b> bepaalt waar gedownloade bestanden worden opgeslagen. Gebruik <i>Map kiezen…</i> om een andere map te selecteren.</li>
+<li><b>Bij elke download vragen waar deze moet worden opgeslagen:</b> vraagt bij elke download om een doelmap; anders wordt de ingestelde downloadmap gebruikt.</li>
+<li><b>Standaardzoom:</b> stelt de beginzoom van webpagina's in. Afzonderlijke tabbladen kunnen hun eigen zoomniveau hebben.</li>
+<li><b>Standaardlettergrootte:</b> stelt de standaardgrootte van tekst op webpagina's in.</li>
+<li><b>Leesbaarheid van websites:</b> Normaal laat pagina's ongewijzigd. De contrastopties passen het contrast stapsgewijs aan. Kies Normaal als een website niet goed wordt weergegeven.</li>
+<li><b>Websitekleuren:</b> Origineel behoudt de kleuren van de website; Zwarte modus vraagt om zwarte achtergronden. Sommige websites kunnen in geforceerde donkere modus verkeerd worden weergegeven.</li>
+</ul>
+<h2>2. Beveiliging en machtigingen</h2>
+<ul>
+<li><b>Pop-ups blokkeren:</b> blokkeert ongewenste pop-upvensters. Schakel dit alleen tijdelijk uit voor een vertrouwde website die een pop-up nodig heeft.</li>
+<li><b>JavaScript inschakelen:</b> staat scripts toe. Veel moderne websites hebben dit nodig; uitschakelen kan menu's, aanmeldingen, video's en andere functies verstoren.</li>
+<li><b>Do Not Track-verzoek verzenden:</b> verzendt het optionele DNT-signaal. Websites hoeven dit niet te respecteren.</li>
+<li><b>Bevestiging vragen bij het sluiten van een tabblad:</b> vraagt om bevestiging voordat een tabblad wordt gesloten.</li>
+</ul>
+<h2>3. User-Agent-beheer</h2>
+<ul>
+<li><b>Privacystandaard (verkorte Chrome-User-Agent):</b> gebruikt een Chrome-achtige browseridentificatie met minder details over versie en platform.</li>
+<li><b>Native browser-User-Agent:</b> gebruikt de normale User-Agent-tekenreeks van de browserengine.</li>
+<li><b>Aangepaste User-Agent:</b> gebruikt precies de ingevoerde tekenreeks. Voer een volledige geldige User-Agent in; een lege waarde kan niet worden opgeslagen.</li>
+<li><b>Huidig:</b> toont de daadwerkelijk gebruikte User-Agent. De tekst kan worden geselecteerd en gekopieerd.</li>
+<li><b>Belangrijk:</b> de User-Agent wijzigt de browseridentificatie, niet de browserengine of de mogelijkheden ervan. Bescherming tegen digitale vingerafdrukken kan ook Client Hints beperken.</li>
+</ul>
+<h2>4. Wachtwoordbeheerder</h2>
+<ul>
+<li><b>Wachtwoordbeheerder openen…:</b> opent de versleutelde kluis met website-aanmeldgegevens. Ontgrendel de kluis met het hoofdwachtwoord om opgeslagen items te beheren.</li>
+<li><b>Alle wachtwoorden verwijderen…:</b> verwijdert alle opgeslagen websitewachtwoorden. Het hoofdwachtwoord blijft behouden. Wachtwoorden op de websites zelf worden niet gewijzigd.</li>
+<li><b>Aanbieden wachtwoorden op te slaan na geslaagde aanmelding:</b> bepaalt of LunaSurfer na een herkende aanmelding voorstelt de gegevens op te slaan.</li>
+<li><b>Wachtwoordbeheerder moet ontgrendeld zijn vóór automatisch invullen:</b> als dit is ingeschakeld, moet de kluis eerst worden ontgrendeld. Anders vraagt LunaSurfer om het hoofdwachtwoord wanneer u een aanmeldveld selecteert.</li>
+<li>Aanmeldgegevens zijn gekoppeld aan de betreffende website, niet alleen aan het e-mailadres. Dezelfde e-mail kan bij verschillende diensten worden gebruikt; elke dienst heeft een eigen item nodig. Controleer website en account voordat u opslaan of bijwerken bevestigt.</li>
+<li>Bewaar het hoofdwachtwoord zorgvuldig. Als u het verliest, kan de versleutelde kluis mogelijk niet worden hersteld. Maak veilige reservekopieën en deel het hoofdwachtwoord nooit.</li>
+</ul>
+<h2>5. Websitemachtigingen</h2>
+<p><b>Opgeslagen websitemachtigingen bewerken…</b> opent de opgeslagen beslissingen per website. De algemene instellingen bepalen hoe verzoeken worden behandeld:</p>
+<ul>
+<li><b>Camera, Microfoon, Locatie en Meldingen:</b> elke machtiging kan worden ingesteld op Vragen, Toestaan of Blokkeren. Vragen toont een verzoek; Toestaan verleent toegang; Blokkeren weigert toegang. Sta alleen vertrouwde websites toegang toe wanneer dat nodig is.</li>
+<li><b>Do Not Track-verzoek verzenden:</b> verzendt het optionele DNT-signaal. Websites zijn niet verplicht dit te volgen.</li>
+<li><b>Browsergedrag – bevestiging vragen bij het sluiten van een tabblad:</b> vraagt om bevestiging om onbedoeld sluiten te voorkomen.</li>
+</ul>
+<h2>6. Privacy en browsergegevens</h2>
+<ul>
+<li><b>Cookiemodus – Alle cookies toestaan:</b> staat first-party- en third-party-cookies toe. Dit biedt de beste compatibiliteit, maar maakt meer opslag tussen websites mogelijk.</li>
+<li><b>Cookies van derden blokkeren:</b> blokkeert cookies van andere domeinen dan de bezochte website. Ingesloten inhoud of aanmeldprocessen kunnen hierdoor worden beïnvloed.</li>
+<li><b>Alle cookies blokkeren:</b> voorkomt dat websites cookies opslaan en kan aanmeldingen, voorkeuren en winkelmandjes verstoren.</li>
+<li><b>Alleen sessiecookies toestaan:</b> staat tijdelijke sessiecookies toe, maar beperkt blijvende cookies.</li>
+<li><b>Geschiedenis wissen:</b> verwijdert de opgeslagen browsegeschiedenis.</li>
+<li><b>Cache wissen:</b> verwijdert opgeslagen paginabestanden. De volgende keer kan het laden langer duren.</li>
+<li><b>Cookies wissen:</b> verwijdert websitecookies en kan u afmelden of websitevoorkeuren resetten.</li>
+<li><b>Alles wissen:</b> wist de beschikbare geschiedenis-, cache- en cookiegegevens. Lees de bevestigingsvraag zorgvuldig.</li>
+<li><b>Geschiedenis/cache/cookies automatisch wissen bij afsluiten:</b> elke optie wist de betreffende gegevenscategorie wanneer LunaSurfer wordt afgesloten.</li>
+<li><b>Venstergrootte en -positie onthouden bij afsluiten:</b> herstelt de laatste vensterafmetingen en -positie bij de volgende start.</li>
+<li><b>LunaSurfer als standaardbrowser gebruiken:</b> vraagt de desktopomgeving LunaSurfer als voorkeursbrowser voor webkoppelingen te registreren.</li>
+</ul>
+<h2>7. Paneel Bescherming en privacy</h2>
+<h3>Advertentieblokkering</h3>
+<ul>
+<li><b>Advertentieblokkering inschakelen:</b> schakelt het filteren in of uit.</li>
+<li><b>Blokkeersterkte:</b> hogere niveaus filteren meer regels, maar kunnen sommige functies verstoren of inhoud verbergen.</li>
+<li><b>Aangepaste blokkeerregels:</b> voeg domeinen of regels toe, gescheiden door puntkomma's.</li>
+<li><b>Domeinen op de toelatingslijst:</b> vermeld domeinen die van de blokkering worden uitgesloten. Gebruik dit voor vertrouwde websites die anders niet goed werken.</li>
+</ul>
+<h3>Bescherming tegen digitale vingerafdruk</h3>
+<ul>
+<li><b>Bescherming inschakelen:</b> vermindert bepaalde identificerende signalen van browser en apparaat.</li>
+<li><b>Standaard:</b> basisbescherming voor Canvas, audio en hardwaregegevens.</li>
+<li><b>Sterk:</b> maskeert ook WebGL-identificaties.</li>
+<li><b>Maximaal:</b> biedt extra bescherming voor hardwaredetails en browser-Client Hints.</li>
+<li>Wijzigingen worden direct toegepast; opnieuw starten is normaal niet nodig. Sterkere bescherming kan de compatibiliteit beïnvloeden en garandeert geen anonimiteit.</li>
+</ul>
+<h2>8. Instellingen opslaan en toepassen</h2>
+<p>Gebruik <b>Opslaan</b> om de keuzes op de instellingenpagina te bewaren. Gebruik <b>Annuleren</b> om te sluiten zonder openstaande wijzigingen op te slaan. Sommige instellingen worden direct toegepast, andere pas nadat geopende pagina's opnieuw zijn geladen. Het beschermingspaneel heeft eigen knoppen Opslaan en Annuleren.</p>
+<h2>9. Andere browserfuncties</h2>
+<ul>
+<li><b>Bladwijzers:</b> gebruik de ster om een pagina op te slaan. In het bladwijzerbeheer kunt u mappen ordenen en bladwijzers importeren of exporteren.</li>
+<li><b>Downloads:</b> bekijk actieve en voltooide overdrachten in Downloadbeheer. Controleer bij fouten de doelmap en beschikbare schijfruimte.</li>
+<li><b>Webpagina's vertalen:</b> gebruik de vertaalfunctie om een doeltaal te kiezen of terug te keren naar de originele pagina. De vertaling wordt door de geselecteerde dienst geleverd en kan fouten bevatten.</li>
+<li><b>Tabbladen en sneltoetsen:</b> Ctrl+T opent een nieuw tabblad; Ctrl+W sluit het huidige tabblad; Ctrl+L selecteert de adresbalk; Ctrl+R laadt de pagina opnieuw; Alt+Pijl links gaat terug; Alt+Pijl rechts gaat vooruit; Ctrl+Shift+L opent de wachtwoordbeheerder; F12 toont of verbergt de ontwikkelaarstools.</li>
+</ul>
+<h2>10. Overzicht van sneltoetsen</h2>
+<table border="1" cellpadding="7" cellspacing="0"><tr><th>Sneltoets</th><th>Actie</th></tr>
+<tr><td><b>Ctrl+L</b></td><td>Activeert de adresbalk en selecteert de huidige tekst.</td></tr>
+<tr><td><b>Ctrl+T</b></td><td>Opent een nieuw tabblad met de ingestelde startpagina.</td></tr>
+<tr><td><b>Ctrl+W</b></td><td>Sluit het actieve tabblad.</td></tr>
+<tr><td><b>Ctrl+R</b></td><td>Laadt de pagina in het actieve tabblad opnieuw.</td></tr>
+<tr><td><b>Alt+Pijl links</b></td><td>Gaat naar de vorige pagina in de geschiedenis van het huidige tabblad.</td></tr>
+<tr><td><b>Alt+Pijl rechts</b></td><td>Gaat vooruit in de geschiedenis van het huidige tabblad.</td></tr>
+<tr><td><b>Ctrl+Shift+L</b></td><td>Opent de wachtwoordbeheerder.</td></tr>
+<tr><td><b>F12</b></td><td>Toont of verbergt het paneel met ontwikkelaarstools.</td></tr></table>
+<p><b>Opmerking:</b> het LunaSurfer-venster moet actief zijn. Een website of invoerveld kan sommige sneltoetsen onderscheppen. Druk opnieuw op F12 om de ontwikkelaarstools te verbergen.</p>
+<h2>11. Problemen oplossen en beveiliging</h2>
+<ul>
+<li>Als een website niet werkt, controleer JavaScript, cookies, pop-upblokkering, advertentieblokkering en bescherming tegen digitale vingerafdrukken. Wijzig telkens één instelling.</li>
+<li>Als automatisch invullen niet verschijnt, ontgrendel de kluis en controleer of er een item bestaat voor het exacte websiteadres.</li>
+<li>Als media niet afspelen, controleer de systeemcodecs en browsercompatibiliteit. Beschermde streaminginhoud kan ondersteunde DRM-componenten vereisen.</li>
+<li>Controleer het domein voordat u aanmeldgegevens invoert. Houd LunaSurfer en Debian bijgewerkt via vertrouwde bronnen.</li>
+</ul>
+<p class='tip'><b>Privacy:</b> privacybescherming vermindert bepaalde browsersignalen en verzoeken, maar maakt u niet anoniem. Websites, netwerkproviders en het besturingssysteem kunnen nog steeds activiteitsgegevens verwerken.</p><p><i>Goldisoft · LunaSurfer 0.3.49</i></p>"""
+        elif self.settings_data.get("language", "de") == "es":
+            content = """<h1>LunaSurfer – Guía de usuario</h1>
+<p>Esta guía explica las funciones principales del navegador y las opciones de configuración. Los nombres corresponden a la interfaz en español.</p>
+<h2>1. General</h2>
+<ul>
+<li><b>Idioma:</b> cambia el idioma de la interfaz de LunaSurfer.</li>
+<li><b>Al iniciar:</b> puede abrir la página de inicio, restaurar la última sesión o abrir una página en blanco.</li>
+<li><b>Página de inicio y motor de búsqueda:</b> configura la página que se abre al inicio y el proveedor utilizado para las búsquedas desde la barra de direcciones.</li>
+<li><b>Diseño del navegador:</b> selecciona el aspecto visual de la ventana. La apariencia clara u oscura de los sitios web se configura por separado.</li>
+<li><b>Barra de marcadores:</b> muestra u oculta los marcadores debajo de la barra de direcciones.</li>
+<li><b>Descargas:</b> permite elegir la carpeta, preguntar dónde guardar cada archivo y mostrar avisos de seguridad para archivos ejecutables.</li>
+</ul>
+<h2>2. Marcadores e historial</h2>
+<ul>
+<li>Usa el icono de estrella para guardar la página actual en los marcadores.</li>
+<li>Abre el administrador de marcadores para buscar, editar, eliminar, importar o exportar marcadores y carpetas.</li>
+<li>El historial permite revisar las páginas visitadas y borrar los datos de navegación.</li>
+</ul>
+<h2>3. Descargas</h2>
+<p>El gestor de descargas muestra transferencias activas y completadas. Puedes buscar archivos, cancelar una descarga, abrir un archivo o su carpeta y limpiar el historial.</p>
+<h2>4. Protección y privacidad</h2>
+<ul>
+<li><b>Bloqueador de anuncios:</b> filtra dominios conocidos de publicidad y seguimiento. Los niveles más altos pueden afectar a algunos sitios web.</li>
+<li><b>Protección contra huellas digitales:</b> reduce determinadas señales de identificación de Canvas, audio, WebGL y hardware. Una protección más fuerte puede afectar a la compatibilidad y no garantiza el anonimato.</li>
+<li><b>Permisos de sitios web:</b> administra los permisos guardados para cámara, micrófono, ubicación y notificaciones.</li>
+<li><b>Cookies y datos:</b> puedes ajustar el modo de cookies y borrar la caché, las cookies o el historial. Los marcadores y las contraseñas guardadas se conservan al limpiar los datos del navegador.</li>
+</ul>
+<h2>5. Gestor de contraseñas</h2>
+<p>Las credenciales se cifran localmente. La contraseña maestra no se puede recuperar; guárdala de forma segura. Desbloquea el gestor para consultar o autocompletar los inicios de sesión guardados. También puedes importar y exportar una bóveda cifrada.</p>
+<h2>6. Traducción de páginas</h2>
+<p>El menú de traducción permite traducir la página completa con Google Translate o traducir secciones de texto visibles con MyMemory. También puedes volver a la página original.</p>
+<h2>7. Guardar los cambios</h2>
+<p>Usa <b>Guardar</b> para conservar los cambios de configuración. Algunas opciones se aplican inmediatamente; otras pueden requerir volver a cargar una página o reiniciar LunaSurfer.</p>
+<p class='tip'><b>Privacidad:</b> las protecciones reducen determinados datos del navegador, pero no hacen que la navegación sea anónima.</p>
+<p><i>Goldisoft · LunaSurfer 0.3.49</i></p>"""
+        elif self.settings_data.get("language", "de") == "it":
+            content = """<h1>LunaSurfer – Guida completa</h1>
+<p>Questa guida descrive il browser e tutte le opzioni attualmente presenti nella pagina Impostazioni, oltre al pannello separato Protezione e privacy. Le denominazioni corrispondono all’interfaccia italiana.</p>
+<h2>1. Generale</h2>
+<ul>
+<li><b>Lingua:</b> cambia la lingua dell’interfaccia di LunaSurfer. La guida segue questa scelta e viene visualizzata in una sola lingua.</li>
+<li><b>All’avvio:</b> <i>Apri pagina iniziale</i> carica la pagina iniziale configurata; <i>Ripristina ultima sessione</i> riapre la precedente sessione del browser; <i>Apri pagina vuota</i> avvia il browser senza caricare un sito.</li>
+<li><b>Pagina iniziale:</b> stabilisce quale pagina viene aperta con il pulsante Home e, in base al comportamento scelto all’avvio, in una nuova scheda. Inserisci un URL completo, incluso https://.</li>
+<li><b>Motore di ricerca:</b> sceglie Google, DuckDuckGo o Bing per le ricerche digitate come testo semplice nella barra degli indirizzi.</li>
+<li><b>Servizio di traduzione:</b> <i>Google Translate (intera pagina web)</i> invia la pagina a Google Translate per tradurla interamente. <i>MyMemory</i> traduce le sezioni di testo visibili senza una chiave API e dispone di un limite giornaliero gratuito. Qualità e disponibilità dipendono dal servizio.</li>
+<li><b>Aspetto del browser:</b> seleziona l’aspetto della finestra del browser: Scuro (standard), Chiaro (classico), Luna (moderno), Grafite blu (elegante) oppure Oceano (blu petrolio).</li>
+<li><b>Aspetto dei siti web:</b> seleziona il tema chiaro o scuro del browser. Questa opzione è indipendente dall’aspetto del browser e dai colori dei siti web.</li>
+<li><b>Mostra la barra dei segnalibri sotto la barra degli indirizzi:</b> mostra o nasconde la barra dei segnalibri.</li>
+<li><b>Cartella dei download:</b> indica la cartella in cui vengono salvati i file scaricati. Usa <i>Scegli cartella…</i> per selezionare un’altra directory.</li>
+<li><b>Chiedi dove salvare ogni download:</b> se attivata, chiede una destinazione per ogni nuovo download; altrimenti viene usata la cartella dei download configurata.</li>
+<li><b>Zoom predefinito:</b> imposta lo zoom iniziale delle pagine. I valori disponibili vanno dal 50% al 200%; le singole pagine possono comunque avere uno zoom separato.</li>
+<li><b>Dimensione carattere predefinita:</b> imposta la dimensione predefinita del testo delle pagine web.</li>
+<li><b>Leggibilità dei siti web:</b> <i>Normale</i> lascia invariate le pagine. Contrasto delicato, più morbido e rilassato applicano regolazioni progressive. Se una pagina appare in modo errato, torna a Normale. Immagini e video dovrebbero rimanere invariati.</li>
+<li><b>Colori dei siti web:</b> <i>Originale</i> mantiene i colori del sito; <i>Modalità nera</i> richiede sfondi neri. Alcuni siti potrebbero non essere visualizzati perfettamente con la modalità scura forzata.</li>
+</ul>
+<h2>2. Sicurezza e autorizzazioni</h2>
+<ul>
+<li><b>Blocca finestre pop-up:</b> blocca le finestre pop-up indesiderate. Disattiva temporaneamente questa funzione solo se un sito attendibile richiede una finestra pop-up per l’accesso o il pagamento.</li>
+<li><b>Attiva JavaScript:</b> consente ai siti web di eseguire script. Molti siti moderni ne hanno bisogno; disattivarlo può impedire il funzionamento di menu, accessi, video e altre funzioni.</li>
+<li><b>Invia richiesta Do Not Track:</b> invia il segnale DNT facoltativo. I siti web non sono obbligati a rispettarlo.</li>
+<li><b>Chiedi prima di chiudere una scheda:</b> richiede una conferma prima di chiudere le schede e aiuta a evitare chiusure accidentali.</li>
+</ul>
+<h2>3. Gestione User-Agent</h2>
+<ul>
+<li><b>Predefinito privacy (User-Agent Chrome ridotto):</b> presenta un’identificazione del browser in stile Chrome con meno dettagli sulla versione e sulla piattaforma.</li>
+<li><b>User-Agent nativo del browser:</b> usa la normale stringa User-Agent del motore del browser.</li>
+<li><b>User-Agent personalizzato:</b> usa esattamente la stringa inserita nel campo Valore personalizzato. Inserisci una stringa User-Agent completa e valida; un valore vuoto non può essere salvato.</li>
+<li><b>Attuale:</b> mostra la stringa User-Agent effettivamente utilizzata. Il testo può essere selezionato e copiato.</li>
+<li><b>Importante:</b> modificare lo User-Agent cambia l’identificazione del browser, non il motore né le sue funzionalità. Quando la protezione dell’impronta digitale è attiva, anche i Client Hints possono essere ridotti.</li>
+</ul>
+<h2>4. Gestore password</h2>
+<ul>
+<li><b>Apri gestore password…:</b> apre l’archivio crittografato degli accessi ai siti web. Sbloccalo con la password principale per gestire le voci salvate.</li>
+<li><b>Elimina tutte le password…:</b> rimuove tutti gli accessi ai siti web salvati. La password principale rimane attiva. Questa operazione non modifica le password memorizzate sui siti web stessi.</li>
+<li><b>Proponi di salvare le password dopo un accesso riuscito:</b> stabilisce se LunaSurfer deve proporre il salvataggio dopo aver rilevato un accesso riuscito.</li>
+<li><b>Il gestore password deve essere sbloccato prima della compilazione automatica:</b> se attivato, l’archivio deve essere sbloccato prima della compilazione automatica. Se disattivato, LunaSurfer chiede la password principale quando selezioni un campo di accesso.</li>
+<li>Le credenziali sono associate al rispettivo sito web, non soltanto all’indirizzo e-mail. La stessa e-mail può essere usata con servizi diversi: ogni servizio deve avere una propria voce. Controlla sempre sito e account prima di confermare il salvataggio o l’aggiornamento.</li>
+<li>Conserva con cura la password principale. Se viene persa, l’archivio crittografato potrebbe non essere recuperabile. Crea copie di sicurezza e non condividere mai la password principale.</li>
+</ul>
+<h2>5. Autorizzazioni dei siti web</h2>
+<p><b>Modifica autorizzazioni dei siti web salvate…</b> apre la gestione delle decisioni memorizzate per i singoli siti. Le impostazioni generali seguenti si applicano quando un sito richiede l’accesso:</p>
+<ul>
+<li><b>Fotocamera, Microfono, Posizione, Notifiche:</b> ciascuna autorizzazione può essere impostata su <i>Chiedi</i>, <i>Consenti</i> o <i>Blocca</i>. Chiedi mostra una richiesta; Consenti concede l’autorizzazione; Blocca nega l’accesso. Concedi l’accesso solo ai siti attendibili e quando la funzione è necessaria.</li>
+<li><b>Invia richiesta Do Not Track:</b> invia il segnale DNT facoltativo. I siti web non sono tenuti a rispettarlo.</li>
+<li><b>Comportamento del browser – Chiedi prima di chiudere una scheda:</b> richiede una conferma prima della chiusura per evitare operazioni accidentali.</li>
+</ul>
+<h2>6. Privacy e dati del browser</h2>
+<ul>
+<li><b>Modalità cookie – Consenti tutti i cookie:</b> permette i cookie di prima e terza parte. Offre la massima compatibilità, ma consente una maggiore memorizzazione tra siti diversi.</li>
+<li><b>Blocca cookie di terze parti:</b> blocca i cookie provenienti da domini diversi dal sito visitato. Alcuni contenuti incorporati o procedure di accesso potrebbero risentirne.</li>
+<li><b>Blocca tutti i cookie:</b> impedisce ai siti di memorizzare cookie e può compromettere accessi, preferenze e carrelli degli acquisti.</li>
+<li><b>Consenti solo cookie di sessione:</b> permette i cookie temporanei di sessione, ma limita quelli persistenti. Il comportamento dei siti e la permanenza degli accessi potrebbero cambiare.</li>
+<li><b>Cancella cronologia:</b> elimina la cronologia di navigazione registrata.</li>
+<li><b>Cancella cache:</b> rimuove le risorse delle pagine memorizzate nella cache. Alla visita successiva il caricamento potrebbe essere più lento perché i file dovranno essere scaricati di nuovo.</li>
+<li><b>Cancella cookie:</b> rimuove i cookie dei siti web e potrebbe disconnetterti o ripristinare le preferenze dei siti.</li>
+<li><b>Cancella tutto:</b> esegue la pulizia dei dati disponibili relativi a cronologia, cache e cookie. Leggi attentamente la richiesta di conferma.</li>
+<li><b>Cancella automaticamente cronologia/cache/cookie all’uscita:</b> ogni casella elimina indipendentemente la relativa categoria di dati quando LunaSurfer viene chiuso.</li>
+<li><b>Ricorda dimensioni e posizione della finestra all’uscita:</b> ripristina al successivo avvio le dimensioni e la posizione dell’ultima finestra.</li>
+<li><b>Usa LunaSurfer come browser predefinito:</b> chiede all’ambiente desktop di registrare LunaSurfer come browser preferito per i collegamenti web.</li>
+</ul>
+<h2>7. Pannello separato Protezione e privacy</h2>
+<p>Apri questo pannello con il pulsante a forma di scudo nella barra degli strumenti. Contiene due schede:</p>
+<h3>Blocco pubblicità</h3>
+<ul>
+<li><b>Attiva il blocco pubblicità:</b> attiva o disattiva il filtraggio.</li>
+<li><b>Intensità del blocco:</b> Standard, Forte, Molto forte, Super forte, Mega forte o Ultra forte. I livelli più elevati filtrano più regole, ma possono compromettere alcune funzioni o nascondere contenuti.</li>
+<li><b>Regole di blocco personalizzate:</b> aggiungi domini o regole separandoli con punti e virgola, ad esempio <code>example-ads.com; tracker.example</code>.</li>
+<li><b>Domini consentiti:</b> elenca i domini esclusi dal blocco pubblicità, separandoli con punti e virgola. Usa questa opzione per i siti attendibili che non funzionano correttamente.</li>
+</ul>
+<h3>Protezione dell’impronta digitale</h3>
+<ul>
+<li><b>Attiva la protezione dell’impronta digitale:</b> attiva misure pensate per ridurre i segnali identificativi del browser e del dispositivo.</li>
+<li><b>Livello di protezione – Standard:</b> protezione di Canvas, audio e hardware di base.</li>
+<li><b>Forte:</b> aggiunge la mascheratura degli identificatori WebGL.</li>
+<li><b>Massima:</b> aggiunge ulteriore protezione dei dettagli hardware e dei Client Hints del browser.</li>
+<li>Le modifiche vengono applicate subito; normalmente non è necessario riavviare il browser. Una protezione più forte può influire sulla compatibilità e non garantisce l’anonimato.</li>
+</ul>
+<h2>8. Salvataggio e applicazione delle modifiche</h2>
+<p>Usa <b>Salva</b> per memorizzare le scelte nella pagina Impostazioni. Usa <b>Annulla</b> per chiudere senza salvare le modifiche in sospeso. Alcune impostazioni vengono applicate subito, altre dopo aver ricaricato le pagine aperte. Il pannello di protezione dispone di propri pulsanti Salva e Annulla.</p>
+<h2>9. Altre funzioni del browser</h2>
+<ul>
+<li><b>Segnalibri:</b> usa la stella per salvare una pagina; nella gestione dei segnalibri puoi organizzare le cartelle e importare o esportare i segnalibri.</li>
+<li><b>Download:</b> controlla i trasferimenti in corso e completati nel gestore download. Se un download non riesce, verifica la cartella di destinazione e lo spazio disponibile.</li>
+<li><b>Traduzione dei siti web:</b> usa il controllo di traduzione per scegliere una lingua di destinazione o tornare alla pagina originale. La traduzione è fornita dal servizio selezionato e può contenere errori.</li>
+<li><b>Schede e scorciatoie:</b> Ctrl+T apre una nuova scheda; Ctrl+W chiude la scheda corrente; Ctrl+L attiva e seleziona la barra degli indirizzi; Ctrl+R ricarica la pagina; Alt+Freccia sinistra torna indietro; Alt+Freccia destra avanza; Ctrl+Shift+L apre il gestore password; F12 mostra o nasconde gli strumenti per sviluppatori. Le scorciatoie funzionano quando la finestra di LunaSurfer è attiva. In base al contesto, un sito o un campo di immissione può gestire alcuni tasti in modo diverso.</li>
+</ul>
+<h2>10. Elenco completo delle scorciatoie da tastiera</h2>
+<table border="1" cellpadding="7" cellspacing="0"><tr><th>Scorciatoia</th><th>Azione</th></tr>
+<tr><td><b>Ctrl+L</b></td><td>Attiva la barra degli indirizzi e seleziona il testo presente, pronto per inserire un URL o una ricerca.</td></tr>
+<tr><td><b>Ctrl+T</b></td><td>Apre una nuova scheda con la pagina iniziale configurata.</td></tr>
+<tr><td><b>Ctrl+W</b></td><td>Chiude la scheda attiva.</td></tr>
+<tr><td><b>Ctrl+R</b></td><td>Ricarica la pagina nella scheda attiva.</td></tr>
+<tr><td><b>Alt+Freccia sinistra</b></td><td>Torna alla pagina precedente nella cronologia della scheda corrente.</td></tr>
+<tr><td><b>Alt+Freccia destra</b></td><td>Avanza nella cronologia della scheda corrente.</td></tr>
+<tr><td><b>Ctrl+Shift+L</b></td><td>Apre il gestore password. Se l’archivio è bloccato, segui la richiesta di sblocco.</td></tr>
+<tr><td><b>F12</b></td><td>Mostra o nasconde il pannello degli strumenti per sviluppatori, utile per la diagnostica e l’analisi avanzata dei siti. Il pannello può contenere informazioni tecniche sulla pagina, sulle richieste e sugli script.</td></tr></table>
+<p><b>Note sull’uso:</b> la finestra di LunaSurfer deve essere attiva. Le scorciatoie dipendono dal contesto: mentre scrivi in un campo di un sito, il sito o il campo stesso potrebbe intercettare una combinazione di tasti. Premi nuovamente F12 per nascondere gli strumenti per sviluppatori. Questi strumenti sono destinati a utenti esperti; modificare il codice o l’archiviazione della pagina può influire sulla sessione corrente del sito.</p>
+<h2>11. Risoluzione dei problemi e sicurezza</h2>
+<ul>
+<li>Se un sito non funziona, verifica se la causa è JavaScript, cookie, blocco dei pop-up, blocco pubblicità o protezione dell’impronta digitale. Modifica una sola impostazione alla volta.</li>
+<li>Se la compilazione automatica non compare, sblocca l’archivio e controlla che esista una voce per l’indirizzo esatto del sito.</li>
+<li>Se i contenuti multimediali non vengono riprodotti, controlla i codec di sistema e la compatibilità del browser. I contenuti in streaming protetti potrebbero richiedere componenti DRM supportati.</li>
+<li>Controlla il dominio prima di inserire le credenziali. Mantieni LunaSurfer e Debian aggiornati tramite fonti attendibili.</li>
+</ul>
+<p class='tip'><b>Nota sulla privacy:</b> i controlli di privacy riducono determinati segnali e richieste del browser, ma non rendono anonimi. I siti web, i fornitori di rete e il sistema operativo possono continuare a elaborare dati sulle attività.</p><p><i>Goldisoft · LunaSurfer 0.3.49</i></p>"""
+        elif self.settings_data.get("language", "de") == "pl":
+            content = """<h1>LunaSurfer – Pełny podręcznik użytkownika</h1>
+<p>Ten podręcznik opisuje przeglądarkę, ustawienia oraz oddzielny panel Ochrona i prywatność. Nazwy odpowiadają polskiemu interfejsowi programu.</p>
+<h2>1. Ustawienia ogólne</h2>
+<ul>
+<li><b>Język:</b> zmienia język interfejsu LunaSurfer. Podręcznik jest wyświetlany w wybranym języku.</li>
+<li><b>Przy uruchomieniu:</b> można otworzyć stronę startową, przywrócić ostatnią sesję lub otworzyć pustą stronę.</li>
+<li><b>Strona startowa i wyszukiwarka:</b> określają stronę otwieraną po uruchomieniu oraz usługę używaną do wyszukiwania z paska adresu.</li>
+<li><b>Wygląd przeglądarki:</b> wybiera motyw okna. Jasny lub ciemny wygląd witryn można ustawić niezależnie.</li>
+<li><b>Pasek zakładek:</b> pokazuje lub ukrywa zakładki pod paskiem adresu.</li>
+<li><b>Pobieranie:</b> pozwala wybrać folder pobierania, pytać o miejsce zapisu każdego pliku i wyświetlać ostrzeżenia dla plików wykonywalnych.</li>
+</ul>
+<h2>2. Zakładki i historia</h2>
+<ul>
+<li>Użyj ikony gwiazdki, aby zapisać bieżącą stronę w zakładkach.</li>
+<li>Otwórz menedżer zakładek, aby wyszukiwać, edytować, usuwać, importować i eksportować zakładki oraz foldery.</li>
+<li>Historia pokazuje odwiedzone strony. Możesz wyczyścić historię lub wszystkie dane przeglądarki.</li>
+</ul>
+<h2>3. Pobieranie</h2>
+<p>Menedżer pobierania pokazuje aktywne i zakończone transfery. Możesz wyszukiwać pliki, anulować pobieranie, otwierać plik lub jego folder oraz czyścić historię.</p>
+<h2>4. Ochrona i prywatność</h2>
+<ul>
+<li><b>Blokowanie reklam:</b> filtruje znane domeny reklamowe i śledzące. Wyższe poziomy mogą wpływać na działanie niektórych witryn.</li>
+<li><b>Ochrona przed fingerprintingiem:</b> ogranicza wybrane sygnały identyfikacyjne Canvas, audio, WebGL i sprzętu. Silniejsza ochrona może wpływać na zgodność witryn.</li>
+<li><b>Uprawnienia witryn:</b> zarządzaj zapisanymi uprawnieniami do aparatu, mikrofonu, lokalizacji i powiadomień.</li>
+<li><b>Pliki cookie i dane:</b> wybierz tryb obsługi plików cookie oraz wyczyść pamięć podręczną, pliki cookie lub historię. Zakładki i zapisane hasła pozostają zachowane.</li>
+</ul>
+<h2>5. Menedżer haseł</h2>
+<p>Dane logowania są szyfrowane lokalnie. Hasła głównego nie można odzyskać, dlatego przechowuj je bezpiecznie. Odblokuj menedżer, aby przeglądać zapisane dane lub używać automatycznego wypełniania.</p>
+<h2>6. Tłumaczenie stron</h2>
+<p>Menu tłumaczenia umożliwia przetłumaczenie całej strony za pomocą Google Translate lub widocznych fragmentów tekstu za pomocą MyMemory. Możesz także wrócić do oryginalnej strony.</p>
+<h2>7. Zapisywanie ustawień</h2>
+<p>Użyj przycisku <b>Zapisz</b>, aby zachować zmiany ustawień. Niektóre opcje są stosowane natychmiast; inne mogą wymagać ponownego załadowania strony lub restartu przeglądarki.</p>
+<h2>8. Skróty klawiaturowe</h2>
+<table border="1" cellpadding="7" cellspacing="0"><tr><th>Skrót</th><th>Działanie</th></tr>
+<tr><td><b>Ctrl+L</b></td><td>Aktywuje pasek adresu i zaznacza jego zawartość.</td></tr>
+<tr><td><b>Ctrl+T</b></td><td>Otwiera nową kartę.</td></tr><tr><td><b>Ctrl+W</b></td><td>Zamyka aktywną kartę.</td></tr>
+<tr><td><b>Ctrl+R</b></td><td>Ponownie ładuje bieżącą stronę.</td></tr><tr><td><b>Alt+strzałka w lewo</b></td><td>Przechodzi do poprzedniej strony.</td></tr>
+<tr><td><b>Alt+strzałka w prawo</b></td><td>Przechodzi do następnej strony.</td></tr><tr><td><b>Ctrl+Shift+L</b></td><td>Otwiera menedżer haseł.</td></tr>
+<tr><td><b>F12</b></td><td>Pokazuje lub ukrywa narzędzia deweloperskie.</td></tr></table>
+<h2>9. Rozwiązywanie problemów i bezpieczeństwo</h2>
+<ul><li>Jeśli witryna nie działa prawidłowo, sprawdź JavaScript, pliki cookie, blokowanie wyskakujących okien, blokowanie reklam i ochronę przed fingerprintingiem. Zmieniaj jedną opcję naraz.</li>
+<li>Jeśli automatyczne wypełnianie nie działa, odblokuj sejf i sprawdź, czy istnieje wpis dla dokładnego adresu witryny.</li>
+<li>Przed wpisaniem danych logowania sprawdź domenę. Aktualizuj LunaSurfer i Debian z zaufanych źródeł.</li></ul>
+<p class='tip'><b>Prywatność:</b> funkcje ochrony ograniczają wybrane sygnały przeglądarki, ale nie zapewniają anonimowości.</p>
+<p><i>Goldisoft · LunaSurfer 0.3.49</i></p>"""
+        elif selected_language == "ru":
+            content = """<h1>LunaSurfer – Полное руководство пользователя</h1>
+<p>Это руководство описывает основные функции браузера, параметры настроек и отдельное окно «Защита и конфиденциальность».</p>
+<h2>1. Общие настройки</h2><ul>
+<li><b>Язык:</b> выбирает язык интерфейса, меню и диалоговых окон. Руководство отображается на выбранном языке.</li>
+<li><b>При запуске:</b> можно открыть домашнюю страницу, восстановить предыдущий сеанс или открыть пустую страницу.</li>
+<li><b>Домашняя страница и поисковая система:</b> задают страницу запуска и службу поиска для запросов из адресной строки. Доступны Google, DuckDuckGo и Bing.</li>
+<li><b>Служба перевода:</b> Google Translate переводит всю страницу; MyMemory переводит видимые фрагменты текста без ключа API и имеет дневной бесплатный лимит.</li>
+<li><b>Оформление браузера:</b> выбирает тему окна. Светлый или тёмный вид веб-сайтов настраивается отдельно.</li>
+<li><b>Панель закладок:</b> показывает или скрывает панель под адресной строкой.</li>
+<li><b>Загрузки:</b> задаёт папку загрузок и позволяет спрашивать место сохранения каждого файла. Можно включить предупреждение о загружаемых исполняемых файлах.</li>
+<li><b>Масштаб и размер шрифта:</b> задают начальный масштаб страницы (50–200 %) и стандартный размер текста.</li>
+<li><b>Читаемость и цвета сайтов:</b> режим «Оригинал» сохраняет исходные цвета; принудительный тёмный режим может отображать некоторые сайты некорректно. При проблемах верните обычную читаемость.</li></ul>
+<h2>2. Безопасность и разрешения</h2><ul>
+<li><b>Блокировка всплывающих окон:</b> блокирует нежелательные окна. Отключайте её только временно для доверенных сайтов.</li>
+<li><b>JavaScript:</b> разрешает выполнение сценариев. Многие современные сайты требуют его; отключение может нарушить меню, вход, видео и другие функции.</li>
+<li><b>Разрешения сайтов:</b> для камеры, микрофона, местоположения и уведомлений доступны варианты «Спрашивать», «Разрешить» и «Блокировать». Предоставляйте доступ только доверенным сайтам.</li>
+<li><b>Do Not Track:</b> отправляет необязательный сигнал запрета отслеживания; сайты не обязаны его соблюдать.</li></ul>
+<h2>3. Управление User-Agent</h2><ul>
+<li><b>Стандарт конфиденциальности:</b> использует сокращённую идентификацию браузера Chrome, уменьшая раскрытие сведений о версии и платформе.</li>
+<li><b>Родной User-Agent:</b> использует обычную строку идентификации движка браузера.</li>
+<li><b>Пользовательский User-Agent:</b> применяет введённую вами полную строку. Пустое значение сохранить нельзя.</li>
+<li><b>Текущий:</b> показывает фактически используемую строку. User-Agent меняет идентификацию, но не движок и реальные возможности браузера.</li></ul>
+<h2>4. Менеджер паролей</h2><ul>
+<li>Данные входа шифруются локально и защищаются мастер-паролем. Откройте менеджер и разблокируйте хранилище для управления записями и автозаполнения.</li>
+<li>Можно включить предложение сохранить пароль после успешного входа. Для автозаполнения может требоваться разблокировка хранилища.</li>
+<li>Записи привязаны к адресу сайта. Проверяйте сайт и учётную запись перед сохранением или обновлением.</li>
+<li>Удаление сохранённых паролей не меняет пароли на самих сайтах. Мастер-пароль нельзя восстановить: храните его в надёжном месте и делайте резервные копии хранилища.</li></ul>
+<h2>5. Конфиденциальность и данные браузера</h2><ul>
+<li><b>Режим cookie:</b> можно разрешить все cookie, блокировать сторонние или все cookie либо разрешить только сеансовые cookie. Строгие ограничения могут нарушить вход и работу сайтов.</li>
+<li><b>Очистка данных:</b> отдельно или вместе можно удалить историю, кэш и cookie. После удаления cookie сайты могут выйти из учётной записи. Закладки и сохранённые пароли при обычной очистке этих данных сохраняются.</li>
+<li><b>Автоматическая очистка:</b> позволяет очищать историю, кэш и cookie при выходе из LunaSurfer.</li>
+<li><b>Размер и положение окна:</b> можно запоминать для следующего запуска. Параметр браузера по умолчанию просит рабочее окружение использовать LunaSurfer для веб-ссылок.</li></ul>
+<h2>6. Окно «Защита и конфиденциальность»</h2><h3>Блокировщик рекламы</h3><ul>
+<li>Включает или отключает фильтрацию рекламных и отслеживающих доменов. Уровни от стандартного до Ultra Strong фильтруют всё больше шаблонов, но могут нарушать работу некоторых сайтов.</li>
+<li>Пользовательские блокирующие шаблоны и домены исключений вводятся через точку с запятой. Добавляйте исключения только для доверенных сайтов.</li></ul>
+<h3>Защита от цифрового отпечатка</h3><ul>
+<li>Снижает объём идентифицирующих сигналов Canvas, Audio, WebGL и оборудования. Более высокий уровень может повлиять на совместимость сайтов.</li>
+<li>Изменения защиты применяются настройками браузера; защита не делает пользователя анонимным.</li></ul>
+<h2>7. Закладки, история и загрузки</h2><ul>
+<li>Нажмите значок звёздочки, чтобы добавить текущую страницу в закладки. В менеджере закладок можно искать, редактировать, удалять, импортировать и экспортировать записи и папки.</li>
+<li>Менеджер загрузок показывает активные, завершённые, приостановленные и неудачные загрузки. Можно искать файлы, отменять загрузки, открывать файл или папку и очищать историю.</li></ul>
+<h2>8. Перевод веб-страниц</h2><p>Используйте меню перевода для перевода всей страницы через Google Translate или видимых текстовых фрагментов через MyMemory. Команда возврата к оригиналу открывает исходную страницу. Качество перевода зависит от службы.</p>
+<h2>9. Горячие клавиши</h2><table border="1" cellpadding="7" cellspacing="0"><tr><th>Клавиши</th><th>Действие</th></tr><tr><td>Ctrl+L</td><td>Выделить адресную строку</td></tr><tr><td>Ctrl+T</td><td>Открыть новую вкладку</td></tr><tr><td>Ctrl+W</td><td>Закрыть текущую вкладку</td></tr><tr><td>Ctrl+R</td><td>Перезагрузить страницу</td></tr><tr><td>Alt+Стрелка влево / вправо</td><td>Назад / вперёд</td></tr><tr><td>Ctrl+Shift+L</td><td>Открыть менеджер паролей</td></tr><tr><td>F12</td><td>Показать или скрыть инструменты разработчика</td></tr></table>
+<h2>10. Устранение неполадок и безопасность</h2><ul><li>Если сайт работает неправильно, проверьте JavaScript, cookie, всплывающие окна, блокировщик рекламы и защиту от цифрового отпечатка. Меняйте только один параметр за раз.</li><li>Если автозаполнение не появляется, разблокируйте хранилище и проверьте наличие записи для точного адреса сайта.</li><li>Перед вводом учётных данных проверяйте домен. Обновляйте LunaSurfer и Debian из доверенных источников.</li></ul>
+<p class='tip'><b>Конфиденциальность:</b> средства защиты уменьшают некоторые сигналы браузера, но не обеспечивают анонимность. Сайты, сетевые провайдеры и операционная система могут продолжать обрабатывать данные.</p><p><i>Goldisoft · LunaSurfer 0.3.49</i></p>"""
+        elif selected_language == "ja":
+            content = """<h1>LunaSurfer – 完全ユーザーガイド</h1>
+<p>このガイドでは、ブラウザーの主な機能、設定項目、および独立した「保護とプライバシー」画面について説明します。</p>
+<h2>1. 基本設定</h2><ul>
+<li><b>言語：</b>インターフェース、メニュー、ダイアログの言語を選択します。ガイドも選択した言語で表示されます。</li>
+<li><b>起動時：</b>ホームページを開く、前回のセッションを復元する、空白ページを開く、のいずれかを選べます。</li>
+<li><b>ホームページと検索エンジン：</b>起動時のページと、アドレスバーから検索するときのサービスを設定します。Google、DuckDuckGo、Bingを利用できます。</li>
+<li><b>翻訳サービス：</b>Google Translateはウェブページ全体を翻訳します。MyMemoryはAPIキーなしで表示中のテキスト部分を翻訳しますが、無料利用には1日の上限があります。</li>
+<li><b>ブラウザーのデザイン：</b>ウィンドウのテーマを選びます。ウェブサイトのライト／ダーク表示は別に設定できます。</li>
+<li><b>ブックマークバー：</b>アドレスバーの下にあるバーを表示または非表示にします。</li>
+<li><b>ダウンロード：</b>保存先フォルダーを指定し、毎回保存場所を尋ねる設定にもできます。実行可能ファイルの安全警告も設定できます。</li>
+<li><b>ズームと文字サイズ：</b>初期ズーム（50～200%）と標準の文字サイズを設定します。</li>
+<li><b>読みやすさとウェブサイトの色：</b>「オリジナル」はサイト本来の色を維持します。強制ダーク表示では一部サイトが正しく表示されない場合があります。問題があれば通常の表示に戻してください。</li></ul>
+<h2>2. セキュリティと権限</h2><ul>
+<li><b>ポップアップをブロック：</b>不要なポップアップをブロックします。信頼できるサイトで必要な場合のみ一時的に無効にしてください。</li>
+<li><b>JavaScript：</b>ウェブサイトのスクリプト実行を許可します。多くのサイトで必要なため、無効にするとメニュー、ログイン、動画などが動作しない場合があります。</li>
+<li><b>サイトの権限：</b>カメラ、マイク、位置情報、通知ごとに「確認」「許可」「ブロック」を設定できます。信頼できるサイトに必要な場合だけ許可してください。</li>
+<li><b>Do Not Track：</b>任意の追跡拒否信号を送信します。サイト側に対応義務はありません。</li></ul>
+<h2>3. User-Agent の管理</h2><ul>
+<li><b>プライバシー標準：</b>簡略化したChrome形式の識別情報を使用し、バージョンやプラットフォームの詳細公開を抑えます。</li>
+<li><b>標準ブラウザー User-Agent：</b>ブラウザーエンジン標準の文字列を使用します。</li>
+<li><b>カスタム User-Agent：</b>入力した完全な文字列を使用します。空欄のまま保存することはできません。</li>
+<li><b>現在：</b>実際に使用されている文字列を表示します。User-Agentは識別情報を変えるもので、ブラウザーエンジンや実際の機能を変更するものではありません。</li></ul>
+<h2>4. パスワードマネージャー</h2><ul>
+<li>保存したログイン情報はローカルで暗号化され、マスターパスワードで保護されます。管理や自動入力の前に保管庫のロック解除が必要な場合があります。</li>
+<li>ログイン成功後にパスワード保存を提案する設定や、自動入力前にロック解除を必須にする設定があります。</li>
+<li>ログイン情報はメールアドレスだけでなくウェブサイトに紐付けられます。保存・更新の前にサイトとアカウントを確認してください。</li>
+<li>保存済みパスワードを削除しても、ウェブサイト上のパスワードは変更されません。マスターパスワードは復元できません。安全に保管し、保管庫のバックアップを作成してください。</li></ul>
+<h2>5. プライバシーとブラウザーデータ</h2><ul>
+<li><b>Cookie モード：</b>すべて許可、サードパーティーをブロック、すべてブロック、セッションCookieのみ許可、から選択できます。制限を強くするとログインやサイト機能に影響する場合があります。</li>
+<li><b>データの消去：</b>閲覧履歴、キャッシュ、Cookieを個別またはまとめて削除できます。Cookieを削除するとサイトからログアウトされる場合があります。通常の消去ではブックマークと保存済みパスワードは保持されます。</li>
+<li><b>終了時の自動消去：</b>LunaSurfer終了時に履歴、キャッシュ、Cookieをそれぞれ消去できます。</li>
+<li><b>ウィンドウサイズと位置：</b>次回起動時のために記憶できます。既定のブラウザー設定は、デスクトップ環境にWebリンクでLunaSurferを使用するよう要求します。</li></ul>
+<h2>6. 「保護とプライバシー」画面</h2><h3>広告ブロッカー</h3><ul>
+<li>広告およびトラッキングドメインのフィルターを有効／無効にします。標準からUltra Strongまで強度を選べます。強度を上げると多くをブロックできますが、一部サイトの機能に影響する場合があります。</li>
+<li>独自のブロックパターンと除外ドメインはセミコロンで区切って入力します。除外は信頼できるサイトに限ってください。</li></ul>
+<h3>フィンガープリント保護</h3><ul>
+<li>Canvas、Audio、WebGL、ハードウェアなど、識別に使われるブラウザー信号の公開を抑えます。保護を強めるとサイトとの互換性に影響する場合があります。</li>
+<li>この機能は匿名性を保証するものではありません。</li></ul>
+<h2>7. ブックマーク、履歴、ダウンロード</h2><ul>
+<li>星のアイコンで現在のページをブックマークに追加できます。管理画面では検索、編集、削除、インポート、エクスポート、フォルダー管理ができます。</li>
+<li>ダウンロードマネージャーには進行中、完了、一時停止、失敗した項目が表示されます。ファイル検索、ダウンロードのキャンセル、ファイルやフォルダーを開く操作、履歴の消去ができます。</li></ul>
+<h2>8. ウェブページの翻訳</h2><p>翻訳メニューからGoogle Translateによるページ全体の翻訳、またはMyMemoryによる表示テキスト部分の翻訳を選べます。「元のページを表示」で原文に戻れます。翻訳品質はサービスによって異なります。</p>
+<h2>9. キーボードショートカット</h2><table border="1" cellpadding="7" cellspacing="0"><tr><th>キー</th><th>操作</th></tr><tr><td>Ctrl+L</td><td>アドレスバーを選択</td></tr><tr><td>Ctrl+T</td><td>新しいタブを開く</td></tr><tr><td>Ctrl+W</td><td>現在のタブを閉じる</td></tr><tr><td>Ctrl+R</td><td>ページを再読み込み</td></tr><tr><td>Alt+左／右矢印</td><td>戻る／進む</td></tr><tr><td>Ctrl+Shift+L</td><td>パスワードマネージャーを開く</td></tr><tr><td>F12</td><td>開発者ツールの表示／非表示</td></tr></table>
+<h2>10. トラブルシューティングと安全</h2><ul><li>サイトが正しく動作しない場合は、JavaScript、Cookie、ポップアップブロック、広告ブロッカー、フィンガープリント保護を確認してください。一度に変更する設定は一つにしてください。</li><li>自動入力が表示されない場合は、保管庫のロックを解除し、その正確なサイトURLのログイン情報があるか確認してください。</li><li>ログイン情報を入力する前にドメインを確認してください。LunaSurferとDebianは信頼できる配布元から更新してください。</li></ul>
+<p class='tip'><b>プライバシーに関する注意：</b>保護機能は一部のブラウザー信号を減らしますが、匿名性を保証しません。ウェブサイト、ネットワーク事業者、OSは引き続き利用データを処理する場合があります。</p><p><i>Goldisoft · LunaSurfer 0.3.49</i></p>"""
+        elif selected_language == "zh-CN":
+            content = """<h1>LunaSurfer – 完整用户指南</h1>
+<p>本指南介绍浏览器的主要功能、设置选项，以及独立的“保护与隐私”窗口。</p>
+<h2>1. 常规设置</h2><ul>
+<li><b>语言：</b>选择界面、菜单和对话框的语言。此指南会随所选语言切换。</li>
+<li><b>启动时：</b>可以打开主页、恢复上次会话，或打开空白页面。</li>
+<li><b>主页和搜索引擎：</b>设置启动页面，以及在地址栏输入搜索内容时使用的服务。可选 Google、DuckDuckGo 或 Bing。</li>
+<li><b>翻译服务：</b>Google Translate 翻译整个网页；MyMemory 无需 API 密钥即可翻译可见文本片段，但有每日免费额度限制。</li>
+<li><b>浏览器外观：</b>选择浏览器窗口主题。网页的浅色或深色显示可单独设置。</li>
+<li><b>书签栏：</b>显示或隐藏地址栏下方的书签工具栏。</li>
+<li><b>下载：</b>设置下载文件夹，也可以选择每次下载时询问保存位置。还可以设置可执行文件下载安全警告。</li>
+<li><b>缩放和字体：</b>设置网页初始缩放比例（50%–200%）和默认文字大小。</li>
+<li><b>网页可读性与颜色：</b>“原始”保留网站原有颜色；强制深色模式可能导致个别网站显示异常。如有问题，请恢复普通显示。</li></ul>
+<h2>2. 安全与权限</h2><ul>
+<li><b>阻止弹出窗口：</b>拦截不需要的弹出窗口。只有可信网站确实需要时才临时关闭。</li>
+<li><b>启用 JavaScript：</b>允许网站运行脚本。许多现代网站依赖 JavaScript；关闭后菜单、登录、视频等功能可能无法使用。</li>
+<li><b>网站权限：</b>摄像头、麦克风、位置和通知分别支持“询问”“允许”“阻止”。只向可信网站授予必要权限。</li>
+<li><b>Do Not Track 请求：</b>发送可选的禁止跟踪信号，但网站没有义务遵守。</li></ul>
+<h2>3. User-Agent 管理</h2><ul>
+<li><b>隐私默认设置：</b>使用精简的 Chrome 风格浏览器标识，减少暴露的版本和平台细节。</li>
+<li><b>原生浏览器 User-Agent：</b>使用浏览器引擎默认的标识字符串。</li>
+<li><b>自定义 User-Agent：</b>使用输入的完整字符串。自定义值不能为空。</li>
+<li><b>当前值：</b>显示实际生效的 User-Agent。它只改变浏览器标识，不会改变浏览器引擎或实际功能。</li></ul>
+<h2>4. 密码管理器</h2><ul>
+<li>保存的登录信息在本地加密，并由主密码保护。管理记录或自动填充前，可能需要先解锁密码库。</li>
+<li>可以设置在成功登录后提示保存密码，也可以要求自动填充前必须解锁密码库。</li>
+<li>登录信息与具体网站关联，而不只是与电子邮件地址关联。保存或更新前请核对网站和账户。</li>
+<li>删除已保存密码不会更改网站本身的密码。主密码无法恢复，请妥善保管，并为加密密码库创建安全备份。</li></ul>
+<h2>5. 隐私和浏览器数据</h2><ul>
+<li><b>Cookie 模式：</b>可以允许所有 Cookie、阻止第三方 Cookie、阻止所有 Cookie，或仅允许会话 Cookie。限制过严可能影响登录和网站功能。</li>
+<li><b>清除数据：</b>可以分别或一起清除浏览历史、缓存和 Cookie。清除 Cookie 后，网站可能要求重新登录。常规清理不会删除书签和已保存密码。</li>
+<li><b>退出时自动清除：</b>可分别设置退出 LunaSurfer 时清除历史、缓存和 Cookie。</li>
+<li><b>记住窗口大小和位置：</b>下次启动时恢复窗口尺寸和位置。将 LunaSurfer 设为默认浏览器会请求桌面环境使用它打开网页链接。</li></ul>
+<h2>6. “保护与隐私”窗口</h2><h3>广告拦截器</h3><ul>
+<li>启用或关闭广告和跟踪域名过滤。强度从标准到 Ultra Strong 可选；级别越高，过滤越多，但可能影响部分网站功能。</li>
+<li>自定义拦截规则和白名单域名使用分号分隔。只将可信网站加入白名单。</li></ul>
+<h3>指纹保护</h3><ul>
+<li>减少 Canvas、Audio、WebGL 和硬件等可用于识别浏览器的信号。更强的保护可能影响网站兼容性。</li>
+<li>指纹保护不能保证匿名。</li></ul>
+<h2>7. 书签、历史记录和下载</h2><ul>
+<li>点击星形图标可将当前网页加入书签。书签管理器支持搜索、编辑、删除、导入、导出和文件夹管理。</li>
+<li>下载管理器显示正在下载、已完成、已暂停和失败的项目。可以搜索文件、取消下载、打开文件或文件夹，以及清理下载历史。</li></ul>
+<h2>8. 网页翻译</h2><p>通过翻译菜单，可以使用 Google Translate 翻译整个网页，或使用 MyMemory 翻译可见文本片段。选择“显示原始页面”可返回原网页。翻译质量取决于所选服务。</p>
+<h2>9. 键盘快捷键</h2><table border="1" cellpadding="7" cellspacing="0"><tr><th>快捷键</th><th>操作</th></tr><tr><td>Ctrl+L</td><td>选中地址栏</td></tr><tr><td>Ctrl+T</td><td>打开新标签页</td></tr><tr><td>Ctrl+W</td><td>关闭当前标签页</td></tr><tr><td>Ctrl+R</td><td>重新加载页面</td></tr><tr><td>Alt+左／右方向键</td><td>后退／前进</td></tr><tr><td>Ctrl+Shift+L</td><td>打开密码管理器</td></tr><tr><td>F12</td><td>显示或隐藏开发者工具</td></tr></table>
+<h2>10. 故障排除与安全</h2><ul><li>网站无法正常工作时，请检查 JavaScript、Cookie、弹出窗口拦截、广告拦截器和指纹保护。每次只更改一项设置。</li><li>自动填充没有出现时，请解锁密码库，并确认是否存在与该网站准确地址对应的登录记录。</li><li>输入登录信息前请核对域名。请从可信来源更新 LunaSurfer 和 Debian。</li></ul>
+<p class='tip'><b>隐私提示：</b>隐私功能可以减少部分浏览器信号，但不能让用户匿名。网站、网络服务提供商和操作系统仍可能处理使用数据。</p><p><i>Goldisoft · LunaSurfer 0.3.49</i></p>"""
         else:
             content = """<h1>LunaSurfer – Vollständige Anleitung</h1>
 <p>Diese Anleitung erklärt den Browser und sämtliche Einträge der aktuellen Einstellungsseite sowie das separate Fenster „Schutz &amp; Privatsphäre“. Die Bezeichnungen entsprechen der deutschen Programmoberfläche.</p>
@@ -6013,7 +8008,20 @@ class LunaSurfer(QMainWindow):
         page_layout.addWidget(scroll)
         tab_index = self.tabs.addTab(page, "⚙ " + self.tr("Einstellungen", "Settings"))
         self.tabs.setCurrentIndex(tab_index)
-        language = QComboBox(); language.addItem("Deutsch", "de"); language.addItem("English", "en"); language.setCurrentIndex(max(0, language.findData(self.settings_data.get("language", "de"))))
+        language = QComboBox()
+        language.addItem("Deutsch", "de")
+        language.addItem("English", "en")
+        language.addItem("Français", "fr")
+        language.addItem("Italiano", "it")
+        language.addItem("Nederlands", "nl")
+        language.addItem("Español", "es")
+        language.addItem("Português", "pt")
+        language.addItem("Polski", "pl")
+        language.addItem("Türkçe", "tr")
+        language.addItem("Русский", "ru")
+        language.addItem("日本語", "ja")
+        language.addItem("中文（简体）", "zh-CN")
+        language.setCurrentIndex(max(0, language.findData(self.settings_data.get("language", "de"))))
         startup = QComboBox(); startup.addItem(self.tr("Startseite öffnen", "Open homepage"), "home"); startup.addItem(self.tr("Letzte Sitzung wiederherstellen", "Restore last session"), "restore"); startup.addItem(self.tr("Leere Seite öffnen", "Open blank page"), "blank")
         startup.setCurrentIndex(max(0, startup.findData(self.settings_data.get("startup_mode", "home"))))
         home = QLineEdit(self.settings_data.get("home", "https://duckduckgo.com"))
@@ -6385,17 +8393,12 @@ def main():
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("Goldisoft")
     # Install the matching Qt widget translations before creating the window.
-    # The browser's saved language setting controls the dialog language too.
+    # This same helper is called again whenever the user changes the UI language.
     try:
         saved_language = read_json(CONFIG_FILE, {}).get("language", "de")
     except Exception:
         saved_language = "de"
-    qt_translator = QTranslator(app)
-    translations_path = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
-    qt_language = "en" if saved_language == "en" else "de"
-    if qt_translator.load(f"qtbase_{qt_language}", translations_path):
-        app.installTranslator(qt_translator)
-    QLocale.setDefault(QLocale(qt_language))
+    refresh_qt_dialog_language(saved_language)
     window = LunaSurfer()
     # Desktop launchers pass the requested URL via %U.  Load it after the
     # startup tab has been created so the requested page replaces the homepage.

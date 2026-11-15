@@ -1,4 +1,4 @@
-# LunaSurfer 0.3.48
+# LunaSurfer 0.3.49
 
 Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 
@@ -34,6 +34,7 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 - Passwortmanager mit Argon2id-Schlüsselableitung, 128 MiB Speicherbedarf und automatischer Migration vorhandener PBKDF2-Tresore
 - User-Agent-Verwaltung: Datenschutz-Standard, nativer QtWebEngine-User-Agent oder eigener User-Agent; Änderungen werden ohne Browserneustart übernommen
 - Webseiten-Übersetzung über die Schaltfläche „文“: ganze Seiten in 12 Zielsprachen übersetzen und zur Originalseite zurückkehren (Google Übersetzer; Internetverbindung erforderlich)
+- Der Browser hat jetzt auch 12 Sprachen.
 - usw.
 
 ## Lesezeichen bearbeiten und verwalten
@@ -61,7 +62,7 @@ sudo apt install python3 python3-pyside6.qtwidgets python3-pyside6.qtwebenginewi
 ## Installation
 
 ```bash
-sudo apt install ./lunasurfer_0.3.48_all.deb
+sudo apt install ./lunasurfer_0.3.49_all.deb
 ```
 
 ## Start aus dem Quellcode
