@@ -1,9 +1,9 @@
 Changelog
 
 ## 0.3.49 - 10 Sprachen hinzugefügt
-- Italienisch, Niederländisch, Französisch, Polnisch, Portugisisch, Spanisch, Russisch, Japanisch, Chinesisch, Türkisch hinzugefügt.
+- Italienisch, Niederländisch, Französisch, Polnisch, Portugisisch, Spanisch, Russisch, Japanisch, Chinesisch, Türkisch hinzugefügt. 
 
-## 0.3.48 – DOWNLOAD-HISTORY UND DOWNLOAD-MANAGER
+##  0.3.48 – DOWNLOAD-HISTORY UND DOWNLOAD-MANAGER
 
 - Die gespeicherte Download-History wird beim Browserstart im Hintergrund eingelesen, ohne den GUI-Thread zu blockieren.
 - Beim Öffnen des Download-Managers wird der laufende bzw. abgeschlossene Ladevorgang übernommen.
