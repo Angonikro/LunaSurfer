@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.46 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.48 - Qt 6 / QtWebEngine browser."""
 import json
 import pathlib
 import sys
@@ -25,7 +25,7 @@ if WIDEVINE_CDM.is_file():
     if widevine_flag not in existing_flags:
         os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (existing_flags + " " + widevine_flag).strip()
 
-from PySide6.QtCore import QUrl, QSize, QPoint, Qt, QTimer, QEvent, QObject, Slot, QTranslator, QLocale, QLibraryInfo, QFile, QIODevice
+from PySide6.QtCore import QUrl, QSize, QPoint, Qt, QTimer, QEvent, QObject, Slot, Signal, QThread, QTranslator, QLocale, QLibraryInfo, QFile, QIODevice
 from PySide6.QtGui import QAction, QKeySequence, QIcon
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QToolBar, QLineEdit, QToolButton, QWidgetAction,
@@ -354,6 +354,21 @@ class StoredDownload:
     def receivedBytes(self): return self._received
     def totalBytes(self): return self._total
     def cancel(self): return None
+
+
+class DownloadHistoryLoader(QThread):
+    """Read the existing download-history file without blocking the GUI."""
+    records_loaded = Signal(object)
+
+    def __init__(self, path, parent=None):
+        super().__init__(parent)
+        self.path = pathlib.Path(path)
+        self.records = []
+
+    def run(self):
+        records = read_json(self.path, [])
+        self.records = records if isinstance(records, list) else []
+        self.records_loaded.emit(self.records)
 
 
 class ChromiumBookmarksParser(HTMLParser):
@@ -980,21 +995,35 @@ class BrowserView(QWebEngineView):
                     const nodes = document.elementsFromPoint
                         ? document.elementsFromPoint(x, y)
                         : [document.elementFromPoint(x, y)];
+                    let link = '';
+                    let image = '';
                     for (const node of nodes) {
-                        let el = node;
-                        while (el) {
-                            if (el.matches && el.matches('a[href]')) return el.href;
-                            el = el.parentElement;
+                        if (!node) continue;
+                        if (!image) {
+                            const img = node.matches && node.matches('img')
+                                ? node : (node.closest ? node.closest('img') : null);
+                            if (img) image = img.currentSrc || img.src || '';
                         }
+                        if (!link) {
+                            let el = node;
+                            while (el) {
+                                if (el.matches && el.matches('a[href]')) {
+                                    link = el.href;
+                                    break;
+                                }
+                                el = el.parentElement;
+                            }
+                        }
+                        if (link && image) break;
                     }
-                    return '';
+                    return JSON.stringify({link: link, image: image});
                 })(%d, %d)
             """ % (local_pos.x(), local_pos.y())
             fallback_url = link_url.toString()
             self.page().runJavaScript(
                 js,
                 lambda result, gp=global_pos, fallback=fallback_url:
-                    self._show_context_menu_at(gp, result if result else fallback)
+                    self._show_context_menu_from_hit_test(gp, result, fallback)
             )
             return
         except Exception as exc:
@@ -1009,7 +1038,20 @@ class BrowserView(QWebEngineView):
             except Exception:
                 pass
 
-    def _show_context_menu_at(self, global_pos, clicked_link=""):
+    def _show_context_menu_from_hit_test(self, global_pos, result, fallback_link=""):
+        try:
+            hit = json.loads(result) if isinstance(result, str) else {}
+        except (TypeError, ValueError):
+            hit = {}
+        if not isinstance(hit, dict):
+            hit = {}
+        self._show_context_menu_at(
+            global_pos,
+            hit.get("link") or fallback_link,
+            hit.get("image") or ""
+        )
+
+    def _show_context_menu_at(self, global_pos, clicked_link="", clicked_image=""):
         """Build a lightweight, icon-free menu using only ordinary QMenu actions."""
         menu = QMenu(self)
         is_english = self.window_ref.settings_data.get("language", "de") == "en"
@@ -1031,6 +1073,10 @@ class BrowserView(QWebEngineView):
             "copy": "Copy" if is_english else "Kopieren",
             "paste": "Paste" if is_english else "Einfügen",
             "find_page": "Find on this page…" if is_english else "Diese Seite durchsuchen…",
+            "view_image": "View image" if is_english else "Bild anzeigen",
+            "copy_image": "Copy image address" if is_english else "Bild-Adresse kopieren",
+            "save_image": "Save image" if is_english else "Bild speichern",
+            "save_image_as": "Save image as…" if is_english else "Bild speichern unter …",
         }
 
         history = self.history()
@@ -1059,6 +1105,25 @@ class BrowserView(QWebEngineView):
             menu.addAction(
                 labels["copy_page"],
                 lambda u=self.url().toString(): QApplication.clipboard().setText(u)
+            )
+
+        if clicked_image:
+            menu.addSeparator()
+            menu.addAction(
+                labels["view_image"],
+                lambda u=clicked_image: self.window_ref.add_tab(u, switch=True)
+            )
+            menu.addAction(
+                labels["copy_image"],
+                lambda u=clicked_image: QApplication.clipboard().setText(u)
+            )
+            menu.addAction(
+                labels["save_image"],
+                lambda u=clicked_image: self.download_image(u, save_as=False)
+            )
+            menu.addAction(
+                labels["save_image_as"],
+                lambda u=clicked_image: self.download_image(u, save_as=True)
             )
 
         try:
@@ -1099,6 +1164,26 @@ class BrowserView(QWebEngineView):
         menu.addAction(labels["reload_cache"], self.reload_bypass_cache)
         menu.addAction(labels["devtools"], self.window_ref.show_devtools)
         menu.exec(global_pos)
+
+    def download_image(self, image_url, save_as=False):
+        """Download the image under its original name or a user-selected path."""
+        image_qurl = QUrl(str(image_url))
+        if not image_qurl.isValid() or image_qurl.isEmpty():
+            return
+        if save_as:
+            image_name = pathlib.PurePosixPath(
+                urllib.parse.urlparse(str(image_url)).path
+            ).name or "image"
+            suggested = self.window_ref.download_dir / safe_download_filename(image_name)
+            title = "Save image as" if self.window_ref.settings_data.get("language", "de") == "en" else "Bild speichern unter"
+            selected, _ = QFileDialog.getSaveFileName(
+                self.window_ref, title, str(suggested),
+                "All files (*.*)" if self.window_ref.settings_data.get("language", "de") == "en" else "Alle Dateien (*.*)"
+            )
+            if not selected:
+                return
+            self.window_ref._next_download_path = pathlib.Path(selected).expanduser()
+        self.page().download(image_qurl)
 
     def save_page_as(self):
         """Ask for the exact destination before triggering QtWebEngine's Save Page."""
@@ -1394,7 +1479,10 @@ class LunaSurfer(QMainWindow):
         self.cookie_store.setCookieFilter(self.cookie_filter_callback)
         self.apply_cookie_mode()
         self.download_items = []
-        self.load_download_history()
+        self._download_history_loaded = False
+        self._download_history_loading = False
+        self._download_history_ready_callbacks = []
+        self._download_history_loader = None
         self.privacy_interceptor = PrivacyInterceptor(self)
         self.profile.setUrlRequestInterceptor(self.privacy_interceptor)
         self.profile.downloadRequested.connect(self.on_download)
@@ -1631,6 +1719,8 @@ class LunaSurfer(QMainWindow):
         self.apply_browser_design()
         self.restore_or_open_start_page()
         self.set_shortcuts()
+        # Read the existing download history after startup without blocking the UI.
+        self._start_download_history_load()
 
     def apply_browser_design(self):
         """Apply the selected LunaSurfer chrome design immediately."""
@@ -3556,9 +3646,8 @@ class LunaSurfer(QMainWindow):
         cancel.clicked.connect(dialog.reject)
         dialog.exec()
 
-    def load_download_history(self):
-        """Restore persistent download records without pretending interrupted jobs resumed."""
-        records = read_json(DOWNLOADS_FILE, [])
+    def _restore_download_history_records(self, records):
+        """Restore persistent download records on the GUI thread."""
         if not isinstance(records, list):
             records = []
         for record in records:
@@ -3588,6 +3677,52 @@ class LunaSurfer(QMainWindow):
                 "status": status,
                 "downloaded_at": stored.get("downloaded_at", "")
             })
+
+    def _start_download_history_load(self, on_ready=None):
+        """Start one background read; callers may register a UI refresh callback."""
+        if on_ready is not None:
+            self._download_history_ready_callbacks.append(on_ready)
+        if self._download_history_loaded:
+            callbacks = self._download_history_ready_callbacks
+            self._download_history_ready_callbacks = []
+            for callback in callbacks:
+                try:
+                    callback()
+                except Exception:
+                    pass
+            return
+        if self._download_history_loading:
+            return
+        self._download_history_loading = True
+        loader = DownloadHistoryLoader(DOWNLOADS_FILE, self)
+        self._download_history_loader = loader
+        loader.records_loaded.connect(self._on_download_history_loaded)
+        loader.finished.connect(self._on_download_history_loader_finished)
+        loader.start()
+
+    def _on_download_history_loaded(self, records):
+        """Apply records read in the background and notify waiting UI callbacks."""
+        if self._download_history_loaded:
+            return
+        self._restore_download_history_records(records)
+        self._download_history_loaded = True
+        self._download_history_loading = False
+        callbacks = self._download_history_ready_callbacks
+        self._download_history_ready_callbacks = []
+        for callback in callbacks:
+            try:
+                callback()
+            except Exception:
+                pass
+
+    def _on_download_history_loader_finished(self):
+        loader = self._download_history_loader
+        if loader is not None and not self._download_history_loaded:
+            # Normally records_loaded arrives first. This fallback also covers
+            # a thread finishing while the window is closing.
+            self._on_download_history_loaded(loader.records)
+        self._download_history_loader = None
+
 
     @staticmethod
     def _download_status(item):
@@ -3765,12 +3900,11 @@ class LunaSurfer(QMainWindow):
                     return entry, index
             return None, -1
 
-        def update_row(item, now):
+        def update_row(item, now, status):
             """Update an existing download card without replacing its widget."""
             download = item["download"]
             received = getattr(download, "receivedBytes", lambda: 0)()
             total = getattr(download, "totalBytes", lambda: 0)()
-            status = self._download_status(item)
             finished = status in ("completed", "cancelled", "failed", "interrupted")
             paused = status == "paused"
             if not finished and not paused:
@@ -3833,10 +3967,15 @@ class LunaSurfer(QMainWindow):
             ui["details"].setText(details_text)
             # "missing" is a display-only state: the transfer succeeded,
             # but the file is no longer at its original path (deleted or moved).
-            display_status = (
-                "missing" if status == "completed" and not pathlib.Path(item["target"]).is_file()
-                else status
-            )
+            if status == "completed":
+                file_check = item.get("_download_manager_file_check")
+                if file_check is None or now - file_check[0] >= 2.4:
+                    file_check = (now, pathlib.Path(item["target"]).is_file())
+                    item["_download_manager_file_check"] = file_check
+                display_status = "completed" if file_check[1] else "missing"
+            else:
+                item.pop("_download_manager_file_check", None)
+                display_status = status
             state_labels = {
                 "completed": self.tr("Fertig", "Completed"),
                 "missing": self.tr("Datei nicht mehr vorhanden", "File no longer present"),
@@ -3940,13 +4079,55 @@ class LunaSurfer(QMainWindow):
             state.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             outer.addWidget(state)
             item["_download_ui"] = {"bar": bar, "details": details, "state": state, "pause": pause_btn, "card": card}
-            update_row(item, now)
             return card
+
+        render_state = {"pending": []}
+        render_timer = QTimer(dialog)
+        render_timer.setSingleShot(True)
+
+        def build_pending_rows():
+            """Create a small batch of cards so the manager stays responsive."""
+            pending = render_state["pending"]
+            if not pending:
+                return
+            batch = pending[:8]
+            del pending[:len(batch)]
+            now = time.monotonic()
+            current_items = {entry.get("id"): entry for entry in self.download_items}
+            current_ids = {
+                lst.item(row).data(Qt.ItemDataRole.UserRole)
+                for row in range(lst.count())
+            }
+            for wanted_position, _index, queued_item, queued_status in batch:
+                stable_id = queued_item.get("id")
+                item = current_items.get(stable_id)
+                if item is None:
+                    continue
+                # A refresh may already have inserted this row while a batch
+                # was waiting in the event queue. Never create it twice.
+                if stable_id in current_ids:
+                    continue
+                status = queued_status
+                widget = make_row(item, now)
+                qitem = QListWidgetItem()
+                qitem.setData(Qt.ItemDataRole.UserRole, stable_id)
+                qitem.setSizeHint(widget.sizeHint())
+                insert_at = min(wanted_position, lst.count())
+                lst.insertItem(insert_at, qitem)
+                lst.setItemWidget(qitem, widget)
+                current_ids.add(stable_id)
+                update_row(item, now, status)
+            if render_state["pending"]:
+                render_timer.start(8)
+
+        render_timer.timeout.connect(build_pending_rows)
 
         def refresh():
             query = search.text().strip().casefold()
             mode = filter_box.currentData()
             now = time.monotonic()
+            # Resolve each status exactly once per refresh. The same result is
+            # used for counters, filtering and the corresponding card update.
             statuses = [self._download_status(entry) for entry in self.download_items]
             active_count = statuses.count("active")
             paused_count = statuses.count("paused")
@@ -3956,13 +4137,12 @@ class LunaSurfer(QMainWindow):
             stat_total.setText(self.tr("Gesamt", "Total") + f"  {len(self.download_items)}")
 
             visible = []
-            for index, item in enumerate(self.download_items):
-                status = self._download_status(item)
+            for index, (item, status) in enumerate(zip(self.download_items, statuses)):
                 target = item["target"]
                 searchable = (target.name + " " + str(target.parent)).casefold()
                 if query and query not in searchable:
                     continue
-                if mode == "active" and status not in ("active",):
+                if mode == "active" and status != "active":
                     continue
                 if mode == "paused" and status != "paused":
                     continue
@@ -3970,24 +4150,16 @@ class LunaSurfer(QMainWindow):
                     continue
                 if mode == "failed" and status not in ("failed", "cancelled", "interrupted"):
                     continue
-                visible.append((index, item))
+                visible.append((index, item, status))
 
             # Newest downloads are stored at the end of download_items;
             # show them first without changing their stable backing indices.
             visible.reverse()
 
-            # Reconcile rows by stable download ID. Never clear/rebuild the
-            # whole QListWidget: doing so destroys every card widget, including
-            # widgets belonging to unrelated active downloads, when one entry
-            # is removed or its filter visibility changes.
-            wanted_by_id = {item.get("id"): item for _index, item in visible}
-            current_by_id = {}
-            for row in range(lst.count()):
-                qitem = lst.item(row)
-                current_by_id[qitem.data(Qt.ItemDataRole.UserRole)] = qitem
+            wanted_by_id = {item.get("id"): item for _index, item, _status in visible}
+            entries_by_id = {entry.get("id"): entry for entry in self.download_items}
 
-            # Remove only rows that are no longer visible. Deleting one
-            # completed entry leaves every unrelated active card untouched.
+            # Remove only rows that are no longer visible.
             for row in range(lst.count() - 1, -1, -1):
                 qitem = lst.item(row)
                 stable_id = qitem.data(Qt.ItemDataRole.UserRole)
@@ -3995,36 +4167,34 @@ class LunaSurfer(QMainWindow):
                     widget = lst.itemWidget(qitem)
                     removed = lst.takeItem(row)
                     if widget is not None:
-                        for entry in self.download_items:
+                        entry = entries_by_id.get(stable_id)
+                        if entry is not None:
                             ui = entry.get("_download_ui")
                             if ui is not None and ui.get("card") is widget:
                                 entry["_download_ui"] = None
-                                break
                         widget.deleteLater()
                     del removed
 
-            # Add only missing cards. Existing card instances and their
-            # progress widgets remain alive across history deletion.
             current_by_id = {
                 lst.item(row).data(Qt.ItemDataRole.UserRole): lst.item(row)
                 for row in range(lst.count())
             }
-            for wanted_position, (_index, item) in enumerate(visible):
-                stable_id = item.get("id")
-                if stable_id in current_by_id:
-                    continue
-                widget = make_row(item, now)
-                qitem = QListWidgetItem()
-                qitem.setData(Qt.ItemDataRole.UserRole, stable_id)
-                qitem.setSizeHint(widget.sizeHint())
-                insert_at = min(wanted_position, lst.count())
-                lst.insertItem(insert_at, qitem)
-                lst.setItemWidget(qitem, widget)
-                current_by_id[stable_id] = qitem
 
-            # Update every visible row in place; no full-list rebuild.
-            for _index, item in visible:
-                update_row(item, now)
+            # Refresh existing cards immediately; missing cards are queued and
+            # created in short batches after the dialog's event loop starts.
+            for _index, item, status in visible:
+                if item.get("id") in current_by_id and item.get("_download_ui") is not None:
+                    update_row(item, now, status)
+
+            render_state["pending"] = [
+                (position, index, item, status)
+                for position, (index, item, status) in enumerate(visible)
+                if item.get("id") not in current_by_id
+            ]
+            if render_state["pending"] and not render_timer.isActive():
+                render_timer.start(0)
+            elif not render_state["pending"] and render_timer.isActive():
+                render_timer.stop()
 
         def cancel_selected():
             item, _ = actual_selected()
@@ -4068,7 +4238,16 @@ class LunaSurfer(QMainWindow):
         actions.addStretch(1); actions.addWidget(close)
         layout.addLayout(actions)
 
+        def refresh_after_history_loaded():
+            try:
+                if dialog.isVisible():
+                    refresh()
+            except RuntimeError:
+                pass
+
+        self._start_download_history_load(refresh_after_history_loaded)
         refresh()
+
         def update_selection_style(*_args):
             for row in range(lst.count()):
                 qitem = lst.item(row)

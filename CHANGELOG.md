@@ -1,4 +1,13 @@
-# LunaSurfer 0.3.47 – DOWNLOAD-STATUS KORREKTUR
+Changelog
+
+# LunaSurfer 0.3.48 – DOWNLOAD-HISTORY UND DOWNLOAD-MANAGER
+
+- Die gespeicherte Download-History wird beim Browserstart im Hintergrund eingelesen, ohne den GUI-Thread zu blockieren.
+- Beim Öffnen des Download-Managers wird der laufende bzw. abgeschlossene Ladevorgang übernommen.
+- Der Download-Manager zeigt sein Fenster zuerst an und erstellt die Download-Karten anschließend in kleinen Portionen, damit viele gespeicherte Einträge das Öffnen nicht mehr blockieren.
+- Der Download-Status wird pro Aktualisierung nur einmal je Eintrag ermittelt; die Dateiverfügbarkeitsprüfung wird kurz zwischengespeichert.
+- Das Bild-Kontextmenü enthält „Bild anzeigen“, „Bild-Adresse kopieren“, „Bild speichern“ und „Bild speichern unter …“.
+- Die bisherige Download-Speicherfunktion, das Schließen des Browsers sowie Darstellung und Bedienfunktionen des Download-Managers bleiben erhalten.
 
 ## 0.3.47
 - Download-Erfolg und Verfügbarkeit der heruntergeladenen Datei werden getrennt behandelt.
@@ -6,17 +15,12 @@
 - Im Download-Manager wird bei fehlender Datei „Datei nicht mehr vorhanden“ angezeigt.
 - Alte Verlaufseinträge mit vollständig übertragenen Bytezählern werden beim Laden korrigiert.
 
-# LunaSurfer 0.3.46 – DOWNLOAD-ERFOLG UND DATEISTATUS GETRENNT
+# LunaSurfer 0.3.46 – DOWNLOAD-ERFOLG UND DATEISTATUS GETRENNT - ZWISCHENABLAGE FÜR WEBSEITEN-KOPIERFUNKTIONEN KORRIGIERT
 
 - Der Status eines Downloads beschreibt jetzt ausschließlich das Ergebnis der Übertragung. Das spätere Löschen oder Verschieben der Datei ändert einen erfolgreichen Download nicht mehr in „Fehlgeschlagen“.
 - Im Download-Manager wird bei erfolgreich übertragenen, am ursprünglichen Speicherort aber nicht mehr vorhandenen Dateien „Datei nicht mehr vorhanden“ angezeigt.
 - Beim Laden alter Verlaufseinträge werden vollständige gespeicherte Bytezähler genutzt, um fälschlich als fehlgeschlagen markierte vollständige Übertragungen zu korrigieren.
 - Tatsächlich fehlgeschlagene oder abgebrochene Übertragungen bleiben entsprechend gekennzeichnet.
-
-Changelog
-
-# LunaSurfer 0.3.46 – ZWISCHENABLAGE FÜR WEBSEITEN-KOPIERFUNKTIONEN KORRIGIERT
-
 - JavaScript-Zugriff auf die Zwischenablage in QtWebEngine aktiviert, damit Kopier-Schaltflächen auf HTTPS-Webseiten (z. B. GitHub „Copy code to clipboard“) den System-Zwischenspeicher tatsächlich beschreiben können.
 - Eine angeforderte Clipboard-Berechtigung wird über den vorhandenen Webseiten-Berechtigungsdialog abgefragt und kann wie andere Webseiten-Berechtigungen gespeichert werden.
 - Die Einstellung gilt weiterhin im Rahmen der Browser-Sicherheitsregeln und ändert keine nativen Kopierfunktionen oder sonstigen Browserfunktionen.
