@@ -2557,7 +2557,7 @@ class BrowserView(QWebEngineView):
             self._last_language_checked_url = current_url
 
     def _check_page_language_for_translation(self, url):
-        """Offer German translation when a loaded page declares another language."""
+        """Offer translation when a loaded page differs from the selected UI language."""
         if not url.startswith(("http://", "https://")):
             return
         # Avoid offering translation on Google Translate's own translated view.
@@ -2587,7 +2587,9 @@ class BrowserView(QWebEngineView):
                 if self.window_ref.current_view() is not view:
                     return
                 language = (language or "").strip().lower().replace("_", "-")
-                if not language or language in ("de", "de-de", "de-at", "de-ch") or language.startswith("de-"):
+                target_language = self.window_ref._get_translation_target_language()
+                normalized_target = target_language.lower()
+                if not language or language == normalized_target or language.startswith(normalized_target + "-"):
                     return
                 if self.window_ref._translation_notice_url == url:
                     return
@@ -3856,22 +3858,35 @@ class LunaSurfer(QMainWindow):
             self.back_action.setEnabled(view.history().canGoBack())
             self.forward_action.setEnabled(view.history().canGoForward())
 
+    def _get_translation_target_language(self):
+        """Return the translation target matching the currently selected UI language."""
+        language = str(self.settings_data.get("language", "de") or "de")
+        supported = {"de", "en", "fr", "it", "nl", "es", "pt", "pl", "ru", "tr", "ja", "zh-CN"}
+        return language if language in supported else "de"
+
     def offer_page_translation(self, url, detected_language):
-        """Show a status-bar prompt localized to the selected application language."""
+        """Show a localized prompt to translate a page into the selected UI language."""
         language = self.settings_data.get("language", "de")
+        target = self._get_translation_target_language()
+        target_names = {
+            "de": "Deutsch", "en": "English", "fr": "français", "it": "italiano",
+            "nl": "Nederlands", "es": "español", "pt": "português", "pl": "polski",
+            "tr": "Türkçe", "ru": "русский", "ja": "日本語", "zh-CN": "中文",
+        }
+        target_name = target_names.get(target, "Deutsch")
         notices = {
-            "de": ("Diese Seite scheint nicht auf Deutsch zu sein. Übersetzen?", "Übersetzen"),
-            "en": ("This page does not appear to be in German. Translate it?", "Translate"),
-            "fr": ("Cette page ne semble pas être en allemand. Voulez-vous la traduire ?", "Traduire"),
-            "nl": ("Deze pagina lijkt niet in het Duits te zijn. Wilt u deze vertalen?", "Vertalen"),
-            "it": ("Questa pagina non sembra essere in tedesco. Vuoi tradurla?", "Traduci"),
-            "es": ("Esta página no parece estar en alemán. ¿Desea traducirla?", "Traducir"),
-            "pt": ("Esta página não parece estar em alemão. Pretende traduzi-la?", "Traduzir"),
-            "pl": ("Ta strona nie wygląda na niemiecką. Czy chcesz ją przetłumaczyć?", "Przetłumacz"),
-            "tr": ("Bu sayfa Almanca görünmüyor. Çevirmek ister misiniz?", "Çevir"),
-            "ru": ("Похоже, эта страница не на немецком языке. Перевести?", "Перевести"),
-            "ja": ("このページはドイツ語ではないようです。翻訳しますか？", "翻訳"),
-            "zh-CN": ("此页面似乎不是德语。要翻译吗？", "翻译"),
+            "de": (f"Diese Seite scheint nicht auf {target_name} zu sein. Übersetzen?", "Übersetzen"),
+            "en": (f"This page does not appear to be in {target_name}. Translate it?", "Translate"),
+            "fr": (f"Cette page ne semble pas être en {target_name}. Voulez-vous la traduire ?", "Traduire"),
+            "nl": (f"Deze pagina lijkt niet in het {target_name} te zijn. Wilt u deze vertalen?", "Vertalen"),
+            "it": (f"Questa pagina non sembra essere in {target_name}. Vuoi tradurla?", "Traduci"),
+            "es": (f"Esta página no parece estar en {target_name}. ¿Desea traducirla?", "Traducir"),
+            "pt": (f"Esta página não parece estar em {target_name}. Pretende traduzi-la?", "Traduzir"),
+            "pl": (f"Ta strona nie wygląda na {target_name}. Czy chcesz ją przetłumaczyć?", "Przetłumacz"),
+            "tr": (f"Bu sayfa {target_name} görünmüyor. Çevirmek ister misiniz?", "Çevir"),
+            "ru": (f"Похоже, эта страница не на языке {target_name}. Перевести?", "Перевести"),
+            "ja": (f"このページは{target_name}ではないようです。翻訳しますか？", "翻訳"),
+            "zh-CN": (f"此页面似乎不是{target_name}。要翻译吗？", "翻译"),
         }
         message, action_text = notices.get(language, notices["de"])
         try:
@@ -3909,7 +3924,7 @@ class LunaSurfer(QMainWindow):
         self._translation_originals[id(view)] = source_url
         if self._translation_notice_button is not None:
             self._clear_translation_notice(self._translation_notice_button)
-        self.translate_current_page_selected("de")
+        self.translate_current_page_selected(self._get_translation_target_language())
 
     def translate_current_page_selected(self, target_language="de"):
         """Use the provider selected in Settings for both manual and automatic translation."""

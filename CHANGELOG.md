@@ -1,3 +1,10 @@
+# Changelog
+
+## 0.3.51
+- Behoben: Die automatische Übersetzung über den Hinweis in der Statusleiste verwendet jetzt die in den Einstellungen ausgewählte LunaSurfer-Sprache als Zielsprache statt fest Deutsch.
+- Die automatische Übersetzungsaufforderung wird nur angezeigt, wenn die erkannte Seitensprache von der eingestellten Zielsprache abweicht.
+- Hinweistext und Schaltfläche der Übersetzungsaufforderung nennen nun die ausgewählte Zielsprache.
+
 Changelog
 
 ## 0.3.50 – Versionsupdate und deutscher Qt-Standardbutton-Fix
