@@ -1384,6 +1384,15 @@ JAPANESE_QT_BUTTON_TRANSLATIONS = {
     "&Save": "保存(&S)", "&Cancel": "キャンセル(&C)",
 }
 
+GERMAN_QT_BUTTON_TRANSLATIONS = {
+    "OK": "OK", "Cancel": "Abbrechen", "Yes": "Ja", "No": "Nein",
+    "Apply": "Anwenden", "Save": "Speichern", "Open": "Öffnen", "Close": "Schließen",
+    "Discard": "Verwerfen", "Retry": "Wiederholen", "Ignore": "Ignorieren",
+    "Abort": "Abbrechen", "Help": "Hilfe",
+    "&Yes": "&Ja", "&No": "&Nein", "&Open": "&Öffnen",
+    "&Save": "&Speichern", "&Cancel": "&Abbrechen",
+}
+
 ENGLISH_QT_BUTTON_TRANSLATIONS = {
     "OK": "OK", "Cancel": "Cancel", "Yes": "Yes", "No": "No",
     "Apply": "Apply", "Save": "Save", "Open": "Open", "Close": "Close",
@@ -1402,6 +1411,7 @@ class LunaQtButtonTranslator(QTranslator):
 
     def translate(self, context, sourceText, disambiguation=None, n=-1):
         catalogs = {
+            "de": GERMAN_QT_BUTTON_TRANSLATIONS,
             "en": ENGLISH_QT_BUTTON_TRANSLATIONS,
             "fr": FRENCH_QT_BUTTON_TRANSLATIONS,
             "nl": DUTCH_QT_BUTTON_TRANSLATIONS,

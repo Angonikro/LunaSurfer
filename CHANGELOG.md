@@ -1,5 +1,9 @@
 Changelog
 
+## 0.3.50 – Versionsupdate und deutscher Qt-Standardbutton-Fix
+- Deutsche Beschriftungen für Qt-Standardbuttons ergänzt (OK, Abbrechen, Ja, Nein, Anwenden, Speichern, Öffnen, Schließen, Verwerfen, Wiederholen, Ignorieren, Abbrechen und Hilfe).
+- Die Übersetzungen der übrigen Sprachen und das bestehende Browserverhalten bleiben unverändert.
+
 ## 0.3.49 - 10 Sprachen hinzugefügt
 - Italienisch, Niederländisch, Französisch, Polnisch, Portugisisch, Spanisch, Russisch, Japanisch, Chinesisch, Türkisch hinzugefügt. 
 
