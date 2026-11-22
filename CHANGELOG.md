@@ -1,3 +1,6 @@
+## 0.3.52
+- Kontextmenü: „Link speichern unter…“ in allen 12 Sprachen; Speichern über den integrierten Download-Manager.
+
 # Changelog
 
 ## 0.3.51

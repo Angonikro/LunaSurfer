@@ -2185,6 +2185,7 @@ class BrowserView(QWebEngineView):
                 "back": "后退", "forward": "前进", "reload": "重新加载",
                 "open_link": "在新标签页中打开链接", "open_page": "在新标签页中打开页面",
                 "copy_link": "复制链接地址", "copy_page": "复制页面地址",
+                "save_link_as": "链接另存为…",
                 "save_page": "网页另存为…", "view_source": "查看网页源代码",
                 "reload_cache": "忽略缓存并重新加载", "devtools": "打开开发者工具 (F12)",
                 "copy_selection": "复制所选内容", "cut": "剪切", "copy": "复制", "paste": "粘贴",
@@ -2196,6 +2197,7 @@ class BrowserView(QWebEngineView):
                 "back": "戻る", "forward": "進む", "reload": "再読み込み",
                 "open_link": "リンクを新しいタブで開く", "open_page": "ページを新しいタブで開く",
                 "copy_link": "リンクアドレスをコピー", "copy_page": "ページアドレスをコピー",
+                "save_link_as": "リンク先を名前を付けて保存…",
                 "save_page": "ページを名前を付けて保存…", "view_source": "ページのソースを表示",
                 "reload_cache": "キャッシュを使わずに再読み込み", "devtools": "開発者ツールを開く (F12)",
                 "copy_selection": "選択範囲をコピー", "cut": "切り取り", "copy": "コピー", "paste": "貼り付け",
@@ -2208,6 +2210,7 @@ class BrowserView(QWebEngineView):
                 "back": "Назад", "forward": "Вперёд", "reload": "Обновить",
                 "open_link": "Открыть ссылку в новой вкладке", "open_page": "Открыть страницу в новой вкладке",
                 "copy_link": "Копировать адрес ссылки", "copy_page": "Копировать адрес страницы",
+                "save_link_as": "Сохранить ссылку как…",
                 "save_page": "Сохранить страницу как…", "view_source": "Просмотреть исходный код страницы",
                 "reload_cache": "Обновить без использования кэша", "devtools": "Открыть инструменты разработчика (F12)",
                 "copy_selection": "Копировать выделенное", "cut": "Вырезать", "copy": "Копировать", "paste": "Вставить",
@@ -2220,6 +2223,7 @@ class BrowserView(QWebEngineView):
                 "back": "Terug", "forward": "Verder", "reload": "Herladen",
                 "open_link": "Link openen in nieuw tabblad", "open_page": "Pagina openen in nieuw tabblad",
                 "copy_link": "Linkadres kopiëren", "copy_page": "Pagina-adres kopiëren",
+                "save_link_as": "Link opslaan als…",
                 "save_page": "Pagina opslaan als…", "view_source": "Paginabron weergeven",
                 "reload_cache": "Herladen (cache negeren)", "devtools": "Ontwikkelaarstools openen (F12)",
                 "copy_selection": "Selectie kopiëren", "cut": "Knippen", "copy": "Kopiëren", "paste": "Plakken",
@@ -2232,6 +2236,7 @@ class BrowserView(QWebEngineView):
                 "back": "Précédent", "forward": "Suivant", "reload": "Actualiser",
                 "open_link": "Ouvrir le lien dans un nouvel onglet", "open_page": "Ouvrir la page dans un nouvel onglet",
                 "copy_link": "Copier l’adresse du lien", "copy_page": "Copier l’adresse de la page",
+                "save_link_as": "Enregistrer le lien sous…",
                 "save_page": "Enregistrer la page sous…", "view_source": "Afficher le code source",
                 "reload_cache": "Actualiser (sans utiliser le cache)", "devtools": "Ouvrir les outils de développement (F12)",
                 "copy_selection": "Copier la sélection", "cut": "Couper", "copy": "Copier", "paste": "Coller",
@@ -2244,6 +2249,7 @@ class BrowserView(QWebEngineView):
                 "back": "Indietro", "forward": "Avanti", "reload": "Ricarica",
                 "open_link": "Apri link in una nuova scheda", "open_page": "Apri pagina in una nuova scheda",
                 "copy_link": "Copia indirizzo del link", "copy_page": "Copia indirizzo della pagina",
+                "save_link_as": "Salva link con nome…",
                 "save_page": "Salva pagina con nome…", "view_source": "Visualizza sorgente pagina",
                 "reload_cache": "Ricarica (ignora cache)", "devtools": "Apri strumenti per sviluppatori (F12)",
                 "copy_selection": "Copia selezione", "cut": "Taglia", "copy": "Copia", "paste": "Incolla",
@@ -2256,6 +2262,7 @@ class BrowserView(QWebEngineView):
                 "back": "Atrás", "forward": "Adelante", "reload": "Recargar",
                 "open_link": "Abrir enlace en una pestaña nueva", "open_page": "Abrir página en una pestaña nueva",
                 "copy_link": "Copiar dirección del enlace", "copy_page": "Copiar dirección de la página",
+                "save_link_as": "Guardar enlace como…",
                 "save_page": "Guardar página como…", "view_source": "Ver código fuente de la página",
                 "reload_cache": "Recargar (sin caché)", "devtools": "Abrir herramientas para desarrolladores (F12)",
                 "copy_selection": "Copiar selección", "cut": "Cortar", "copy": "Copiar", "paste": "Pegar",
@@ -2268,6 +2275,7 @@ class BrowserView(QWebEngineView):
                 "back": "Anterior", "forward": "Seguinte", "reload": "Recarregar",
                 "open_link": "Abrir ligação num novo separador", "open_page": "Abrir página num novo separador",
                 "copy_link": "Copiar endereço da ligação", "copy_page": "Copiar endereço da página",
+                "save_link_as": "Guardar ligação como…",
                 "save_page": "Guardar página como…", "view_source": "Ver código-fonte da página",
                 "reload_cache": "Recarregar (ignorar cache)", "devtools": "Abrir ferramentas de programador (F12)",
                 "copy_selection": "Copiar seleção", "cut": "Cortar", "copy": "Copiar", "paste": "Colar",
@@ -2280,6 +2288,7 @@ class BrowserView(QWebEngineView):
                 "back": "Geri", "forward": "İleri", "reload": "Yenile",
                 "open_link": "Bağlantıyı yeni sekmede aç", "open_page": "Sayfayı yeni sekmede aç",
                 "copy_link": "Bağlantı adresini kopyala", "copy_page": "Sayfa adresini kopyala",
+                "save_link_as": "Bağlantıyı farklı kaydet…",
                 "save_page": "Sayfayı farklı kaydet…", "view_source": "Sayfa kaynağını görüntüle",
                 "reload_cache": "Yenile (önbelleği yok say)", "devtools": "Geliştirici araçlarını aç (F12)",
                 "copy_selection": "Seçimi kopyala", "cut": "Kes", "copy": "Kopyala", "paste": "Yapıştır",
@@ -2292,6 +2301,7 @@ class BrowserView(QWebEngineView):
                 "back": "Wstecz", "forward": "Dalej", "reload": "Odśwież",
                 "open_link": "Otwórz link w nowej karcie", "open_page": "Otwórz stronę w nowej karcie",
                 "copy_link": "Kopiuj adres linku", "copy_page": "Kopiuj adres strony",
+                "save_link_as": "Zapisz link jako…",
                 "save_page": "Zapisz stronę jako…", "view_source": "Wyświetl źródło strony",
                 "reload_cache": "Odśwież (z pominięciem pamięci podręcznej)", "devtools": "Otwórz narzędzia deweloperskie (F12)",
                 "copy_selection": "Kopiuj zaznaczenie", "cut": "Wytnij", "copy": "Kopiuj", "paste": "Wklej",
@@ -2307,6 +2317,7 @@ class BrowserView(QWebEngineView):
                 "open_link": "Open link in new tab" if is_english else "Link in neuem Tab öffnen",
                 "open_page": "Open page in new tab" if is_english else "Seite in neuem Tab öffnen",
                 "copy_link": "Copy link address" if is_english else "Link-Adresse kopieren",
+                "save_link_as": "Save link as…" if is_english else "Link speichern unter…",
                 "copy_page": "Copy page address" if is_english else "Seitenadresse kopieren",
                 "save_page": "Save page as…" if is_english else "Seite speichern unter…",
                 "view_source": "View page source" if is_english else "Quelltext anzeigen",
@@ -2340,6 +2351,10 @@ class BrowserView(QWebEngineView):
             menu.addAction(
                 labels["copy_link"],
                 lambda u=clicked_link: QApplication.clipboard().setText(u)
+            )
+            menu.addAction(
+                labels["save_link_as"],
+                lambda u=clicked_link: self.save_link_as(u)
             )
         else:
             menu.addAction(
@@ -2408,6 +2423,36 @@ class BrowserView(QWebEngineView):
         menu.addAction(labels["reload_cache"], self.reload_bypass_cache)
         menu.addAction(labels["devtools"], self.window_ref.show_devtools)
         menu.exec(global_pos)
+
+    def save_link_as(self, link_url):
+        """Download the linked resource to a user-selected destination."""
+        link_qurl = QUrl(str(link_url))
+        if not link_qurl.isValid() or link_qurl.isEmpty():
+            return
+        parsed_path = urllib.parse.urlparse(str(link_url)).path
+        link_name = pathlib.PurePosixPath(urllib.parse.unquote(parsed_path)).name or "download"
+        suggested = self.window_ref.download_dir / safe_download_filename(link_name)
+        language = self.window_ref.settings_data.get("language", "de")
+        titles = {
+            "de": "Link speichern unter", "en": "Save link as", "fr": "Enregistrer le lien sous",
+            "nl": "Link opslaan als", "it": "Salva link con nome", "es": "Guardar enlace como",
+            "pt": "Guardar ligação como", "pl": "Zapisz link jako", "tr": "Bağlantıyı farklı kaydet",
+            "ru": "Сохранить ссылку как", "ja": "リンク先を名前を付けて保存", "zh-CN": "链接另存为",
+        }
+        filters = {
+            "de": "Alle Dateien (*.*)", "en": "All files (*.*)", "fr": "Tous les fichiers (*.*)",
+            "nl": "Alle bestanden (*.*)", "it": "Tutti i file (*.*)", "es": "Todos los archivos (*.*)",
+            "pt": "Todos os ficheiros (*.*)", "pl": "Wszystkie pliki (*.*)", "tr": "Tüm dosyalar (*.*)",
+            "ru": "Все файлы (*.*)", "ja": "すべてのファイル (*.*)", "zh-CN": "所有文件 (*.*)",
+        }
+        selected, _ = QFileDialog.getSaveFileName(
+            self.window_ref, titles.get(language, titles["de"]), str(suggested),
+            filters.get(language, filters["de"])
+        )
+        if not selected:
+            return
+        self.window_ref._next_download_path = pathlib.Path(selected).expanduser()
+        self.page().download(link_qurl)
 
     def download_image(self, image_url, save_as=False):
         """Download the image under its original name or a user-selected path."""
