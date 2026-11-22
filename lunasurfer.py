@@ -5750,6 +5750,13 @@ class LunaSurfer(QMainWindow):
         dialog.exec()
 
     def on_download(self, download):
+        # Consume a path selected by "Link speichern unter…" immediately.
+        # This prevents a cancelled security warning (or another early exit)
+        # from leaking that path into the next, unrelated download.
+        explicit_target = getattr(self, "_next_download_path", None)
+        if explicit_target is not None:
+            self._next_download_path = None
+
         suggested = safe_download_filename(download.suggestedFileName() or "download")
         risky_extensions = {
             ".appimage", ".apk", ".bat", ".bin", ".cmd", ".deb", ".dmg",
@@ -5861,9 +5868,7 @@ class LunaSurfer(QMainWindow):
             if disable_warning.isChecked():
                 self.settings_data["warn_executable_downloads"] = False
                 write_json(CONFIG_FILE, self.settings_data)
-        explicit_target = getattr(self, "_next_download_path", None)
         if explicit_target is not None:
-            self._next_download_path = None
             target = pathlib.Path(explicit_target)
             target = target.parent / safe_download_filename(target.name)
             target.parent.mkdir(parents=True, exist_ok=True)

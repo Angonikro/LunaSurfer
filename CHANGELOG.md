@@ -1,3 +1,7 @@
+## 0.3.53
+- Behoben: Ein über „Link speichern unter…“ ausgewählter Speicherpfad wird jetzt direkt beim Eintreffen des Downloads übernommen und aus dem temporären Zustand entfernt.
+- Wird eine Sicherheitswarnung abgebrochen oder der Download anderweitig vorzeitig beendet, kann der ausgewählte Pfad nicht mehr versehentlich für einen späteren Download weiterverwendet werden.
+
 ## 0.3.52
 - Kontextmenü: „Link speichern unter…“ in allen 12 Sprachen; Speichern über den integrierten Download-Manager.
 
