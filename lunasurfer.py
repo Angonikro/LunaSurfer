@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """LunaSurfer 0.3.49 - Qt 6 / QtWebEngine browser."""
 import json
+import copy
 import pathlib
 import sys
 import urllib.parse
@@ -4146,16 +4147,112 @@ class LunaSurfer(QMainWindow):
         self.find_bar.hide()
 
     def add_bookmark(self):
+        """Ask for a destination folder whenever the bookmark star is used."""
         view = self.current_view()
-        if not view: return
+        if not view:
+            return
         url = view.url().toString()
-        if not url: return
+        if not url:
+            return
         items = read_json(BOOKMARKS_FILE, [])
-        if not any(x.get("url") == url for x in items):
-            items.append({"title": view.title() or url, "url": url})
-            write_json(BOOKMARKS_FILE, items)
-        self.refresh_bookmarks_bar()
-        self.statusBar().showMessage("Lesezeichen gespeichert", 3000)
+        title = view.title() or url
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.tr("Lesezeichen hinzufügen", "Add bookmark"))
+        dialog.resize(520, 470)
+        layout = QVBoxLayout(dialog)
+        form = QFormLayout()
+        name_edit = QLineEdit(title)
+        address_edit = QLineEdit(url)
+        form.addRow(self.tr("Name:", "Name:"), name_edit)
+        form.addRow(self.tr("Adresse:", "Address:"), address_edit)
+        layout.addLayout(form)
+        layout.addWidget(QLabel(self.tr("Speichern in:", "Save in:")))
+        tree = QTreeWidget()
+        tree.setHeaderHidden(True)
+        tree.setMinimumHeight(230)
+        tree.setStyleSheet("QTreeWidget { background:#1d2430; color:#e8edf5; border:1px solid #354155; border-radius:8px; padding:5px; } QTreeWidget::item { padding:6px; }")
+        def add_folders(parent, entries, path=()):
+            for i, entry in enumerate(entries if isinstance(entries, list) else []):
+                if not isinstance(entry, dict) or not (entry.get("type") == "folder" or "children" in entry):
+                    continue
+                node = QTreeWidgetItem(parent, [self.bookmark_display_title(entry, root=(len(path) == 0))])
+                node.setIcon(0, self.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon))
+                node.setData(0, Qt.ItemDataRole.UserRole, tuple(path) + (i,))
+                add_folders(node, entry.get("children", []), tuple(path) + (i,))
+        add_folders(tree, items)
+        if tree.topLevelItemCount():
+            tree.setCurrentItem(tree.topLevelItem(0))
+        layout.addWidget(tree, 1)
+        row = QHBoxLayout()
+        new_folder_btn = QPushButton(self.tr("Neuer Ordner…", "New folder…"))
+        row.addWidget(new_folder_btn)
+        row.addStretch(1)
+        layout.addLayout(row)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        buttons.button(QDialogButtonBox.StandardButton.Save).setText(self.tr("Speichern", "Save"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self.tr("Abbrechen", "Cancel"))
+        layout.addWidget(buttons)
+        def selected_folder_path():
+            node = tree.currentItem()
+            return node.data(0, Qt.ItemDataRole.UserRole) if node else None
+        def new_folder():
+            folder_name, ok = QInputDialog.getText(dialog, self.tr("Neuer Ordner", "New folder"), self.tr("Ordnername:", "Folder name:"))
+            if not ok or not folder_name.strip():
+                return
+            data = read_json(BOOKMARKS_FILE, [])
+            path = selected_folder_path()
+            target = data
+            if path is not None:
+                for index in path:
+                    target = target[index].setdefault("children", [])
+            target.append({"type": "folder", "title": folder_name.strip(), "children": []})
+            write_json(BOOKMARKS_FILE, data)
+            self.refresh_bookmarks_bar()
+            tree.clear()
+            add_folders(tree, data)
+            # Select the newly created folder.
+            parent = tree.invisibleRootItem()
+            for index in (path or ()):
+                parent = parent.child(index)
+            parent.child(parent.childCount() - 1).setSelected(True)
+            parent.child(parent.childCount() - 1).setExpanded(True)
+        def save_bookmark():
+            name = name_edit.text().strip() or address_edit.text().strip()
+            address = address_edit.text().strip()
+            if not address:
+                QMessageBox.warning(dialog, self.tr("Lesezeichen", "Bookmark"), self.tr("Bitte eine gültige Adresse eingeben.", "Please enter an address."))
+                return
+            data = read_json(BOOKMARKS_FILE, [])
+            path = selected_folder_path()
+            target = data
+            if path is not None:
+                try:
+                    for index in path:
+                        target = target[index].setdefault("children", [])
+                except (IndexError, KeyError, TypeError):
+                    target = data
+            # Update an existing URL rather than creating duplicates.
+            def find(entries):
+                for entry in entries:
+                    if entry.get("url") == address:
+                        return entry
+                    found = find(entry.get("children", [])) if isinstance(entry.get("children"), list) else None
+                    if found:
+                        return found
+                return None
+            existing = find(data)
+            if existing:
+                existing["title"] = name
+            else:
+                target.append({"title": name, "url": address})
+            write_json(BOOKMARKS_FILE, data)
+            self.refresh_bookmarks_bar()
+            self.statusBar().showMessage(self.tr("Lesezeichen gespeichert", "Bookmark saved"), 3000)
+            dialog.accept()
+        new_folder_btn.clicked.connect(new_folder)
+        buttons.accepted.connect(save_bookmark)
+        buttons.rejected.connect(dialog.reject)
+        dialog.exec()
 
     def refresh_bookmarks_bar(self):
         """Build a responsive bookmarks bar with a clean overflow menu."""
@@ -4548,8 +4645,11 @@ class LunaSurfer(QMainWindow):
         bookmark_tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         bookmark_tree.setColumnWidth(0, 330)
         bookmark_tree.setSelectionBehavior(QTreeWidget.SelectionBehavior.SelectRows)
+        bookmark_tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
+        bookmark_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         bookmark_tree.setEditTriggers(QTreeWidget.EditTrigger.NoEditTriggers)
         layout.addWidget(bookmark_tree, 1)
+        bookmark_clipboard = {"entries": [], "paths": [], "cut": False}
 
         buttons = QHBoxLayout()
         open_btn = QPushButton(self.tr("Öffnen", "Open")); open_btn.setObjectName("primary")
@@ -4664,6 +4764,104 @@ class LunaSurfer(QMainWindow):
                 url = selected_url()
                 if url:
                     self.delete_bookmark(url); populate()
+
+        def resolve_list(data, path):
+            target = data
+            for index in path:
+                target = target[index].setdefault("children", [])
+            return target
+
+        def selected_paths():
+            paths = [tuple(node.data(0, Qt.ItemDataRole.UserRole + 2)) for node in bookmark_tree.selectedItems()]
+            # Do not process a child separately when its parent folder is selected.
+            return [p for p in sorted(set(paths), key=lambda x: (len(x), x))
+                    if not any(len(parent) < len(p) and p[:len(parent)] == parent for parent in paths)]
+
+        def destination_list(data):
+            node = selected_node()
+            if node is None:
+                return data
+            path = tuple(node.data(0, Qt.ItemDataRole.UserRole + 2))
+            if node.data(0, Qt.ItemDataRole.UserRole + 1) == "folder":
+                folder = resolve_list(data, path[:-1])[path[-1]]
+                return folder.setdefault("children", [])
+            return resolve_list(data, path[:-1])
+
+        def do_copy(cut=False):
+            data = read_json(BOOKMARKS_FILE, [])
+            paths = selected_paths()
+            if not paths:
+                return
+            try:
+                entries = [copy.deepcopy(resolve_list(data, path[:-1])[path[-1]]) for path in paths]
+            except (IndexError, KeyError, TypeError):
+                return
+            bookmark_clipboard.update({"entries": entries, "paths": paths if cut else [], "cut": bool(cut)})
+
+        def do_paste():
+            if not bookmark_clipboard["entries"]:
+                return
+            data = read_json(BOOKMARKS_FILE, [])
+            dest = destination_list(data)
+            if bookmark_clipboard["cut"]:
+                source_paths = bookmark_clipboard["paths"]
+                # A folder cannot be moved into itself or one of its descendants.
+                dest_path = tuple(selected_node().data(0, Qt.ItemDataRole.UserRole + 2)) if selected_node() else ()
+                if any(dest_path[:len(src)] == src for src in source_paths):
+                    QMessageBox.warning(dialog, self.tr("Verschieben nicht möglich", "Cannot move"), self.tr("Ein Ordner kann nicht in sich selbst oder einen seiner Unterordner verschoben werden.", "A folder cannot be moved into itself or one of its subfolders."))
+                    return
+                # The destination list is held by reference, so removing siblings does not invalidate it.
+                for path in sorted(source_paths, key=lambda x: (x[:-1], x[-1]), reverse=True):
+                    parent = resolve_list(data, path[:-1])
+                    if path[-1] < len(parent):
+                        del parent[path[-1]]
+                dest.extend(copy.deepcopy(bookmark_clipboard["entries"]))
+                bookmark_clipboard.update({"entries": [], "paths": [], "cut": False})
+            else:
+                dest.extend(copy.deepcopy(bookmark_clipboard["entries"]))
+            write_json(BOOKMARKS_FILE, data)
+            self.refresh_bookmarks_bar()
+            populate()
+
+        def do_new_folder():
+            data = read_json(BOOKMARKS_FILE, [])
+            target = destination_list(data)
+            name, ok = QInputDialog.getText(dialog, self.tr("Neuer Ordner", "New folder"), self.tr("Ordnername:", "Folder name:"))
+            if not ok or not name.strip():
+                return
+            target.append({"type": "folder", "title": name.strip(), "children": []})
+            write_json(BOOKMARKS_FILE, data)
+            self.refresh_bookmarks_bar(); populate()
+
+        def show_manager_context_menu(pos):
+            node = bookmark_tree.itemAt(pos)
+            if node and node not in bookmark_tree.selectedItems():
+                bookmark_tree.setCurrentItem(node)
+            menu = QMenu(bookmark_tree)
+            open_action = menu.addAction(self.tr("Öffnen", "Open"))
+            menu.addSeparator()
+            copy_action = menu.addAction(self.tr("Kopieren", "Copy"))
+            cut_action = menu.addAction(self.tr("Ausschneiden", "Cut"))
+            paste_action = menu.addAction(self.tr("Einfügen", "Paste"))
+            menu.addSeparator()
+            folder_action = menu.addAction(self.tr("Neuer Ordner…", "New folder…"))
+            edit_action = menu.addAction(self.tr("Bearbeiten…", "Edit…"))
+            delete_action = menu.addAction(self.tr("Löschen", "Delete"))
+            open_action.setEnabled(bool(node and node.data(0, Qt.ItemDataRole.UserRole + 1) == "bookmark"))
+            edit_action.setEnabled(bool(node and node.data(0, Qt.ItemDataRole.UserRole + 1) == "bookmark"))
+            delete_action.setEnabled(bool(node))
+            paste_action.setEnabled(bool(bookmark_clipboard["entries"]))
+            chosen = menu.exec(bookmark_tree.viewport().mapToGlobal(pos))
+            if chosen == open_action: do_open()
+            elif chosen == copy_action: do_copy(False)
+            elif chosen == cut_action: do_copy(True)
+            elif chosen == paste_action: do_paste()
+            elif chosen == folder_action: do_new_folder()
+            elif chosen == edit_action: do_edit()
+            elif chosen == delete_action: do_delete()
+
+        bookmark_tree.customContextMenuRequested.connect(show_manager_context_menu)
+        bookmark_tree.setToolTip(self.tr("Rechtsklick: Kopieren, Ausschneiden, Einfügen und weitere Aktionen", "Right-click for copy, cut, paste and more actions"))
 
         def do_export():
             filename, _ = QFileDialog.getSaveFileName(dialog, self.tr("Lesezeichen exportieren", "Export bookmarks"), str(pathlib.Path.home() / "LunaSurfer-Lesezeichen.html"), "HTML-Dateien (*.html *.htm)")

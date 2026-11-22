@@ -1,3 +1,9 @@
+## 0.3.54 – Lesezeichenverwaltung erweitert
+- Rechtsklick im Lesezeichenmanager mit Öffnen, Kopieren, Ausschneiden, Einfügen, neuem Ordner, Bearbeiten und Löschen.
+- Mehrfachauswahl zum gemeinsamen Kopieren oder Verschieben von Favoriten und Ordnern; die Ordnerstruktur bleibt erhalten.
+- Der Stern öffnet jetzt einen Dialog zum Bearbeiten von Name und Adresse sowie zur Auswahl des Zielordners.
+- Im Speicherdialog können neue Ordner direkt angelegt werden.
+
 ## 0.3.53
 - Behoben: Ein über „Link speichern unter…“ ausgewählter Speicherpfad wird jetzt direkt beim Eintreffen des Downloads übernommen und aus dem temporären Zustand entfernt.
 - Wird eine Sicherheitswarnung abgebrochen oder der Download anderweitig vorzeitig beendet, kann der ausgewählte Pfad nicht mehr versehentlich für einen späteren Download weiterverwendet werden.
