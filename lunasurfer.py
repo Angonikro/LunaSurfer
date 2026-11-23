@@ -26,10 +26,10 @@ if WIDEVINE_CDM.is_file():
     if widevine_flag not in existing_flags:
         os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (existing_flags + " " + widevine_flag).strip()
 
-from PySide6.QtCore import QUrl, QSize, QPoint, Qt, QTimer, QEvent, QObject, Slot, Signal, QThread, QTranslator, QLocale, QLibraryInfo, QFile, QIODevice
-from PySide6.QtGui import QAction, QKeySequence, QIcon
+from PySide6.QtCore import QUrl, QSize, QPoint, QMimeData, Qt, QTimer, QEvent, QObject, Slot, Signal, QThread, QTranslator, QLocale, QLibraryInfo, QFile, QIODevice
+from PySide6.QtGui import QAction, QKeySequence, QIcon, QDrag, QPainter, QPen, QColor
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QTabWidget, QToolBar, QLineEdit, QToolButton, QWidgetAction,
+    QApplication, QAbstractItemView, QMainWindow, QTabWidget, QToolBar, QLineEdit, QToolButton, QWidgetAction,
     QVBoxLayout, QWidget, QMenu, QFileDialog, QMessageBox, QDialog,
     QFormLayout, QPushButton, QHBoxLayout, QLabel, QCheckBox, QComboBox, QStyle, QInputDialog, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QHeaderView, QProgressBar, QSizePolicy, QScrollArea, QDockWidget, QDialogButtonBox, QGroupBox, QTextBrowser
 )
@@ -1989,18 +1989,447 @@ class LoginCaptureBridge(QObject):
             return "no"
 
 
-class BookmarkEntryButton(QToolButton):
-    """Bookmark row button that handles right-click before popup menus can consume it."""
-    def __init__(self, parent=None, context_callback=None):
+
+class BookmarkDragButton(QToolButton):
+    """Drag source/target for bookmark buttons in the bar and popup menus."""
+    def __init__(self, parent=None, window_ref=None, bookmark_url="", target_kind="bookmark", target_path=()):
         super().__init__(parent)
-        self._bookmark_context_callback = context_callback
+        self.window_ref = window_ref
+        self.bookmark_url = str(bookmark_url or "")
+        self.target_kind = target_kind
+        self.target_path = tuple(target_path or ())
+        self._press_pos = None
+        self._drag_base_style = None
+        self._auto_scroll_area = None
+        self._auto_scroll_direction = 0
+        self._auto_scroll_timer = QTimer(self)
+        self._auto_scroll_timer.setInterval(35)
+        self._auto_scroll_timer.timeout.connect(self._auto_scroll_tick)
+        self.setAcceptDrops(True)
+
+    def _find_bookmark_scroll_area(self):
+        parent = self.parentWidget()
+        while parent is not None:
+            if isinstance(parent, QScrollArea):
+                return parent
+            parent = parent.parentWidget()
+        return None
+
+    def _auto_scroll_tick(self):
+        area = self._auto_scroll_area
+        if area is None or not self._auto_scroll_direction:
+            self._auto_scroll_timer.stop()
+            return
+        bar = area.verticalScrollBar()
+        old_value = bar.value()
+        bar.setValue(old_value + self._auto_scroll_direction * 14)
+        if bar.value() == old_value:
+            self._auto_scroll_timer.stop()
+
+    def _update_drag_auto_scroll(self, global_pos):
+        area = self._find_bookmark_scroll_area()
+        if area is None:
+            self._auto_scroll_timer.stop()
+            self._auto_scroll_area = None
+            self._auto_scroll_direction = 0
+            return
+        viewport = area.viewport()
+        point = viewport.mapFromGlobal(global_pos)
+        edge = min(48, max(24, viewport.height() // 8))
+        direction = -1 if point.y() < edge else (1 if point.y() > viewport.height() - edge else 0)
+        self._auto_scroll_area = area
+        self._auto_scroll_direction = direction
+        if direction and not self._auto_scroll_timer.isActive():
+            self._auto_scroll_timer.start()
+        elif not direction:
+            self._auto_scroll_timer.stop()
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.RightButton and self._bookmark_context_callback:
-            self._bookmark_context_callback(self.mapToGlobal(event.pos()))
+        if event.button() == Qt.MouseButton.RightButton:
+            global_pos = self.mapToGlobal(event.position().toPoint())
+            callback = None
+            if self.window_ref:
+                if self.target_kind == "folder":
+                    callback = lambda: self.window_ref.show_bookmark_folder_context_menu(
+                        self.target_path, global_pos
+                    )
+                elif self.bookmark_url:
+                    callback = lambda: self.window_ref.show_bookmark_context_menu(
+                        self.bookmark_url, global_pos
+                    )
+            parent = self.parentWidget()
+            containing_menu = None
+            while parent is not None:
+                if isinstance(parent, QMenu):
+                    containing_menu = parent
+                    break
+                parent = parent.parentWidget()
             event.accept()
+            if callback is not None:
+                if containing_menu is not None:
+                    containing_menu.close()
+                    QTimer.singleShot(0, callback)
+                else:
+                    callback()
             return
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._press_pos = event.position().toPoint()
         super().mousePressEvent(event)
+
+    def enable_bookmark_context_menu(self):
+        # Sole right-click path: mousePressEvent. Do not emit a second signal.
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
+
+    def mouseMoveEvent(self, event):
+        if (self._press_pos is not None
+                and event.buttons() & Qt.MouseButton.LeftButton
+                and (event.position().toPoint() - self._press_pos).manhattanLength()
+                    >= QApplication.startDragDistance()):
+            drag = QDrag(self)
+            mime = QMimeData()
+            payload = ("bookmark:" + self.bookmark_url) if self.bookmark_url else ("folder:" + json.dumps(self.target_path))
+            mime.setData("application/x-lunasurfer-bookmark", payload.encode("utf-8"))
+            drag.setMimeData(mime)
+            drag.exec(Qt.DropAction.MoveAction)
+            self._press_pos = None
+            return
+        super().mouseMoveEvent(event)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasFormat("application/x-lunasurfer-bookmark"):
+            if self._drag_base_style is None:
+                self._drag_base_style = self.styleSheet()
+            self.setStyleSheet(self._drag_base_style + "\nQToolButton { border: 2px solid #a879e8; }")
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasFormat("application/x-lunasurfer-bookmark"):
+            self._update_drag_auto_scroll(self.mapToGlobal(event.position().toPoint()))
+            point = event.position().toPoint()
+            # Rows inside folder/overflow popups are vertical. Toolbar buttons
+            # are horizontal. Use the matching axis so users can insert between
+            # rows instead of accidentally creating a folder by dropping on top.
+            vertical_row = bool(self.parentWidget() and self.parentWidget().objectName() == "bookmarkPopupContent")
+            extent = self.height() if vertical_row else self.width()
+            coordinate = point.y() if vertical_row else point.x()
+            if self.target_kind == "folder" and extent * 0.28 <= coordinate <= extent * 0.72:
+                hint = "border: 2px solid #b58bea; background: #3b3150;"
+            elif coordinate < extent * 0.28:
+                hint = ("border-top: 4px solid #b58bea;" if vertical_row else "border-left: 4px solid #b58bea;")
+            elif coordinate > extent * 0.72:
+                hint = ("border-bottom: 4px solid #b58bea;" if vertical_row else "border-right: 4px solid #b58bea;")
+            else:
+                hint = "border: 2px solid #b58bea; background: #3b3150;"
+            self.setStyleSheet("QToolButton { text-align:left; padding:6px 9px; color:#e8edf5; " + hint + " border-radius:5px; }")
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragLeaveEvent(self, event):
+        self._auto_scroll_timer.stop()
+        self._auto_scroll_area = None
+        self._auto_scroll_direction = 0
+        self.setStyleSheet(self._drag_base_style or "")
+        self._drag_base_style = None
+        super().dragLeaveEvent(event)
+
+    def dropEvent(self, event):
+        if not event.mimeData().hasFormat("application/x-lunasurfer-bookmark"):
+            event.ignore()
+            return
+        source = bytes(event.mimeData().data("application/x-lunasurfer-bookmark")).decode("utf-8", "replace")
+        self._auto_scroll_timer.stop()
+        self._auto_scroll_area = None
+        self._auto_scroll_direction = 0
+        self.setStyleSheet(self._drag_base_style or "")
+        self._drag_base_style = None
+        if self.window_ref and source:
+            point = event.position().toPoint()
+            vertical_row = bool(self.parentWidget() and self.parentWidget().objectName() == "bookmarkPopupContent")
+            extent = self.height() if vertical_row else self.width()
+            coordinate = point.y() if vertical_row else point.x()
+            # In popup rows the insertion direction is vertical; on the
+            # toolbar it is horizontal. The center of a folder means "inside".
+            if self.target_kind == "folder" and extent * 0.28 <= coordinate <= extent * 0.72:
+                placement = "on"
+            elif coordinate < extent * 0.28:
+                placement = "before"
+            elif coordinate > extent * 0.72:
+                placement = "after"
+            else:
+                placement = "on"
+            self.window_ref.handle_bookmark_drop(source, self.bookmark_url, self.target_kind, placement, self.target_path)
+        event.acceptProposedAction()
+
+
+class BookmarkNavigationToolBar(QToolBar):
+    """Drop target for the empty area of the bookmarks navigation bar."""
+    MIME_TYPE = "application/x-lunasurfer-bookmark"
+
+    def __init__(self, title, window_ref):
+        super().__init__(title, window_ref)
+        self.window_ref = window_ref
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasFormat(self.MIME_TYPE):
+            event.acceptProposedAction()
+        else:
+            super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasFormat(self.MIME_TYPE):
+            event.acceptProposedAction()
+        else:
+            super().dragMoveEvent(event)
+
+    def dropEvent(self, event):
+        if not event.mimeData().hasFormat(self.MIME_TYPE):
+            super().dropEvent(event)
+            return
+        source = bytes(event.mimeData().data(self.MIME_TYPE)).decode("utf-8", "replace")
+        point = event.position().toPoint()
+        target = self.childAt(point)
+        while target is not None and not isinstance(target, BookmarkDragButton):
+            target = target.parentWidget()
+
+        if isinstance(target, BookmarkDragButton):
+            local = target.mapFrom(self, point)
+            extent = target.width() if target.width() >= target.height() else target.height()
+            coordinate = local.x() if target.width() >= target.height() else local.y()
+            if target.target_kind == "folder":
+                placement = "on"
+            elif coordinate < extent * 0.28:
+                placement = "before"
+            elif coordinate > extent * 0.72:
+                placement = "after"
+            else:
+                placement = "on"
+            self.window_ref.handle_bookmark_drop(
+                source, target.bookmark_url, target.target_kind,
+                placement, target.target_path
+            )
+        else:
+            # Insert at the visual position in the root bookmark list, rather
+            # than blindly appending to the end. The visible bookmark buttons
+            # carry their original tree path, so overflow entries remain intact.
+            candidates = []
+            for button in self.findChildren(BookmarkDragButton):
+                if button.parentWidget() is self and button.target_path:
+                    candidates.append((button.mapTo(self, QPoint(button.width() // 2, button.height() // 2)).x(),
+                                       int(button.target_path[0])))
+            candidates.sort(key=lambda pair: pair[0])
+            root_index = len(read_json(BOOKMARKS_FILE, []))
+            for center_x, item_index in candidates:
+                if point.x() < center_x:
+                    root_index = item_index
+                    break
+                root_index = item_index + 1
+            self.window_ref.handle_bookmark_drop(
+                source, "", "root", "after", (), root_index=root_index
+            )
+        event.acceptProposedAction()
+
+
+class BookmarkOverflowDropButton(QToolButton):
+    """The visible “More” button also accepts bookmarks dropped into overflow."""
+    MIME_TYPE = "application/x-lunasurfer-bookmark"
+
+    def __init__(self, parent=None, window_ref=None):
+        super().__init__(parent)
+        self.window_ref = window_ref
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasFormat(self.MIME_TYPE):
+            self.setStyleSheet(self.styleSheet() + "\nQToolButton { border: 2px solid #a879e8; }")
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasFormat(self.MIME_TYPE):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragLeaveEvent(self, event):
+        self.setStyleSheet("")
+        super().dragLeaveEvent(event)
+
+    def dropEvent(self, event):
+        if not event.mimeData().hasFormat(self.MIME_TYPE):
+            event.ignore()
+            return
+        token = bytes(event.mimeData().data(self.MIME_TYPE)).decode("utf-8", "replace")
+        if self.window_ref and self.window_ref.pin_bookmark_to_overflow(token):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+        self.setStyleSheet("")
+
+
+class BookmarkManagerTree(QTreeWidget):
+    """Tree widget with bookmark drag/drop delegated to the persistent bookmark store."""
+    def __init__(self, parent=None, drop_callback=None):
+        super().__init__(parent)
+        self.drop_callback = drop_callback
+        self._bookmark_drop_line_y = None
+        self._bookmark_drop_folder_rect = None
+        self._auto_scroll_direction = 0
+        self._auto_scroll_timer = QTimer(self)
+        self._auto_scroll_timer.setInterval(35)
+        self._auto_scroll_timer.timeout.connect(self._auto_scroll_tick)
+
+    def _auto_scroll_tick(self):
+        bar = self.verticalScrollBar()
+        old_value = bar.value()
+        bar.setValue(old_value + self._auto_scroll_direction * 14)
+        if bar.value() == old_value:
+            self._auto_scroll_timer.stop()
+
+    def _update_drag_auto_scroll(self, y):
+        edge = min(48, max(24, self.viewport().height() // 8))
+        direction = -1 if y < edge else (1 if y > self.viewport().height() - edge else 0)
+        self._auto_scroll_direction = direction
+        if direction and not self._auto_scroll_timer.isActive():
+            self._auto_scroll_timer.start()
+        elif not direction:
+            self._auto_scroll_timer.stop()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self._bookmark_drop_line_y is None and self._bookmark_drop_folder_rect is None:
+            return
+        painter = QPainter(self.viewport())
+        pen = QPen(QColor("#b58bea"))
+        pen.setWidth(3)
+        painter.setPen(pen)
+        if self._bookmark_drop_line_y is not None:
+            y = int(self._bookmark_drop_line_y)
+            painter.drawLine(5, y, max(5, self.viewport().width() - 5), y)
+        if self._bookmark_drop_folder_rect is not None:
+            painter.drawRect(self._bookmark_drop_folder_rect.adjusted(1, 1, -2, -2))
+        painter.end()
+
+    def startDrag(self, supported_actions):
+        items = self.selectedItems()
+        if not items:
+            return
+        item = items[0]
+        url = str(item.data(0, Qt.ItemDataRole.UserRole) or "")
+        kind = str(item.data(0, Qt.ItemDataRole.UserRole + 1) or "bookmark")
+        path = tuple(item.data(0, Qt.ItemDataRole.UserRole + 2) or ())
+        if kind == "folder":
+            token = "folder:" + json.dumps(path)
+        elif url:
+            token = "bookmark:" + url
+        else:
+            return
+        drag = QDrag(self)
+        mime = QMimeData()
+        mime.setData("application/x-lunasurfer-bookmark", token.encode("utf-8"))
+        drag.setMimeData(mime)
+        drag.exec(Qt.DropAction.MoveAction)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasFormat("application/x-lunasurfer-bookmark"):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasFormat("application/x-lunasurfer-bookmark"):
+            point = event.position().toPoint()
+            self._update_drag_auto_scroll(point.y())
+            target = self.itemAt(point)
+            self._bookmark_drop_line_y = None
+            self._bookmark_drop_folder_rect = None
+            if target is not None:
+                rect = self.visualItemRect(target)
+                kind = str(target.data(0, Qt.ItemDataRole.UserRole + 1) or "")
+                relative_y = point.y() - rect.top()
+                band = max(6, rect.height() // 3)
+                if band <= relative_y < rect.height() - band:
+                    # Center-drop is a folder target: on an existing folder it
+                    # moves inside; on a bookmark it creates a new folder.
+                    self._bookmark_drop_folder_rect = rect
+                elif relative_y < band:
+                    self._bookmark_drop_line_y = rect.top()
+                else:
+                    self._bookmark_drop_line_y = rect.bottom() + 1
+            else:
+                self._bookmark_drop_line_y = self.viewport().height() - 2
+            self.viewport().update()
+            event.acceptProposedAction()
+        else:
+            self._bookmark_drop_line_y = None
+            self._bookmark_drop_folder_rect = None
+            self.viewport().update()
+            event.ignore()
+
+    def dragLeaveEvent(self, event):
+        self._auto_scroll_timer.stop()
+        self._auto_scroll_direction = 0
+        self._bookmark_drop_line_y = None
+        self._bookmark_drop_folder_rect = None
+        self.viewport().update()
+        super().dragLeaveEvent(event)
+
+    def dropEvent(self, event):
+        if not event.mimeData().hasFormat("application/x-lunasurfer-bookmark"):
+            event.ignore()
+            return
+        source = bytes(event.mimeData().data("application/x-lunasurfer-bookmark")).decode("utf-8", "replace")
+        self._auto_scroll_timer.stop()
+        self._auto_scroll_direction = 0
+        self._bookmark_drop_line_y = None
+        self._bookmark_drop_folder_rect = None
+        self.viewport().update()
+        point = event.position().toPoint()
+        target = self.itemAt(point)
+        target_url = str(target.data(0, Qt.ItemDataRole.UserRole) or "") if target else ""
+        target_kind = str(target.data(0, Qt.ItemDataRole.UserRole + 1) or "") if target else "root"
+        target_path = tuple(target.data(0, Qt.ItemDataRole.UserRole + 2) or ()) if target else ()
+
+        # Determine the insertion zone from the actual row geometry.  The
+        # QTreeWidget's native indicator can report OnItem for custom MIME
+        # payloads even while its painted line appears above/below the row.
+        root_index = None
+        if target is not None:
+            rect = self.visualItemRect(target)
+            relative_y = point.y() - rect.top()
+            band = max(6, rect.height() // 3)
+            if band <= relative_y < rect.height() - band:
+                # "on" a folder means move into it; "on" a bookmark means
+                # create a folder containing the target and dragged bookmark.
+                placement = "on"
+            elif relative_y < band:
+                placement = "before"
+            else:
+                placement = "after"
+        else:
+            # Dropping in blank tree space inserts at the corresponding root
+            # position instead of silently appending every item.
+            placement = "after"
+            root_index = self.topLevelItemCount()
+            for index in range(self.topLevelItemCount()):
+                row = self.topLevelItem(index)
+                rect = self.visualItemRect(row)
+                if point.y() < rect.center().y():
+                    root_index = index
+                    break
+
+        if self.drop_callback:
+            try:
+                self.drop_callback(source, target_url, target_kind, placement, target_path, root_index)
+            except TypeError:
+                # Compatibility with an older callback signature.
+                self.drop_callback(source, target_url, target_kind, placement, target_path)
+        event.setDropAction(Qt.DropAction.MoveAction)
+        event.accept()
 
 
 class BookmarkOverflowMenu(QMenu):
@@ -3032,7 +3461,9 @@ class LunaSurfer(QMainWindow):
         self.addToolBarBreak(Qt.ToolBarArea.TopToolBarArea)
 
         # Chromium-style bookmarks bar directly below the navigation bar.
-        self.bookmarks_bar = QToolBar(self.tr("Lesezeichenleiste", "Bookmarks bar"))
+        self.bookmarks_bar = BookmarkNavigationToolBar(
+            self.tr("Lesezeichenleiste", "Bookmarks bar"), self
+        )
         self.bookmarks_bar.setMovable(False)
         self.bookmarks_bar.setIconSize(QSize(18, 18))
         self.bookmarks_bar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
@@ -4308,6 +4739,194 @@ class LunaSurfer(QMainWindow):
         buttons.rejected.connect(dialog.reject)
         dialog.exec()
 
+    def pin_bookmark_to_overflow(self, source_token):
+        """Keep a dragged bookmark/folder in the responsive “More” popup."""
+        token = str(source_token or "").strip()
+        data = read_json(BOOKMARKS_FILE, [])
+        item = None
+
+        def find_url(entries, wanted):
+            for entry in entries if isinstance(entries, list) else []:
+                if str(entry.get("url", "")).strip() == wanted:
+                    return entry
+                found = find_url(entry.get("children", []), wanted)
+                if found is not None:
+                    return found
+            return None
+
+        if token.startswith("bookmark:"):
+            item = find_url(data, token[len("bookmark:"):])
+        elif token.startswith("folder:"):
+            try:
+                path = tuple(json.loads(token[len("folder:"):]))
+                entries = data
+                for index in path:
+                    item = entries[index]
+                    entries = item.get("children", [])
+            except (ValueError, TypeError, IndexError, KeyError):
+                item = None
+        if not isinstance(item, dict):
+            self.statusBar().showMessage(self.tr("Lesezeichen konnte nicht zu Weitere verschoben werden", "Could not move bookmark to More"), 3500)
+            return False
+
+        url = str(item.get("url", "")).strip()
+        if url:
+            key = ("url", url)
+        else:
+            child_urls = []
+            def collect_urls(entries):
+                for child in entries if isinstance(entries, list) else []:
+                    child_url = str(child.get("url", "")).strip()
+                    if child_url:
+                        child_urls.append(child_url)
+                    collect_urls(child.get("children", []))
+            collect_urls(item.get("children", []))
+            key = ("folder", tuple(sorted(child_urls)) if child_urls else str(item.get("title", "")).casefold())
+
+        if self._bookmark_overflow_keys is None:
+            self._bookmark_overflow_keys = set()
+        self._bookmark_overflow_keys.add(key)
+        self._preserve_bookmark_overflow_once = True
+        self.refresh_bookmarks_bar()
+        self.statusBar().showMessage(self.tr("Lesezeichen in Weitere abgelegt", "Bookmark placed in More"), 2500)
+        return True
+
+    def handle_bookmark_drop(self, source_token, target_url="", target_kind="bookmark", position="after", target_path=(), root_index=None):
+        """Move bookmarks/folders and preserve the exact drop position."""
+        token = str(source_token or "").strip()
+        if not token:
+            return False
+        data = read_json(BOOKMARKS_FILE, [])
+
+        def item_at(path):
+            entries = data
+            item = None
+            try:
+                for index in path:
+                    item = entries[index]
+                    entries = item.setdefault("children", [])
+                return item
+            except (IndexError, TypeError, KeyError):
+                return None
+
+        def find_url(entries, wanted):
+            for entry in entries if isinstance(entries, list) else []:
+                if str(entry.get("url", "")).strip() == wanted:
+                    return entry
+                found = find_url(entry.get("children", []), wanted)
+                if found is not None:
+                    return found
+            return None
+
+        def parent_of(entries, wanted):
+            for index, entry in enumerate(entries if isinstance(entries, list) else []):
+                if entry is wanted:
+                    return entries, index
+                found = parent_of(entry.get("children", []), wanted)
+                if found is not None:
+                    return found
+            return None
+
+        if token.startswith("bookmark:"):
+            source_item = find_url(data, token[len("bookmark:"):])
+        elif token.startswith("folder:"):
+            try:
+                source_item = item_at(tuple(json.loads(token[len("folder:"):])) )
+            except Exception:
+                source_item = None
+        else:  # compatibility with older drag payloads
+            source_item = find_url(data, token)
+        if source_item is None:
+            return False
+
+        target_item = None
+        if target_kind == "folder" and target_path:
+            target_item = item_at(tuple(target_path))
+        elif target_url:
+            target_item = find_url(data, target_url)
+        if source_item is target_item:
+            return False
+
+        # Prevent moving a folder into itself or one of its descendants.
+        def contains(parent, candidate):
+            if parent is candidate:
+                return True
+            return any(contains(child, candidate) for child in parent.get("children", []) if isinstance(child, dict))
+        if source_item.get("children") is not None and target_item is not None and contains(source_item, target_item):
+            return False
+
+        source_parent = parent_of(data, source_item)
+        if source_parent is None:
+            return False
+        source_was_root = source_parent[0] is data
+        source_root_index = source_parent[1] if source_was_root else None
+        source_parent[0].pop(source_parent[1])
+
+        if target_item is not None and target_kind == "folder" and position == "on":
+            target_item.setdefault("children", []).append(source_item)
+        elif target_item is not None:
+            target_parent = parent_of(data, target_item)
+            if target_parent is None:
+                data.append(source_item)
+            elif position in ("before", "after"):
+                target_parent[0].insert(target_parent[1] + (1 if position == "after" else 0), source_item)
+            else:
+                # Dropping directly onto a bookmark creates a folder exactly
+                # where the target stood (not at the end of the root list).
+                target_parent[0][target_parent[1]] = {
+                    "type": "folder", "title": (target_item.get("title") or target_item.get("url", "Ordner"))[:80],
+                    "children": [target_item, source_item]
+                }
+        else:
+            # Empty toolbar space is an insertion point, not an append command.
+            # Correct the index when removing an earlier item from the same root list.
+            index = len(data) if root_index is None else max(0, min(int(root_index), len(data)))
+            if source_was_root and source_root_index is not None and source_root_index < index:
+                index -= 1
+            data.insert(index, source_item)
+
+        # Capture the currently open folder popup before rebuilding the toolbar;
+        # clearing the toolbar can close and destroy the old popup widget.
+        popup_refresh = None
+        current_popup = QApplication.activePopupWidget()
+        popup_widget = current_popup
+        while popup_widget is not None:
+            if isinstance(popup_widget, QMenu) and getattr(popup_widget, "_bookmark_folder_path", None):
+                popup_refresh = (tuple(popup_widget._bookmark_folder_path), popup_widget.geometry().topLeft())
+                break
+            popup_widget = popup_widget.parentWidget()
+
+        write_json(BOOKMARKS_FILE, data)
+        if hasattr(self, "bookmarks_bar"):
+            self._bookmark_overflow_keys = None
+            self._preserve_bookmark_overflow_once = False
+
+            # Do not rebuild the toolbar from inside a popup's own dropEvent.
+            # Qt can otherwise leave the old cascading menu alive until the
+            # next outside click, which makes its stale contents reappear.
+            # Defer teardown/rebuild until the current drag/drop event unwinds.
+            def finish_bookmark_popup_refresh(saved_popup=popup_refresh):
+                old_menus = self.findChildren(BookmarkOverflowMenu)
+                for old_menu in old_menus:
+                    old_menu.close()
+                    old_menu.hide()
+                    old_menu.deleteLater()
+                self.refresh_bookmarks_bar()
+                if saved_popup:
+                    folder_path, popup_position = saved_popup
+                    replacement_menu = getattr(self, "_bookmark_popup_by_folder_path", {}).get(folder_path)
+                    if replacement_menu is not None:
+                        replacement_menu.popup(popup_position)
+
+            QTimer.singleShot(0, finish_bookmark_popup_refresh)
+        elif popup_refresh:
+            # No toolbar exists yet; there is no popup tree to refresh.
+            pass
+
+        if hasattr(self, "statusBar"):
+            self.statusBar().showMessage(self.tr("Lesezeichen verschoben", "Bookmark moved"), 2500)
+        return True
+
     def refresh_bookmarks_bar(self):
         """Build a responsive bookmarks bar with a clean overflow menu."""
         if not hasattr(self, "bookmarks_bar"):
@@ -4382,8 +5001,13 @@ class LunaSurfer(QMainWindow):
 
         self._bookmark_overflow_keys = pinned_overflow
 
-        def add_menu_entries(menu, entries):
+        popup_by_folder_path = {}
+
+        def add_menu_entries(menu, entries, base_path=()):
             """Build a genuinely scrollable bookmark popup with a visible scrollbar."""
+            menu._bookmark_folder_path = tuple(base_path) if base_path else None
+            if base_path:
+                popup_by_folder_path[tuple(base_path)] = menu
             screen = self.screen() if hasattr(self, "screen") else QApplication.primaryScreen()
             screen_geometry = screen.availableGeometry() if screen else None
             screen_width = screen_geometry.width() if screen_geometry else 1280
@@ -4423,10 +5047,12 @@ class LunaSurfer(QMainWindow):
                     str(value), Qt.TextElideMode.ElideRight, menu_width - 55
                 )
 
-            for item in entries:
+            for item_index, item in enumerate(entries):
+                item_path = find_bookmark_path(items, item) if (item.get('type') == 'folder' or 'children' in item) else tuple(base_path) + (item_index,)
                 is_folder = item.get("type") == "folder" or "children" in item
                 full_title = (item.get("title") or ("Ordner" if is_folder else item.get("url", ""))).strip()
-                row = BookmarkEntryButton(content)
+                row = BookmarkDragButton(content, self, item.get('url', '') if not is_folder else '', 'folder' if is_folder else 'bookmark', item_path if is_folder else ())
+                row.enable_bookmark_context_menu()
                 row.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
                 row.setText(("▸  " if is_folder else "     ") + fit_menu_text(full_title))
                 row.setToolTip(full_title if is_folder else f"{full_title}\n{item.get('url', '')}")
@@ -4439,8 +5065,12 @@ class LunaSurfer(QMainWindow):
                     QToolButton:hover { background: #303b4c; color: white; }
                 """)
                 if is_folder:
+                    row._bookmark_context_callback = (
+                        lambda global_pos, path=item_path:
+                            self.show_bookmark_folder_context_menu(path, global_pos)
+                    )
                     child_menu = BookmarkOverflowMenu(fit_menu_text(full_title), menu, self)
-                    add_menu_entries(child_menu, item.get("children", []))
+                    add_menu_entries(child_menu, item.get("children", []), item_path)
                     row.clicked.connect(
                         lambda checked=False, b=row, m=child_menu:
                             m.popup(b.mapToGlobal(QPoint(b.width(), 0)))
@@ -4466,20 +5096,58 @@ class LunaSurfer(QMainWindow):
             widget_action.setDefaultWidget(scroll)
             menu.addAction(widget_action)
 
-        def create_bookmark_popup(title, entries):
+        def create_bookmark_popup(title, entries, folder_path=()):
             """Create the standard cascading, scrollable popup used by all bookmark buttons."""
             menu = BookmarkOverflowMenu(title, self, self)
-            add_menu_entries(menu, entries)
+            add_menu_entries(menu, entries, folder_path)
             return menu
 
         def configure_bookmark_popup_button(button, title, menu, tooltip):
             """Give folder buttons and the 'More' button identical popup behavior."""
             button.setText(title)
             button.setToolTip(tooltip)
-            button.setMenu(menu)
-            button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+            # Do not attach the QMenu through setMenu(): Qt paints a native
+            # menu-indicator subcontrol that appears as white square artifacts
+            # with the Graphit toolbar stylesheet. Open the menu ourselves.
+            # This also leaves the entire button surface available for dragging.
+            button.clicked.connect(
+                lambda checked=False, b=button, m=menu:
+                    m.popup(b.mapToGlobal(QPoint(0, b.height())))
+            )
             button.setMinimumWidth(88)
             button.setMaximumWidth(220)
+
+        # Build one authoritative path index from the exact JSON tree used to
+        # construct this toolbar and its popup menus.  Do not rediscover paths
+        # from popup-local lists: overflow and nested menus have different
+        # local indices from the root bookmark tree.
+        bookmark_path_by_identity = {}
+
+        def index_bookmark_paths(entries, prefix=()):
+            for idx, candidate in enumerate(entries if isinstance(entries, list) else []):
+                if not isinstance(candidate, dict):
+                    continue
+                path = prefix + (idx,)
+                bookmark_path_by_identity[id(candidate)] = path
+                children = candidate.get("children", [])
+                if isinstance(children, list):
+                    index_bookmark_paths(children, path)
+
+        index_bookmark_paths(items)
+
+        def find_bookmark_path(entries, wanted, prefix=()):
+            # Kept for compatibility with callers, but prefer the indexed path.
+            indexed = bookmark_path_by_identity.get(id(wanted))
+            if indexed is not None:
+                return indexed
+            for idx, candidate in enumerate(entries if isinstance(entries, list) else []):
+                path = prefix + (idx,)
+                if candidate is wanted:
+                    return path
+                found = find_bookmark_path(candidate.get("children", []), wanted, path)
+                if found:
+                    return found
+            return ()
 
         def add_visible(item):
             if item.get("type") == "folder" or "children" in item:
@@ -4487,10 +5155,11 @@ class LunaSurfer(QMainWindow):
                 # Use the same right-click capable menu as the overflow area,
                 # so bookmarks inside folders on the visible bookmarks bar
                 # also expose Open / Edit / Delete actions.
-                menu = create_bookmark_popup(title, item.get("children", []))
-                button = QToolButton(self.bookmarks_bar)
+                menu = create_bookmark_popup(title, item.get("children", []), find_bookmark_path(items, item))
+                button = BookmarkDragButton(self.bookmarks_bar, self, '', 'folder', find_bookmark_path(items, item))
+                button.enable_bookmark_context_menu()
                 configure_bookmark_popup_button(
-                    button, title, menu, self.tr("Ordner öffnen", "Open folder")
+                    button, title + "  ▾", menu, self.tr("Ordner öffnen", "Open folder")
                 )
                 self.bookmarks_bar.addWidget(button)
             else:
@@ -4498,16 +5167,16 @@ class LunaSurfer(QMainWindow):
                 if not url:
                     return
                 title = (item.get("title") or url).strip()
-                action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload), title, self)
-                action.setToolTip(url)
-                action.triggered.connect(lambda checked=False, u=url: self.open_bookmark(u))
-                self.bookmarks_bar.addAction(action)
-                button = self.bookmarks_bar.widgetForAction(action)
-                if button is not None:
-                    button.setMinimumWidth(88)
-                    button.setMaximumWidth(220)
-                    button.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-                    button.customContextMenuRequested.connect(lambda pos, u=url, b=button: self.show_bookmark_context_menu(u, b.mapToGlobal(pos)))
+                button = BookmarkDragButton(self.bookmarks_bar, self, url, "bookmark", find_bookmark_path(items, item))
+                button.enable_bookmark_context_menu()
+                button.setText(title)
+                button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
+                button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+                button.setToolTip(url)
+                button.setMinimumWidth(88)
+                button.setMaximumWidth(220)
+                button.clicked.connect(lambda checked=False, u=url: self.open_bookmark(u))
+                self.bookmarks_bar.addWidget(button)
 
         for item in visible:
             add_visible(item)
@@ -4517,12 +5186,14 @@ class LunaSurfer(QMainWindow):
             more_menu = create_bookmark_popup(
                 self.tr("Weitere Lesezeichen", "More bookmarks"), overflow
             )
-            more_button = QToolButton(self.bookmarks_bar)
+            more_button = BookmarkOverflowDropButton(self.bookmarks_bar, self)
             configure_bookmark_popup_button(
                 more_button, more_title, more_menu,
                 self.tr("Weitere Lesezeichen anzeigen", "Show more bookmarks")
             )
             self.bookmarks_bar.addWidget(more_button)
+
+        self._bookmark_popup_by_folder_path = popup_by_folder_path
 
         # Flexible spacer keeps the management action anchored at the right.
         spacer = QWidget(self.bookmarks_bar)
@@ -4545,6 +5216,146 @@ class LunaSurfer(QMainWindow):
         view = self.current_view()
         if view:
             view.load(QUrl(url))
+
+    def delete_bookmark_folder(self, folder_path, parent=None, confirm=True):
+        """Delete exactly the folder addressed by its current bookmark-tree path."""
+        path = tuple(folder_path or ())
+        if not path or any(not isinstance(index, int) or index < 0 for index in path):
+            QMessageBox.warning(
+                parent or self, self.tr("Ordner nicht gefunden", "Folder not found"),
+                self.tr("Die Position des Ordners konnte nicht ermittelt werden. Bitte aktualisiere die Lesezeichenleiste und versuche es erneut.",
+                        "The folder location could not be determined. Refresh the bookmarks bar and try again.")
+            )
+            return False
+        items = read_json(BOOKMARKS_FILE, [])
+        try:
+            siblings = items
+            folder = None
+            for depth, index in enumerate(path):
+                if not isinstance(siblings, list) or index >= len(siblings):
+                    raise IndexError("bookmark folder path is stale")
+                folder = siblings[index]
+                if depth < len(path) - 1:
+                    if not isinstance(folder, dict) or not isinstance(folder.get("children"), list):
+                        raise TypeError("bookmark path does not point through a folder")
+                    siblings = folder["children"]
+            if not isinstance(folder, dict) or not (folder.get("type") == "folder" or isinstance(folder.get("children"), list)):
+                raise TypeError("selected bookmark is not a folder")
+        except (IndexError, KeyError, TypeError):
+            QMessageBox.warning(
+                parent or self, self.tr("Ordner nicht gefunden", "Folder not found"),
+                self.tr("Der Ordner ist nicht mehr an dieser Stelle vorhanden. Bitte öffne das Menü erneut.",
+                        "The folder is no longer at this location. Please reopen the menu.")
+            )
+            return False
+
+        if confirm:
+            answer = QMessageBox.question(
+                parent or self, self.tr("Ordner löschen", "Delete folder"),
+                self.tr("Diesen Ordner und alle enthaltenen Lesezeichen wirklich löschen?",
+                        "Really delete this folder and all bookmarks inside it?"),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return False
+
+        try:
+            siblings = items
+            for index in path[:-1]:
+                siblings = siblings[index]["children"]
+            del siblings[path[-1]]
+            write_json(BOOKMARKS_FILE, items)
+            # Verify that the intended updated structure was actually persisted.
+            saved = read_json(BOOKMARKS_FILE, None)
+            if saved != items:
+                raise OSError("saved bookmark data does not match the updated structure")
+            self.refresh_bookmarks_bar()
+            self.statusBar().showMessage(self.tr("Ordner gelöscht", "Folder deleted"), 3000)
+            return True
+        except (IndexError, KeyError, TypeError, OSError) as exc:
+            QMessageBox.warning(
+                parent or self, self.tr("Löschen fehlgeschlagen", "Delete failed"),
+                self.tr("Der Ordner konnte nicht gelöscht werden.", "The folder could not be deleted.") + "\n" + str(exc)
+            )
+            return False
+
+    def rename_bookmark_folder(self, folder_path, parent=None):
+        """Rename exactly the folder addressed by its current bookmark-tree path."""
+        path = tuple(folder_path or ())
+        if not path or any(not isinstance(index, int) or index < 0 for index in path):
+            QMessageBox.warning(
+                parent or self, self.tr("Ordner nicht gefunden", "Folder not found"),
+                self.tr("Die Position des Ordners konnte nicht ermittelt werden.",
+                        "The folder location could not be determined.")
+            )
+            return False
+        items = read_json(BOOKMARKS_FILE, [])
+        try:
+            siblings = items
+            folder = None
+            for depth, index in enumerate(path):
+                if not isinstance(siblings, list) or index >= len(siblings):
+                    raise IndexError("stale bookmark folder path")
+                folder = siblings[index]
+                if depth < len(path) - 1:
+                    if not isinstance(folder, dict) or not isinstance(folder.get("children"), list):
+                        raise TypeError("path does not point through a folder")
+                    siblings = folder["children"]
+            if not isinstance(folder, dict) or not (folder.get("type") == "folder" or isinstance(folder.get("children"), list)):
+                raise TypeError("selected item is not a folder")
+        except (IndexError, KeyError, TypeError):
+            QMessageBox.warning(
+                parent or self, self.tr("Ordner nicht gefunden", "Folder not found"),
+                self.tr("Der Ordner ist nicht mehr an dieser Stelle vorhanden. Bitte öffne das Menü erneut.",
+                        "The folder is no longer at this location. Please reopen the menu.")
+            )
+            return False
+
+        old_title = str(folder.get("title") or self.tr("Ordner", "Folder"))
+        new_title, accepted = QInputDialog.getText(
+            parent or self, self.tr("Ordner umbenennen", "Rename folder"),
+            self.tr("Neuer Ordnername:", "New folder name:"),
+            text=old_title
+        )
+        if not accepted:
+            return False
+        new_title = new_title.strip()
+        if not new_title:
+            QMessageBox.warning(
+                parent or self, self.tr("Ungültiger Name", "Invalid name"),
+                self.tr("Der Ordnername darf nicht leer sein.", "The folder name cannot be empty.")
+            )
+            return False
+        folder["title"] = new_title
+        try:
+            write_json(BOOKMARKS_FILE, items)
+            saved = read_json(BOOKMARKS_FILE, None)
+            if saved != items:
+                raise OSError("saved bookmark data does not match renamed structure")
+            self.refresh_bookmarks_bar()
+            self.statusBar().showMessage(self.tr("Ordner umbenannt", "Folder renamed"), 3000)
+            return True
+        except (OSError, TypeError, ValueError) as exc:
+            QMessageBox.warning(
+                parent or self, self.tr("Umbenennen fehlgeschlagen", "Rename failed"),
+                self.tr("Der Ordner konnte nicht umbenannt werden.", "The folder could not be renamed.") + "\n" + str(exc)
+            )
+            return False
+
+    def show_bookmark_folder_context_menu(self, folder_path, global_pos):
+        """Right-click menu for a bookmark folder in the toolbar or popup."""
+        menu = QMenu(self)
+        manage_action = menu.addAction(self.tr("Lesezeichen verwalten", "Manage bookmarks"))
+        rename_action = menu.addAction(self.tr("Ordner umbenennen…", "Rename folder…"))
+        delete_action = menu.addAction(self.tr("Ordner löschen", "Delete folder"))
+        selected = menu.exec(global_pos)
+        if selected == manage_action:
+            self.show_bookmarks()
+        elif selected == rename_action:
+            self.rename_bookmark_folder(folder_path, parent=self)
+        elif selected == delete_action:
+            self.delete_bookmark_folder(folder_path, parent=self, confirm=True)
 
     def show_bookmark_context_menu(self, url, global_pos):
         """Right-click menu for bookmarks in the bookmarks bar."""
@@ -4590,8 +5401,11 @@ class LunaSurfer(QMainWindow):
                 self._bookmark_overflow_keys.add(("url", str(url).strip()))
         write_json(BOOKMARKS_FILE, items)
         self._preserve_bookmark_overflow_once = True
-        self.refresh_bookmarks_bar()
         self.statusBar().showMessage(self.tr("Lesezeichen geändert", "Bookmark changed"), 3000)
+        # Editing may be launched from a toolbar button's context menu. Defer
+        # rebuilding the toolbar until Qt has unwound that menu callback;
+        # clearing its widgets synchronously can invalidate the active sender.
+        QTimer.singleShot(0, self.refresh_bookmarks_bar)
 
     def delete_bookmark(self, url):
         answer = QMessageBox.question(
@@ -4601,19 +5415,51 @@ class LunaSurfer(QMainWindow):
         )
         if answer != QMessageBox.StandardButton.Yes:
             return
+        target_url = str(url or "").strip()
+        removed = [0]
+
         def remove_url(entries):
             kept = []
-            for entry in entries:
-                if entry.get("url") == url:
+            for entry in entries if isinstance(entries, list) else []:
+                if not isinstance(entry, dict):
+                    kept.append(entry)
                     continue
-                if isinstance(entry.get("children"), list):
-                    entry["children"] = remove_url(entry["children"])
+                entry_url = str(entry.get("url") or "").strip()
+                if entry_url and entry_url == target_url:
+                    removed[0] += 1
+                    continue
+                children = entry.get("children")
+                if isinstance(children, list):
+                    entry["children"] = remove_url(children)
                 kept.append(entry)
             return kept
-        items = remove_url(read_json(BOOKMARKS_FILE, []))
-        write_json(BOOKMARKS_FILE, items)
-        self.refresh_bookmarks_bar()
-        self.statusBar().showMessage(self.tr("Lesezeichen gelöscht", "Bookmark deleted"), 3000)
+
+        items = read_json(BOOKMARKS_FILE, [])
+        updated = remove_url(items)
+        if not removed[0]:
+            QMessageBox.warning(
+                self, self.tr("Lesezeichen nicht gefunden", "Bookmark not found"),
+                self.tr("Das Lesezeichen wurde nicht gefunden und konnte nicht gelöscht werden.",
+                        "The bookmark could not be found and was not deleted.")
+            )
+            return
+        try:
+            write_json(BOOKMARKS_FILE, updated)
+        except Exception as exc:
+            QMessageBox.warning(
+                self, self.tr("Löschen fehlgeschlagen", "Delete failed"), str(exc)
+            )
+            return
+        self._bookmark_overflow_keys = None
+        self._preserve_bookmark_overflow_once = False
+        self.statusBar().showMessage(
+            self.tr("Lesezeichen gelöscht", "Bookmark deleted"), 3000
+        )
+        # The context-menu callback may still be unwinding after the
+        # confirmation dialog closes. Never destroy the toolbar button or
+        # its parent widgets on this call stack. Perform exactly one rebuild
+        # after Qt has returned to the event loop.
+        QTimer.singleShot(0, self.refresh_bookmarks_bar)
 
     def show_list_dialog(self, title, path, key):
         dialog = QDialog(self); dialog.setWindowTitle(title); dialog.resize(720, 500)
@@ -4687,7 +5533,7 @@ class LunaSurfer(QMainWindow):
         search_row.addWidget(count_label)
         layout.addLayout(search_row)
 
-        bookmark_tree = QTreeWidget()
+        bookmark_tree = BookmarkManagerTree(dialog, lambda source, target, kind, placement, path, root_index=None: (self.handle_bookmark_drop(source, target, kind, placement, path, root_index=root_index), populate()))
         bookmark_tree.setColumnCount(2)
         bookmark_tree.setHeaderLabels([self.tr("Name", "Name"), self.tr("Adresse", "Address")])
         bookmark_tree.setAlternatingRowColors(True)
@@ -4699,6 +5545,13 @@ class LunaSurfer(QMainWindow):
         bookmark_tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         bookmark_tree.setColumnWidth(0, 330)
         bookmark_tree.setSelectionBehavior(QTreeWidget.SelectionBehavior.SelectRows)
+        bookmark_tree.setDragEnabled(True)
+        bookmark_tree.setAcceptDrops(True)
+        bookmark_tree.setDropIndicatorShown(True)
+        bookmark_tree.setStyleSheet(bookmark_tree.styleSheet() + "\nQTreeWidget::drop-indicator { height: 3px; background: #b58bea; }")
+        bookmark_tree.setDragDropMode(QTreeWidget.DragDropMode.DragDrop)
+        bookmark_tree.setDefaultDropAction(Qt.DropAction.MoveAction)
+        bookmark_tree.setDragDropOverwriteMode(False)
         bookmark_tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
         bookmark_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         bookmark_tree.setEditTriggers(QTreeWidget.EditTrigger.NoEditTriggers)
@@ -4782,10 +5635,19 @@ class LunaSurfer(QMainWindow):
                 self.open_bookmark(url)
 
         def do_edit():
-            url = selected_url()
-            if url:
-                self.edit_bookmark(url)
-                populate()
+            node = selected_node()
+            if not node:
+                return
+            kind = node.data(0, Qt.ItemDataRole.UserRole + 1)
+            if kind == "folder":
+                path = tuple(node.data(0, Qt.ItemDataRole.UserRole + 2) or ())
+                if path and self.rename_bookmark_folder(path, parent=dialog):
+                    populate()
+            else:
+                url = selected_url()
+                if url:
+                    self.edit_bookmark(url)
+                    populate()
 
         def do_delete():
             node = selected_node()
@@ -4796,24 +5658,8 @@ class LunaSurfer(QMainWindow):
                 return
             kind = node.data(0, Qt.ItemDataRole.UserRole + 1)
             if kind == "folder":
-                answer = QMessageBox.question(
-                    dialog, self.tr("Ordner löschen", "Delete folder"),
-                    self.tr("Diesen Ordner und alle enthaltenen Lesezeichen wirklich löschen?", "Really delete this folder and all bookmarks inside it?"),
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.No)
-                if answer != QMessageBox.StandardButton.Yes:
-                    return
-                items = read_json(BOOKMARKS_FILE, [])
-                try:
-                    parent = items
-                    for index in tuple(path)[:-1]:
-                        parent = parent[index].setdefault("children", [])
-                    del parent[tuple(path)[-1]]
-                    write_json(BOOKMARKS_FILE, items)
-                    self.refresh_bookmarks_bar(); populate()
-                    self.statusBar().showMessage(self.tr("Ordner gelöscht", "Folder deleted"), 3000)
-                except (IndexError, KeyError, TypeError):
-                    QMessageBox.warning(dialog, self.tr("Fehler", "Error"), self.tr("Der Ordner konnte nicht gelöscht werden.", "The folder could not be deleted."))
+                if self.delete_bookmark_folder(path, parent=dialog, confirm=True):
+                    populate()
             else:
                 url = selected_url()
                 if url:
@@ -4902,7 +5748,7 @@ class LunaSurfer(QMainWindow):
             edit_action = menu.addAction(self.tr("Bearbeiten…", "Edit…"))
             delete_action = menu.addAction(self.tr("Löschen", "Delete"))
             open_action.setEnabled(bool(node and node.data(0, Qt.ItemDataRole.UserRole + 1) == "bookmark"))
-            edit_action.setEnabled(bool(node and node.data(0, Qt.ItemDataRole.UserRole + 1) == "bookmark"))
+            edit_action.setEnabled(bool(node and node.data(0, Qt.ItemDataRole.UserRole + 1) in ("bookmark", "folder")))
             delete_action.setEnabled(bool(node))
             paste_action.setEnabled(bool(bookmark_clipboard["entries"]))
             chosen = menu.exec(bookmark_tree.viewport().mapToGlobal(pos))

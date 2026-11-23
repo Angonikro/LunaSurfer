@@ -1,3 +1,13 @@
+# Changelog
+
+# LunaSurfer 0.3.57 - Drag-and-drop für Lesezeichen
+
+- Drag-and-drop in der Lesezeichenleiste und Favoritenmanager überarbeitet: Favoriten lassen sich zwischen Einträgen einsortieren oder auf einem Favoriten zu einem Ordner zusammenfassen.
+- Neu erstellte Ordner bleiben an der Position des Zieldatensatzes und springen nicht mehr ans Ende unter „Weitere“.
+- Ordner selbst können jetzt ebenfalls per Drag-and-drop verschoben und vor/nach anderen Einträgen einsortiert werden.
+- Während des Ziehens zeigen violette Markierungen an, ob vor, nach oder auf einem Eintrag abgelegt wird.
+- Die Änderungen gelten auch für Einträge im Überlaufmenü der Lesezeichenleiste.
+
 ## 0.3.56 – Speicherziel für Favoriten erweitert
 - Im Speicherdialog gibt es jetzt zusätzlich „Weitere Lesezeichen“ als Ziel für Favoriten direkt auf der obersten Ebene außerhalb der Lesezeichenleiste und anderer Ordner.
 - Die vorhandenen Hauptordner und Unterordner bleiben separat auswählbar; neue Ordner können auch direkt auf der obersten Ebene angelegt werden.
@@ -542,3 +552,29 @@ Changelog
 - Added Russian Qt standard-button translations and Russian locale selection for Qt dialogs.
 - Website translation target languages and browser functionality remain unchanged.
 
+## 0.3.57
+- Drag & Drop für Favoriten in der Lesezeichenleiste und im Favoriten-Manager ergänzt.
+- Favoriten können auf andere Favoriten gezogen werden; daraus wird ein Ordner mit beiden Einträgen erstellt.
+- Favoriten können im Favoriten-Manager auf andere Einträge oder in den freien Bereich gezogen werden.
+- Bestehende Versionsnummer 0.3.57 beibehalten.
+
+## 0.3.57 – Drag-and-drop Einfügeposition (Nachbesserung)
+- Freie Bereiche der Lesezeichen-Navigationsleiste verwenden jetzt die horizontale Mausposition als Einfügepunkt in der obersten Lesezeichenebene.
+- Beim Verschieben wird der Einfügeindex nach dem Entfernen des Quelleintrags korrigiert, damit ein vorhergehender Eintrag die Zielposition nicht verschiebt.
+- Lesezeichenknöpfe der Leiste tragen ihren tatsächlichen Baum-Pfad, damit die Toolbar die sichtbaren Positionen zuverlässig zuordnen kann.
+
+### Drag-and-drop in „Weitere“ (0.3.57)
+- Die Schaltfläche „Weitere“ nimmt jetzt Lesezeichen und Ordner per Drag-and-drop an.
+- Abgelegte Einträge werden in der Überlauf-Liste gehalten, ohne ihre Position in der eigentlichen Lesezeichenstruktur zu verändern.
+
+### 0.3.57 – Bookmark popup and manager drop correction
+- Folder popup lists are rebuilt after a move so the new order is shown immediately.
+- Bookmark manager drops calculate before/after/inside placement from the actual tree-row geometry.
+- Drops into blank manager space use the corresponding root insertion index instead of always appending.
+
+### 0.3.57 – Ordner umbenennen
+- Lesezeichenordner können jetzt über das Rechtsklick-Menü umbenannt werden.
+- Der Ordnerpfad wird vor der Änderung geprüft; leere Namen werden abgewiesen.
+- Die Änderung wird in der bestehenden Lesezeichenstruktur gespeichert und die Leiste anschließend aktualisiert.
+
+0.3.57 – Fix: Lesezeichen aus der Navigationsleiste sicher löschen; Toolbar-Neuaufbau nach Kontextmenü-Ereignis verzögert.
