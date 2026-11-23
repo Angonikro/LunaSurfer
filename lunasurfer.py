@@ -3213,6 +3213,25 @@ class LunaSurfer(QMainWindow):
     def tr(self, de, en):
         """Return the selected application language."""
         language = self.settings_data.get("language", "de")
+        # Explicit translations for the bookmark destination dialog.  These
+        # strings are application-owned (not Qt native dialog labels), so
+        # they must be translated independently of Qt's system catalogs.
+        bookmark_folder_labels = {
+            "de": {"New folder…": "Neuer Ordner…", "New folder": "Neuer Ordner", "Folder name:": "Ordnername:", "Add bookmark": "Lesezeichen hinzufügen", "Save in:": "Speichern in:"},
+            "en": {"New folder…": "New folder…", "New folder": "New folder", "Folder name:": "Folder name:", "Add bookmark": "Add bookmark", "Save in:": "Save in:"},
+            "fr": {"New folder…": "Nouveau dossier…", "New folder": "Nouveau dossier", "Folder name:": "Nom du dossier :", "Add bookmark": "Ajouter un favori", "Save in:": "Enregistrer dans :"},
+            "it": {"New folder…": "Nuova cartella…", "New folder": "Nuova cartella", "Folder name:": "Nome della cartella:", "Add bookmark": "Aggiungi segnalibro", "Save in:": "Salva in:"},
+            "nl": {"New folder…": "Nieuwe map…", "New folder": "Nieuwe map", "Folder name:": "Mapnaam:", "Add bookmark": "Bladwijzer toevoegen", "Save in:": "Opslaan in:"},
+            "es": {"New folder…": "Nueva carpeta…", "New folder": "Nueva carpeta", "Folder name:": "Nombre de la carpeta:", "Add bookmark": "Añadir marcador", "Save in:": "Guardar en:"},
+            "pt": {"New folder…": "Nova pasta…", "New folder": "Nova pasta", "Folder name:": "Nome da pasta:", "Add bookmark": "Adicionar favorito", "Save in:": "Salvar em:"},
+            "pl": {"New folder…": "Nowy folder…", "New folder": "Nowy folder", "Folder name:": "Nazwa folderu:", "Add bookmark": "Dodaj zakładkę", "Save in:": "Zapisz w:"},
+            "ru": {"New folder…": "Новая папка…", "New folder": "Новая папка", "Folder name:": "Имя папки:", "Add bookmark": "Добавить закладку", "Save in:": "Сохранить в:"},
+            "tr": {"New folder…": "Yeni klasör…", "New folder": "Yeni klasör", "Folder name:": "Klasör adı:", "Add bookmark": "Yer işareti ekle", "Save in:": "Şuraya kaydet:"},
+            "ja": {"New folder…": "新しいフォルダー…", "New folder": "新しいフォルダー", "Folder name:": "フォルダー名:", "Add bookmark": "ブックマークを追加", "Save in:": "保存先:"},
+            "zh-CN": {"New folder…": "新建文件夹…", "New folder": "新建文件夹", "Folder name:": "文件夹名称：", "Add bookmark": "添加书签", "Save in:": "保存到："},
+        }
+        if en in bookmark_folder_labels.get(language, {}):
+            return bookmark_folder_labels[language][en]
         if language == "nl":
             translated = DUTCH_UI.get(en)
             if translated is not None:

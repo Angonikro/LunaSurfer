@@ -1,3 +1,9 @@
+## 0.3.55 – Favoritendialog vollständig lokalisiert
+- „Add bookmark“ und „Save in:“ im Dialog zum Speichern von Favoriten werden jetzt in allen 12 unterstützten Sprachen korrekt angezeigt.
+- Die bereits vorhandenen Übersetzungen für „Neuer Ordner…“, „Neuer Ordner“ und „Ordnername“ bleiben erhalten.
+- Die Übersetzungen sind unabhängig von den installierten Qt-Systemübersetzungen.
+
+
 ## 0.3.54 – Lesezeichenverwaltung erweitert
 - Rechtsklick im Lesezeichenmanager mit Öffnen, Kopieren, Ausschneiden, Einfügen, neuem Ordner, Bearbeiten und Löschen.
 - Mehrfachauswahl zum gemeinsamen Kopieren oder Verschieben von Favoriten und Ordnern; die Ordnerstruktur bleibt erhalten.
