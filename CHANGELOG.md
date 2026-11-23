@@ -1,4 +1,18 @@
-# Changelog
+# LunaSurfer – Changelog
+
+## 0.3.59
+
+# EasyList und EasyPrivacy hinzugefügt
+- Neuer dritter Bereich „Filterlisten“ im Schild-Menü „Schutz & Privatsphäre“.
+- EasyList und EasyPrivacy können unabhängig voneinander aktiviert und deaktiviert werden.
+- Automatische Aktualisierung mit wählbarem Intervall (12 Stunden bis 7 Tage) und manueller Aktualisierung.
+- Filterlisten werden lokal zwischengespeichert; fehlgeschlagene oder ungültige Downloads ersetzen keine funktionierenden Listen.
+- Unterstützte Host- und einfache URL-Pfadregeln werden zusätzlich zu den vorhandenen sechs Blockierstufen ausgewertet; nicht unterstützte ABP-Regelsyntax wird bewusst übersprungen.
+- Vorhandene eigene Blockiermuster, Whitelist, Cookie-Einstellungen und Fingerprint-Schutz bleiben erhalten.
+- Kosmetische Filterung erweitert: einfache CSS-Regeln aus EasyList/EasyPrivacy werden mit Domain-Geltungsbereich und Ausnahmen ausgewertet; prozedurale/erweiterte Regeln bleiben bewusst außen vor.
+- Zusätzliche gezielte Erkennung gängiger Video-, Interstitial-, Rich-Media- und Sticky-Ad-Container in den hohen Blockierstufen.
+- In den Stufen „Mega stark“ und „Ultra stark“ werden bekannte selbst gehostete Matomo-/Piwik-Tracking-Endpunkte (`matomo.php`, `piwik.php`) blockiert.
+- Kosmetikregeln werden nach einem erfolgreichen Filterlisten-Update auch auf bereits geöffneten Tabs neu angewendet.
 
 ## 0.3.58 
 

@@ -1,4 +1,4 @@
-# LunaSurfer 0.3.58
+# LunaSurfer 0.3.59
 
 Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 
@@ -71,7 +71,7 @@ sudo apt install python3 python3-pyside6.qtwidgets python3-pyside6.qtwebenginewi
 ## Installation
 
 ```bash
-sudo apt install ./lunasurfer_0.3.58_all.deb
+sudo apt install ./lunasurfer_0.3.59_all.deb
 ```
 
 ## Start aus dem Quellcode
@@ -99,7 +99,3 @@ LunaSurfer setzt den Widevine-Pfad zusätzlich beim Start, wenn die CDM-Datei vo
 Widevine ist nicht Bestandteil von LunaSurfer. Die Wiedergabe von DRM-Inhalten hängt von Widevine, QtWebEngine, den verfügbaren Codecs und dem jeweiligen Streaming-Dienst ab.
 
 73 de DO2QG Andreas
-
-## PDF-Druck
-Der integrierte Chromium-PDF-Viewer übergibt seine Druckanforderung an den Qt-Druckdialog. Benötigt PySide6 QtPrintSupport.
-**Druckdialog:** Die LunaSurfer-eigenen Aktionen werden in allen zwölf unterstützten Oberflächensprachen beschriftet. Bezeichnungen der Druckoptionen selbst stammen weiterhin vom installierten CUPS-Druckertreiber und dessen Übersetzungen.

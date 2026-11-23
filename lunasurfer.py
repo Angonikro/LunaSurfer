@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.49 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.59 - Qt 6 / QtWebEngine browser."""
 import json
 import copy
 import pathlib
 import sys
 import urllib.parse
+import urllib.request
+import urllib.error
 import os
 import subprocess
 import time
@@ -45,9 +47,9 @@ from cryptography.fernet import Fernet, InvalidToken
 APP_NAME = "LunaSurfer"
 _VERSION_FILE = pathlib.Path(__file__).resolve().with_name("VERSION")
 try:
-    APP_VERSION = _VERSION_FILE.read_text(encoding="utf-8").strip() or "0.3.35"
+    APP_VERSION = _VERSION_FILE.read_text(encoding="utf-8").strip() or "0.3.59"
 except OSError:
-    APP_VERSION = "0.3.49"
+    APP_VERSION = "0.3.59"
 CONFIG_DIR = pathlib.Path.home() / ".config" / "lunasurfer"
 DATA_DIR = pathlib.Path.home() / ".local" / "share" / "lunasurfer"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
@@ -70,6 +72,193 @@ def write_json(path, data):
     temp = path.with_suffix(path.suffix + ".tmp")
     temp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     temp.replace(path)
+
+
+
+FILTER_LIST_DIR = DATA_DIR / "filters"
+FILTER_LIST_SOURCES = {
+    "easylist": "https://easylist.to/easylist/easylist.txt",
+    "easyprivacy": "https://easylist.to/easylist/easyprivacy.txt",
+}
+FILTER_LIST_MAX_BYTES = 8 * 1024 * 1024
+
+
+def parse_adblock_filter_text(text):
+    """Parse safe, common Adblock Plus network rules into host/path indexes.
+
+    Cosmetic rules, regex rules and option-heavy rules requiring request-context
+    evaluation are intentionally skipped rather than guessed.
+    """
+    domains = set()
+    paths = {}
+    exceptions = set()
+    exception_paths = {}
+    for raw in str(text or "").splitlines():
+        rule = raw.strip()
+        if not rule or rule.startswith(("!", "[", "#", "/")):
+            continue
+        is_exception = rule.startswith("@@")
+        if is_exception:
+            rule = rule[2:]
+        if rule.startswith(("#", "@@#")):
+            continue
+        # Options such as $domain= and $third-party require request-context
+        # semantics. Skip them safely instead of applying an over-broad rule.
+        if "$" in rule:
+            continue
+        host = None
+        path = None
+        if rule.startswith("||"):
+            body = rule[2:]
+            split_at = len(body)
+            for marker in ("/", "^", "|", "*"):
+                pos = body.find(marker)
+                if pos >= 0:
+                    split_at = min(split_at, pos)
+            host = body[:split_at].strip(".").lower()
+            suffix = body[split_at:]
+            if suffix.startswith("/"):
+                path = suffix
+            elif suffix and suffix not in ("^", "^|"):
+                continue
+        elif rule.startswith("|https://") or rule.startswith("|http://"):
+            absolute = rule.strip("|")
+            parsed = urllib.parse.urlsplit(absolute)
+            host = (parsed.hostname or "").lower()
+            path = parsed.path or "/"
+        else:
+            continue
+        if not host or "*" in host or not re.fullmatch(r"[a-z0-9.-]+", host):
+            continue
+        target_domains = exceptions if is_exception else domains
+        target_paths = exception_paths if is_exception else paths
+        if path:
+            target_paths.setdefault(host, set()).add(path.lower())
+        else:
+            target_domains.add(host)
+    return domains, paths, exceptions, exception_paths
+
+
+def parse_adblock_cosmetic_rules(text, max_rules=4000):
+    """Extract conservative, plain CSS cosmetic rules from ABP-style lists.
+
+    Procedural selectors and scriptlet rules are intentionally ignored. Domain
+    scopes and exception scopes are retained so rules are not applied globally.
+    """
+    generic = []
+    domain_rules = []
+    domain_exceptions = []
+    seen_generic = set()
+    seen_rules = set()
+    seen_exceptions = set()
+
+    for raw in str(text or "").splitlines():
+        line = raw.strip()
+        if not line or line.startswith(("!", "[", "/")):
+            continue
+
+        marker = None
+        exception = False
+        for candidate, is_exception in (("#@#", True), ("##", False)):
+            pos = line.find(candidate)
+            if pos >= 0 and (marker is None or pos < marker[0]):
+                marker = (pos, candidate)
+                exception = is_exception
+        if marker is None:
+            continue
+
+        pos, token = marker
+        # Extended CSS, scriptlets, and procedural filters need a full ABP
+        # engine; ignoring them is safer than approximating their semantics.
+        if token not in ("##", "#@#"):
+            continue
+        scope_text = line[:pos].strip()
+        selector = line[pos + len(token):].strip()
+        if not selector or len(selector) > 500:
+            continue
+        if any(ch in selector for ch in ("{", "}", ";", "\\n", "\\r")):
+            continue
+        if ":-abp-" in selector.lower() or ":has-text(" in selector.lower() or ":contains(" in selector.lower():
+            continue
+        # Keep CSS selectors only; no scriptlet payloads or cosmetic style directives.
+        if selector.startswith("+js(") or selector.startswith("##+js("):
+            continue
+
+        scopes = []
+        excluded = []
+        if scope_text:
+            valid_scope = True
+            for item in scope_text.split(","):
+                item = item.strip().lower()
+                if not item:
+                    continue
+                is_excluded = item.startswith("~")
+                domain = item[1:] if is_excluded else item
+                domain = domain.lstrip(".").rstrip(".")
+                if not re.fullmatch(r"[a-z0-9.-]+", domain) or ".." in domain:
+                    valid_scope = False
+                    break
+                (excluded if is_excluded else scopes).append(domain)
+            if not valid_scope:
+                continue
+
+        if not scope_text:
+            if exception:
+                continue
+            if selector not in seen_generic:
+                seen_generic.add(selector)
+                generic.append(selector)
+        elif exception:
+            key = (tuple(sorted(scopes)), tuple(sorted(excluded)), selector)
+            if key not in seen_exceptions:
+                seen_exceptions.add(key)
+                domain_exceptions.append({"domains": scopes, "excluded": excluded, "selector": selector})
+        else:
+            key = (tuple(sorted(scopes)), tuple(sorted(excluded)), selector)
+            if key not in seen_rules:
+                seen_rules.add(key)
+                domain_rules.append({"domains": scopes, "excluded": excluded, "selector": selector})
+
+        if len(generic) + len(domain_rules) + len(domain_exceptions) >= max_rules:
+            break
+
+    return generic, domain_rules, domain_exceptions
+
+
+class FilterListDownloadWorker(QThread):
+    """Download EasyList/EasyPrivacy without blocking the browser UI."""
+    result_ready = Signal(object, object)
+
+    def __init__(self, sources, parent=None):
+        super().__init__(parent)
+        self.sources = dict(sources)
+
+    def run(self):
+        downloaded = {}
+        errors = {}
+        for name, url in self.sources.items():
+            try:
+                request = urllib.request.Request(
+                    url,
+                    headers={
+                        "User-Agent": "LunaSurfer/0.3.59 filter-list updater",
+                        "Accept": "text/plain,*/*;q=0.8",
+                    },
+                )
+                with urllib.request.urlopen(request, timeout=25) as response:
+                    final_url = response.geturl()
+                    if urllib.parse.urlsplit(final_url).scheme.lower() != "https":
+                        raise ValueError("Filter source did not remain on HTTPS")
+                    raw = response.read(FILTER_LIST_MAX_BYTES + 1)
+                if len(raw) > FILTER_LIST_MAX_BYTES:
+                    raise ValueError("Filter list exceeds the 8 MiB safety limit")
+                decoded = raw.decode("utf-8-sig", errors="replace")
+                if len(decoded.splitlines()) < 100:
+                    raise ValueError("Downloaded filter list is unexpectedly small")
+                downloaded[name] = decoded
+            except Exception as exc:
+                errors[name] = str(exc)
+        self.result_ready.emit(downloaded, errors)
 
 
 def safe_download_filename(value):
@@ -1629,6 +1818,54 @@ class PrivacyInterceptor(QWebEngineUrlRequestInterceptor):
         whitelist = [str(x).lower() for x in self.window_ref.settings_data.get("adblock_whitelist", [])]
         if any(host == x or host.endswith("." + x) for x in whitelist):
             return
+
+        # External EasyList/EasyPrivacy rules are evaluated independently from
+        # the built-in protection levels. Only supported, parsed network rules
+        # are used; unsupported syntax is ignored safely.
+        if self.window_ref.settings_data.get("filter_lists_enabled", True):
+            external_block = False
+            request_path = urllib.parse.urlsplit(url).path.lower()
+            host_parts = host.split(".")
+            for list_key, enabled_key in (
+                ("easylist", "easylist_enabled"),
+                ("easyprivacy", "easyprivacy_enabled"),
+            ):
+                if not self.window_ref.settings_data.get(enabled_key, True):
+                    continue
+                rule_set = self.window_ref.external_filter_rules.get(list_key, {})
+                domains = rule_set.get("domains", set())
+                exceptions = rule_set.get("exceptions", set())
+                path_rules = rule_set.get("paths", {})
+                exception_paths = rule_set.get("exception_paths", {})
+                list_block = False
+                list_exception = False
+                for index in range(len(host_parts)):
+                    candidate = ".".join(host_parts[index:])
+                    if candidate in exceptions:
+                        list_exception = True
+                    if candidate in domains:
+                        list_block = True
+                    if any(request_path.startswith(path) for path in path_rules.get(candidate, ())):
+                        list_block = True
+                    if any(request_path.startswith(path) for path in exception_paths.get(candidate, ())):
+                        list_exception = True
+                if list_block and not list_exception:
+                    external_block = True
+            if external_block:
+                info.block(True)
+                return
+
+        # Self-hosted Matomo/Piwik endpoints are first-party analytics and are
+        # therefore not necessarily covered by third-party host lists. In the
+        # two strongest modes, block only the well-known tracking endpoints;
+        # ordinary site pages and assets remain untouched.
+        strength = self.window_ref.settings_data.get("adblock_strength", "standard")
+        if strength in ("super_strong", "mega_strong", "ultra_strong"):
+            path_name = urllib.parse.urlsplit(url).path.rsplit("/", 1)[-1].lower()
+            if path_name in ("matomo.php", "piwik.php"):
+                info.block(True)
+                return
+
         standard = ["doubleclick.net", "googlesyndication.com", "googleadservices.com", "adservice.google.", "adsystem.com", "taboola.com", "outbrain.com", "scorecardresearch.com"]
         strong = standard + ["adnxs.com", "adsrvr.org", "amazon-adsystem.com", "criteo.com", "criteo.net", "demdex.net", "rubiconproject.com", "openx.net", "pubmatic.com", "casalemedia.com", "mathtag.com", "smartadserver.com", "advertising.com", "2mdn.net", "moatads.com", "quantserve.com", "bluekai.com", "chartbeat.com", "hotjar.com", "mouseflow.com", "mixpanel.com", "segment.io"]
         very_strong = strong + ["google-analytics.com", "googletagmanager.com", "analytics.google.com", "facebook.net", "connect.facebook.net", "bat.bing.com", "clarity.ms", "branch.io", "app-measurement.com", "newrelic.com", "nr-data.net", "sentry.io"]
@@ -3392,6 +3629,12 @@ class LunaSurfer(QMainWindow):
             "adblock_strength": "standard",
             "fingerprint_enabled": True,
             "fingerprint_strength": "standard",
+            "filter_lists_enabled": True,
+            "easylist_enabled": True,
+            "easyprivacy_enabled": True,
+            "filter_auto_update": True,
+            "filter_update_interval_hours": 24,
+            "filter_lists_last_update": {},
             "user_agent_mode": "privacy",
             "user_agent_custom": ""
         })
@@ -3459,7 +3702,17 @@ class LunaSurfer(QMainWindow):
         self._download_history_ready_callbacks = []
         self._download_history_loader = None
         self.privacy_interceptor = PrivacyInterceptor(self)
+        self.external_filter_rules = {}
+        self._filter_update_worker = None
+        self._filter_update_dialog_labels = None
+        self._load_external_filter_rules()
         self.profile.setUrlRequestInterceptor(self.privacy_interceptor)
+        self._filter_update_timer = QTimer(self)
+        self._filter_update_timer.setInterval(60 * 60 * 1000)
+        self._filter_update_timer.timeout.connect(self._maybe_update_filter_lists)
+        self._filter_update_timer.start()
+        if not self.private_mode:
+            QTimer.singleShot(2500, self._maybe_update_filter_lists)
         self.profile.downloadRequested.connect(self.on_download)
         self.download_dir = pathlib.Path(self.settings_data.get("download_dir", str(DOWNLOAD_DIR))).expanduser()
 
@@ -4053,6 +4306,127 @@ class LunaSurfer(QMainWindow):
                 verb = "¿Actualizar" if match.group(1) == "Update" else "¿Guardar"
                 return f"{verb} la contraseña de {match.group(2)} en {match.group(3)}?"
             return en
+        filter_ui_labels = {
+            "fr": {
+                "Use external filter lists": "Utiliser des listes de filtres externes",
+                "These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.": "Ces listes complètent les niveaux de blocage existants. Elles ne s’appliquent que si le bloqueur de publicités est activé.",
+                "Rules: ": "Règles : ",
+                "Automatic updates": "Mises à jour automatiques",
+                "Update interval:": "Intervalle de mise à jour :",
+                "12 hours": "12 heures", "24 hours": "24 heures", "48 hours": "48 heures",
+                "72 hours": "72 heures", "7 days": "7 jours",
+                "Last update:": "Dernière mise à jour :",
+                "Not updated yet": "Pas encore mise à jour", "Unknown": "Inconnue",
+                "Downloading filter lists …": "Téléchargement des listes de filtres …",
+                "Update completed": "Mise à jour terminée",
+                "Partially updated – previous lists retained": "Mise à jour partielle – anciennes listes conservées",
+                "Update failed – previous lists retained": "Échec de la mise à jour – anciennes listes conservées",
+                "Update now": "Mettre à jour",
+                "Filter lists": "Listes de filtres",
+            },
+            "it": {
+                "Use external filter lists": "Usa elenchi di filtri esterni",
+                "These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.": "Questi elenchi integrano i livelli di blocco esistenti. Si applicano solo quando il blocco pubblicità è attivo.",
+                "Rules: ": "Regole: ",
+                "Automatic updates": "Aggiornamenti automatici", "Update interval:": "Intervallo di aggiornamento:",
+                "12 hours": "12 ore", "24 hours": "24 ore", "48 hours": "48 ore", "72 hours": "72 ore", "7 days": "7 giorni",
+                "Last update:": "Ultimo aggiornamento:", "Not updated yet": "Non ancora aggiornato", "Unknown": "Sconosciuto",
+                "Downloading filter lists …": "Download degli elenchi di filtri …", "Update completed": "Aggiornamento completato",
+                "Partially updated – previous lists retained": "Aggiornamento parziale – mantenuti gli elenchi precedenti",
+                "Update failed – previous lists retained": "Aggiornamento non riuscito – mantenuti gli elenchi precedenti",
+                "Update now": "Aggiorna ora", "Filter lists": "Elenchi di filtri",
+            },
+            "nl": {
+                "Use external filter lists": "Externe filterlijsten gebruiken",
+                "These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.": "Deze lijsten vullen de bestaande blokkeerniveaus aan. Ze werken alleen als de advertentieblokkering is ingeschakeld.",
+                "Rules: ": "Regels: ", "Automatic updates": "Automatische updates", "Update interval:": "Update-interval:",
+                "12 hours": "12 uur", "24 hours": "24 uur", "48 hours": "48 uur", "72 hours": "72 uur", "7 days": "7 dagen",
+                "Last update:": "Laatste update:", "Not updated yet": "Nog niet bijgewerkt", "Unknown": "Onbekend",
+                "Downloading filter lists …": "Filterlijsten downloaden …", "Update completed": "Update voltooid",
+                "Partially updated – previous lists retained": "Gedeeltelijk bijgewerkt – vorige lijsten behouden",
+                "Update failed – previous lists retained": "Update mislukt – vorige lijsten behouden",
+                "Update now": "Nu bijwerken", "Filter lists": "Filterlijsten",
+            },
+            "es": {
+                "Use external filter lists": "Usar listas de filtros externas",
+                "These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.": "Estas listas complementan los niveles de bloqueo existentes. Solo se aplican cuando el bloqueador de anuncios está activado.",
+                "Rules: ": "Reglas: ", "Automatic updates": "Actualizaciones automáticas", "Update interval:": "Intervalo de actualización:",
+                "12 hours": "12 horas", "24 hours": "24 horas", "48 hours": "48 horas", "72 hours": "72 horas", "7 days": "7 días",
+                "Last update:": "Última actualización:", "Not updated yet": "Aún no se ha actualizado", "Unknown": "Desconocido",
+                "Downloading filter lists …": "Descargando listas de filtros …", "Update completed": "Actualización completada",
+                "Partially updated – previous lists retained": "Actualización parcial – se conservan las listas anteriores",
+                "Update failed – previous lists retained": "Error de actualización – se conservan las listas anteriores",
+                "Update now": "Actualizar ahora", "Filter lists": "Listas de filtros",
+            },
+            "pt": {
+                "Use external filter lists": "Usar listas de filtros externas",
+                "These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.": "Estas listas complementam os níveis de bloqueio existentes. Só são aplicadas quando o bloqueador de anúncios está ativado.",
+                "Rules: ": "Regras: ", "Automatic updates": "Atualizações automáticas", "Update interval:": "Intervalo de atualização:",
+                "12 hours": "12 horas", "24 hours": "24 horas", "48 hours": "48 horas", "72 hours": "72 horas", "7 days": "7 dias",
+                "Last update:": "Última atualização:", "Not updated yet": "Ainda não atualizado", "Unknown": "Desconhecido",
+                "Downloading filter lists …": "A transferir listas de filtros …", "Update completed": "Atualização concluída",
+                "Partially updated – previous lists retained": "Atualização parcial – listas anteriores mantidas",
+                "Update failed – previous lists retained": "Falha na atualização – listas anteriores mantidas",
+                "Update now": "Atualizar agora", "Filter lists": "Listas de filtros",
+            },
+            "pl": {
+                "Use external filter lists": "Używaj zewnętrznych list filtrów",
+                "These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.": "Listy uzupełniają istniejące poziomy blokowania. Działają tylko wtedy, gdy blokowanie reklam jest włączone.",
+                "Rules: ": "Reguły: ", "Automatic updates": "Automatyczne aktualizacje", "Update interval:": "Interwał aktualizacji:",
+                "12 hours": "12 godzin", "24 hours": "24 godziny", "48 hours": "48 godzin", "72 hours": "72 godziny", "7 days": "7 dni",
+                "Last update:": "Ostatnia aktualizacja:", "Not updated yet": "Jeszcze nie zaktualizowano", "Unknown": "Nieznany",
+                "Downloading filter lists …": "Pobieranie list filtrów …", "Update completed": "Aktualizacja zakończona",
+                "Partially updated – previous lists retained": "Częściowa aktualizacja – zachowano poprzednie listy",
+                "Update failed – previous lists retained": "Aktualizacja nie powiodła się – zachowano poprzednie listy",
+                "Update now": "Aktualizuj teraz", "Filter lists": "Listy filtrów",
+            },
+            "ru": {
+                "Use external filter lists": "Использовать внешние списки фильтров",
+                "These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.": "Эти списки дополняют существующие уровни блокировки. Они действуют только при включённом блокировщике рекламы.",
+                "Rules: ": "Правила: ", "Automatic updates": "Автоматические обновления", "Update interval:": "Интервал обновления:",
+                "12 hours": "12 часов", "24 hours": "24 часа", "48 hours": "48 часов", "72 hours": "72 часа", "7 days": "7 дней",
+                "Last update:": "Последнее обновление:", "Not updated yet": "Ещё не обновлялось", "Unknown": "Неизвестно",
+                "Downloading filter lists …": "Загрузка списков фильтров …", "Update completed": "Обновление завершено",
+                "Partially updated – previous lists retained": "Частично обновлено – прежние списки сохранены",
+                "Update failed – previous lists retained": "Ошибка обновления – прежние списки сохранены",
+                "Update now": "Обновить сейчас", "Filter lists": "Списки фильтров",
+            },
+            "tr": {
+                "Use external filter lists": "Harici filtre listelerini kullan",
+                "These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.": "Bu listeler mevcut engelleme düzeylerini tamamlar. Yalnızca reklam engelleyici açıkken uygulanır.",
+                "Rules: ": "Kurallar: ", "Automatic updates": "Otomatik güncellemeler", "Update interval:": "Güncelleme aralığı:",
+                "12 hours": "12 saat", "24 hours": "24 saat", "48 hours": "48 saat", "72 hours": "72 saat", "7 days": "7 gün",
+                "Last update:": "Son güncelleme:", "Not updated yet": "Henüz güncellenmedi", "Unknown": "Bilinmiyor",
+                "Downloading filter lists …": "Filtre listeleri indiriliyor …", "Update completed": "Güncelleme tamamlandı",
+                "Partially updated – previous lists retained": "Kısmen güncellendi – önceki listeler korundu",
+                "Update failed – previous lists retained": "Güncelleme başarısız – önceki listeler korundu",
+                "Update now": "Şimdi güncelle", "Filter lists": "Filtre listeleri",
+            },
+            "ja": {
+                "Use external filter lists": "外部フィルターリストを使用",
+                "These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.": "これらのリストは既存のブロックレベルを補完します。広告ブロッカーが有効な場合にのみ適用されます。",
+                "Rules: ": "ルール数: ", "Automatic updates": "自動更新", "Update interval:": "更新間隔:",
+                "12 hours": "12時間", "24 hours": "24時間", "48 hours": "48時間", "72 hours": "72時間", "7 days": "7日",
+                "Last update:": "最終更新:", "Not updated yet": "未更新", "Unknown": "不明",
+                "Downloading filter lists …": "フィルターリストをダウンロード中 …", "Update completed": "更新完了",
+                "Partially updated – previous lists retained": "一部更新済み – 以前のリストを保持",
+                "Update failed – previous lists retained": "更新失敗 – 以前のリストを保持",
+                "Update now": "今すぐ更新", "Filter lists": "フィルターリスト",
+            },
+            "zh-CN": {
+                "Use external filter lists": "使用外部过滤列表",
+                "These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.": "这些列表补充现有拦截级别。仅在广告拦截器启用时生效。",
+                "Rules: ": "规则数：", "Automatic updates": "自动更新", "Update interval:": "更新间隔：",
+                "12 hours": "12 小时", "24 hours": "24 小时", "48 hours": "48 小时", "72 hours": "72 小时", "7 days": "7 天",
+                "Last update:": "上次更新：", "Not updated yet": "尚未更新", "Unknown": "未知",
+                "Downloading filter lists …": "正在下载过滤列表 …", "Update completed": "更新完成",
+                "Partially updated – previous lists retained": "部分更新成功 – 已保留之前的列表",
+                "Update failed – previous lists retained": "更新失败 – 已保留之前的列表",
+                "Update now": "立即更新", "Filter lists": "过滤列表",
+            },
+        }
+        if en in filter_ui_labels.get(language, {}):
+            return filter_ui_labels[language][en]
         return en if language == "en" else de
 
     def handle_permission_request(self, permission):
@@ -4175,7 +4549,7 @@ class LunaSurfer(QMainWindow):
         self.home_action.setToolTip(self.tr("Startseite", "Home"))
         self.star_action.setToolTip(self.tr("Aktuelle Seite als Lesezeichen hinzufügen", "Add current page to bookmarks"))
         self.download_action.setToolTip(self.tr("Download-Manager", "Download manager"))
-        self.adblock_action.setToolTip(self.tr("Werbeblocker", "Ad blocker"))
+        self.adblock_action.setToolTip(self.tr("Schutz & Privatsphäre", "Protection & privacy"))
         self.newtab_action.setToolTip(self.tr("Neuer Tab", "New tab"))
         self.new_tab_button.setToolTip(self.tr("Neuer Tab", "New tab"))
         self.address.setPlaceholderText(self.tr("Adresse oder Suchbegriff eingeben", "Enter address or search"))
@@ -6141,10 +6515,27 @@ class LunaSurfer(QMainWindow):
             return
         self.show_list_dialog(self.tr("Verlauf", "History"), HISTORY_FILE, "url")
 
-    @staticmethod
-    def adblock_cosmetic_script():
-        """Hide common ad slots and remove known local ad-script decoys in the strongest ad-blocking modes."""
-        return r"""(() => {
+    def adblock_cosmetic_script(self):
+        """Hide common ad slots and supported EasyList cosmetic selectors."""
+        external = {"generic": [], "domains": [], "exceptions": []}
+        if self.settings_data.get("filter_lists_enabled", True):
+            for list_key, enabled_key in (
+                ("easylist", "easylist_enabled"),
+                ("easyprivacy", "easyprivacy_enabled"),
+            ):
+                if not self.settings_data.get(enabled_key, True):
+                    continue
+                rules = self.external_filter_rules.get(list_key, {})
+                external["generic"].extend(rules.get("cosmetic_generic", []))
+                external["domains"].extend(rules.get("cosmetic_domains", []))
+                external["exceptions"].extend(rules.get("cosmetic_exceptions", []))
+        # Keep the injected payload bounded even if a list contains an unusually
+        # large number of cosmetic selectors.
+        external["generic"] = list(dict.fromkeys(external["generic"]))[:3000]
+        external["domains"] = external["domains"][:3000]
+        external["exceptions"] = external["exceptions"][:1500]
+        payload = json.dumps(external, ensure_ascii=True, separators=(",", ":"))
+        script = r"""(() => {
           'use strict';
           if (window.__lunaMegaAdblockInstalled) return;
           window.__lunaMegaAdblockInstalled = true;
@@ -6154,7 +6545,14 @@ class LunaSurfer(QMainWindow):
             '[id*="advert"]', '[class*="sponsor"]', '[id*="sponsor"]',
             'iframe[src*="doubleclick.net"]', 'iframe[src*="googlesyndication.com"]',
             'iframe[src*="amazon-adsystem.com"]', 'iframe[src*="taboola.com"]',
-            'iframe[src*="outbrain.com"]'
+            'iframe[src*="outbrain.com"]',
+            '.ad-slot', '[data-ad-slot]', '[data-ad]', '[data-ad-unit]',
+            '.video-ad', '.video-preroll', '.video-pre-roll', '.pre-roll-ad',
+            '[class*="video-ad"]', '[id*="video-ad"]',
+            '.interstitial-ad', '.ad-interstitial', '[class*="interstitial-ad"]',
+            '[id*="interstitial-ad"]', '.rich-media-ad', '.expandable-ad',
+            '[class*="rich-media-ad"]', '[id*="rich-media-ad"]',
+            '.sticky-ad', '.ad-sticky', '[class*="sticky-ad"]', '[id*="sticky-ad"]'
           ];
           if (location.hostname === 'adblock.turtlecute.org') {
             selectors.push('.adbox.banner_ads.adsbox', '.textads');
@@ -6164,9 +6562,34 @@ class LunaSurfer(QMainWindow):
           style.textContent = selectors.join(',') + '{display:none!important;visibility:hidden!important;'
             + 'width:0!important;height:0!important;min-width:0!important;min-height:0!important;'
             + 'pointer-events:none!important;overflow:hidden!important}';
+          const externalRules = __LUNA_EXTERNAL_COSMETIC_RULES__;
+          const host = String(location.hostname || '').toLowerCase();
+          const domainMatches = domain => host === domain || host.endsWith('.' + domain);
+          const scopedMatches = rule =>
+            (!Array.isArray(rule.domains) || rule.domains.length === 0 || rule.domains.some(domainMatches)) &&
+            !(Array.isArray(rule.excluded) && rule.excluded.some(domainMatches));
+          const cosmeticSelectors = new Set(externalRules.generic || []);
+          (externalRules.domains || []).forEach(rule => {
+            if (scopedMatches(rule) && rule.selector) cosmeticSelectors.add(rule.selector);
+          });
+          (externalRules.exceptions || []).forEach(rule => {
+            if (scopedMatches(rule) && rule.selector) cosmeticSelectors.delete(rule.selector);
+          });
           const addStyle = () => {
-            if (document.documentElement && !document.getElementById(style.id))
+            if (document.documentElement && !document.getElementById(style.id)) {
               document.documentElement.appendChild(style);
+              try {
+                const sheet = style.sheet;
+                for (const selector of cosmeticSelectors) {
+                  try {
+                    if (selector && selector.length <= 500 &&
+                        !/[{};]/.test(selector))
+                      sheet.insertRule(selector + '{display:none!important;visibility:hidden!important;'
+                        + 'pointer-events:none!important}', sheet.cssRules.length);
+                  } catch (_) {}
+                }
+              } catch (_) {}
+            }
           };
           addStyle();
           if (!document.documentElement) document.addEventListener('DOMContentLoaded', addStyle, {once:true});
@@ -6202,6 +6625,7 @@ class LunaSurfer(QMainWindow):
             else document.addEventListener('DOMContentLoaded', observe, {once:true});
           } catch (_) {}
         })();"""
+        return script.replace("__LUNA_EXTERNAL_COSMETIC_RULES__", payload)
 
     def install_adblock_cosmetic_script(self, page, run_now=False):
         scripts = page.scripts()
@@ -6237,7 +6661,7 @@ class LunaSurfer(QMainWindow):
     def update_adblock_button(self):
         enabled = self.settings_data.get("adblock_enabled", True)
         self.adblock_button.setText("🛡" if enabled else "⊘")
-        self.adblock_button.setToolTip(self.tr("Schutz-Einstellungen: Werbeblocker und Fingerprint", "Protection settings: ad blocker and fingerprint"))
+        self.adblock_button.setToolTip(self.tr("Schutz & Privatsphäre: Werbeblocker, Filterlisten und Fingerprint", "Protection & privacy: ad blocker, filter lists and fingerprint"))
 
     def show_permission_manager(self):
         """View and edit remembered per-website camera, microphone, location and notification decisions."""
@@ -6336,11 +6760,156 @@ class LunaSurfer(QMainWindow):
         close.clicked.connect(dialog.accept)
         dialog.exec()
 
+
+    def _load_external_filter_rules(self):
+        """Load enabled external filter lists from the local cache."""
+        FILTER_LIST_DIR.mkdir(parents=True, exist_ok=True)
+        loaded = {}
+        for name in ("easylist", "easyprivacy"):
+            path = FILTER_LIST_DIR / f"{name}.txt"
+            if not path.is_file():
+                loaded[name] = {
+                    "domains": set(), "paths": {}, "exceptions": set(),
+                    "exception_paths": {}, "rule_count": 0,
+                    "cosmetic_generic": [], "cosmetic_domains": [],
+                    "cosmetic_exceptions": [],
+                }
+                continue
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+                domains, paths, exceptions, exception_paths = parse_adblock_filter_text(text)
+                cosmetic_generic, cosmetic_domains, cosmetic_exceptions = parse_adblock_cosmetic_rules(text)
+                count = len(domains) + sum(len(v) for v in paths.values())
+                loaded[name] = {
+                    "domains": domains, "paths": paths, "exceptions": exceptions,
+                    "exception_paths": exception_paths, "rule_count": count,
+                    "cosmetic_generic": cosmetic_generic,
+                    "cosmetic_domains": cosmetic_domains,
+                    "cosmetic_exceptions": cosmetic_exceptions,
+                }
+            except Exception:
+                loaded[name] = {
+                    "domains": set(), "paths": {}, "exceptions": set(),
+                    "exception_paths": {}, "rule_count": 0,
+                    "cosmetic_generic": [], "cosmetic_domains": [],
+                    "cosmetic_exceptions": [],
+                }
+        self.external_filter_rules = loaded
+
+    def _filter_lists_status_text(self):
+        timestamps = self.settings_data.get("filter_lists_last_update", {})
+        if not isinstance(timestamps, dict):
+            timestamps = {}
+        values = [timestamps.get(name) for name in ("easylist", "easyprivacy") if timestamps.get(name)]
+        if not values:
+            return self.tr("Noch nicht aktualisiert", "Not updated yet")
+        try:
+            latest = max(float(value) for value in values)
+            return time.strftime("%d.%m.%Y %H:%M", time.localtime(latest))
+        except (TypeError, ValueError):
+            return self.tr("Unbekannt", "Unknown")
+
+    def _filter_lists_rule_count(self, name):
+        return int(self.external_filter_rules.get(name, {}).get("rule_count", 0))
+
+    def _maybe_update_filter_lists(self, force=False):
+        if self.private_mode or not self.settings_data.get("filter_auto_update", True) and not force:
+            return
+        worker = getattr(self, "_filter_update_worker", None)
+        if worker is not None and worker.isRunning():
+            return
+        try:
+            interval = max(1, min(168, int(self.settings_data.get("filter_update_interval_hours", 24) or 24)))
+        except (TypeError, ValueError):
+            interval = 24
+        timestamps = self.settings_data.get("filter_lists_last_update", {})
+        if not isinstance(timestamps, dict):
+            timestamps = {}
+        now = time.time()
+        needs_update = force
+        if not needs_update:
+            for name in FILTER_LIST_SOURCES:
+                stamp = timestamps.get(name)
+                path = FILTER_LIST_DIR / f"{name}.txt"
+                if not path.is_file() or not stamp:
+                    needs_update = True
+                    break
+                try:
+                    if now - float(stamp) >= interval * 3600:
+                        needs_update = True
+                        break
+                except (TypeError, ValueError):
+                    needs_update = True
+                    break
+        if needs_update:
+            self._start_filter_list_update()
+
+    def _start_filter_list_update(self):
+        if self.private_mode:
+            return
+        worker = getattr(self, "_filter_update_worker", None)
+        if worker is not None and worker.isRunning():
+            return
+        self._filter_update_worker = FilterListDownloadWorker(FILTER_LIST_SOURCES, self)
+        self._filter_update_worker.result_ready.connect(self._on_filter_lists_downloaded)
+        self._filter_update_worker.start()
+        labels = getattr(self, "_filter_update_dialog_labels", None)
+        if labels and labels.get("status"):
+            labels["status"].setText(self.tr("Filterlisten werden heruntergeladen …", "Downloading filter lists …"))
+
+    def _on_filter_lists_downloaded(self, downloaded, errors):
+        timestamps = self.settings_data.get("filter_lists_last_update", {})
+        if not isinstance(timestamps, dict):
+            timestamps = {}
+        self.settings_data["filter_lists_last_update"] = timestamps
+        successful = 0
+        for name, content in (downloaded or {}).items():
+            try:
+                FILTER_LIST_DIR.mkdir(parents=True, exist_ok=True)
+                target = FILTER_LIST_DIR / f"{name}.txt"
+                temp = target.with_suffix(".txt.tmp")
+                temp.write_text(content, encoding="utf-8")
+                # Validate the downloaded data before replacing a working cache.
+                domains, paths, exceptions, exception_paths = parse_adblock_filter_text(content)
+                if len(domains) + sum(len(v) for v in paths.values()) < 100:
+                    raise ValueError("Too few usable network rules")
+                temp.replace(target)
+                timestamps[name] = time.time()
+                successful += 1
+            except Exception as exc:
+                try:
+                    temp.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                errors[name] = str(exc)
+        self.settings_data["filter_lists_last_error"] = {
+            str(k): str(v)[:300] for k, v in (errors or {}).items()
+        }
+        write_json(CONFIG_FILE, self.settings_data)
+        self._load_external_filter_rules()
+        self.apply_adblock_cosmetic_live()
+        labels = getattr(self, "_filter_update_dialog_labels", None)
+        if labels:
+            labels["status"].setText(
+                self.tr("Aktualisierung abgeschlossen", "Update completed")
+                if successful and not errors else
+                self.tr("Teilweise aktualisiert – alte Listen bleiben erhalten", "Partially updated – previous lists retained")
+                if successful else
+                self.tr("Aktualisierung fehlgeschlagen – alte Listen bleiben erhalten", "Update failed – previous lists retained")
+            )
+            labels["last"].setText(self._filter_lists_status_text())
+            labels["easylist"].setText(self.tr("Regeln: ", "Rules: ") + str(self._filter_lists_rule_count("easylist")))
+            labels["easyprivacy"].setText(self.tr("Regeln: ", "Rules: ") + str(self._filter_lists_rule_count("easyprivacy")))
+        worker = self._filter_update_worker
+        self._filter_update_worker = None
+        if worker is not None:
+            worker.deleteLater()
+
     def show_adblock_settings(self):
-        """Open the combined ad-blocker and fingerprint-protection panel."""
+        """Open the combined ad-blocker, filter-list and fingerprint panel."""
         dialog = QDialog(self)
         dialog.setWindowTitle(self.tr("Schutz & Privatsphäre", "Protection & privacy"))
-        dialog.resize(620, 540)
+        dialog.resize(700, 610)
         # Explicit high-contrast styling: the application theme previously
         # left QLabel/QCheckBox text to the desktop palette, which could make
         # dark text appear on the dark privacy-panel background.
@@ -6478,6 +7047,60 @@ class LunaSurfer(QMainWindow):
         fp_layout.addStretch(1)
         tabs.addTab(fp_tab, self.tr("Fingerprint-Schutz", "Fingerprint protection"))
 
+        # External filter-list management tab
+        filter_tab = QWidget(dialog)
+        filter_layout = QVBoxLayout(filter_tab)
+        filter_master = QCheckBox(self.tr("Externe Filterlisten verwenden", "Use external filter lists"))
+        filter_master.setChecked(self.settings_data.get("filter_lists_enabled", True))
+        filter_layout.addWidget(filter_master)
+        filter_layout.addWidget(QLabel(self.tr(
+            "Die Listen ergänzen die vorhandenen Blockierstufen. Sie wirken nur, wenn der Werbeblocker eingeschaltet ist.",
+            "These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled."
+        )))
+        easylist_enabled = QCheckBox("EasyList")
+        easylist_enabled.setChecked(self.settings_data.get("easylist_enabled", True))
+        filter_layout.addWidget(easylist_enabled)
+        easylist_count = QLabel(self.tr("Regeln: ", "Rules: ") + str(self._filter_lists_rule_count("easylist")))
+        filter_layout.addWidget(easylist_count)
+        easyprivacy_enabled = QCheckBox("EasyPrivacy")
+        easyprivacy_enabled.setChecked(self.settings_data.get("easyprivacy_enabled", True))
+        filter_layout.addWidget(easyprivacy_enabled)
+        easyprivacy_count = QLabel(self.tr("Regeln: ", "Rules: ") + str(self._filter_lists_rule_count("easyprivacy")))
+        filter_layout.addWidget(easyprivacy_count)
+        filter_layout.addSpacing(8)
+        auto_update = QCheckBox(self.tr("Automatische Aktualisierung", "Automatic updates"))
+        auto_update.setChecked(self.settings_data.get("filter_auto_update", True))
+        filter_layout.addWidget(auto_update)
+        interval_row = QHBoxLayout()
+        interval_row.addWidget(QLabel(self.tr("Aktualisierungsintervall:", "Update interval:")))
+        interval = QComboBox()
+        for hours in (12, 24, 48, 72, 168):
+            label = self.tr(f"{hours} Stunden" if hours != 168 else "7 Tage",
+                            f"{hours} hours" if hours != 168 else "7 days")
+            interval.addItem(label, hours)
+        current_interval = int(self.settings_data.get("filter_update_interval_hours", 24) or 24)
+        interval.setCurrentIndex(max(0, interval.findData(current_interval)))
+        interval_row.addWidget(interval)
+        interval_row.addStretch(1)
+        filter_layout.addLayout(interval_row)
+        last_row = QHBoxLayout()
+        last_row.addWidget(QLabel(self.tr("Letzte Aktualisierung:", "Last update:")))
+        last_label = QLabel(self._filter_lists_status_text())
+        last_row.addWidget(last_label, 1)
+        filter_layout.addLayout(last_row)
+        status_label = QLabel("")
+        status_label.setWordWrap(True)
+        filter_layout.addWidget(status_label)
+        update_now = QPushButton(self.tr("Jetzt aktualisieren", "Update now"))
+        filter_layout.addWidget(update_now)
+        filter_layout.addStretch(1)
+        self._filter_update_dialog_labels = {
+            "status": status_label, "last": last_label,
+            "easylist": easylist_count, "easyprivacy": easyprivacy_count,
+        }
+        update_now.clicked.connect(lambda: self._maybe_update_filter_lists(force=True))
+        tabs.addTab(filter_tab, self.tr("Filterlisten", "Filter lists"))
+
         outer.addWidget(tabs)
         buttons = QHBoxLayout()
         buttons.addStretch(1)
@@ -6494,7 +7117,15 @@ class LunaSurfer(QMainWindow):
             self.settings_data["adblock_whitelist"] = [x.strip() for x in whitelist.text().split(";") if x.strip()]
             self.settings_data["fingerprint_enabled"] = fp_enabled.isChecked()
             self.settings_data["fingerprint_strength"] = fp_strength.currentData()
+            self.settings_data["filter_lists_enabled"] = filter_master.isChecked()
+            self.settings_data["easylist_enabled"] = easylist_enabled.isChecked()
+            self.settings_data["easyprivacy_enabled"] = easyprivacy_enabled.isChecked()
+            self.settings_data["filter_auto_update"] = auto_update.isChecked()
+            self.settings_data["filter_update_interval_hours"] = int(interval.currentData())
             write_json(CONFIG_FILE, self.settings_data)
+            self._load_external_filter_rules()
+            if auto_update.isChecked():
+                self._maybe_update_filter_lists()
             self.update_adblock_button()
             self.apply_adblock_cosmetic_live()
             self.apply_fingerprint_protection_live()
@@ -6503,6 +7134,7 @@ class LunaSurfer(QMainWindow):
         save.clicked.connect(do_save)
         cancel.clicked.connect(dialog.reject)
         dialog.exec()
+        self._filter_update_dialog_labels = None
 
     def _restore_download_history_records(self, records):
         """Restore persistent download records on the GUI thread."""
