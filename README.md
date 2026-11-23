@@ -1,4 +1,4 @@
-# LunaSurfer 0.3.57
+# LunaSurfer 0.3.58
 
 Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 
@@ -9,6 +9,11 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 ## Funktionen
 
 - Tabs, Adress-/Suchleiste, Navigation und Startseite
+- Integrierter Chromium-PDF-Viewer: PDF-Dateien direkt in einem Browser-Tab anzeigen (abhängig von der installierten QtWebEngine-Build-Version)
+- Privates Surfen in einem separaten Fenster über **Menü → Neues privates Fenster** oder `Strg` + `Umschalt` + `N`
+- Private Fenster verwenden ein eigenes Off-the-Record-Profil: Cookies, Cache und Website-Speicher werden nicht dauerhaft gespeichert
+- Private URLs erscheinen nicht im normalen Verlauf und werden nicht in der normalen Sitzung gespeichert; private Downloads werden nicht in der Download-Historie abgelegt
+- Passwortmanager und automatische Passworterfassung sind in privaten Fenstern deaktiviert; heruntergeladene Dateien bleiben wie üblich im gewählten Download-Ordner
 - Einstellungen öffnen wie bei Chromium in einem eigenen Browser-Tab statt in einem separaten Dialog; vorhandene Browser-Tabs bleiben erhalten
 - Überarbeitetes dunkles Einstellungsdesign mit stimmigen Hintergründen, Eingabefeldern und Bedienelementen
 - Große, gut erkennbare Symbole in der oberen Leiste
@@ -37,6 +42,10 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 - LunaSurfer besitzt jetzt auch 12 Sprachen.
 - usw.
 
+## Privates Surfen
+
+Über **Menü → Neues privates Fenster** oder `Strg` + `Umschalt` + `N` öffnest du ein separates privates Fenster. Es verwendet ein eigenes QtWebEngine-Off-the-Record-Profil, das nicht mit dem normalen Browserprofil geteilt wird. Cookies, Cache sowie Local Storage und andere Website-Daten werden nur temporär gehalten und beim Schließen des privaten Fensters verworfen. Private Seiten werden nicht in den normalen Verlauf oder die wiederherzustellende Sitzung übernommen. Auch private Downloads werden nicht in der gespeicherten Download-Historie aufgeführt. Die heruntergeladenen Dateien selbst bleiben im Download-Ordner erhalten. Der Passwortmanager und seine automatische Passworterfassung sind im privaten Fenster deaktiviert. Lesezeichen bleiben weiterhin verfügbar und werden wie gewohnt im normalen Profil gespeichert.
+
 ## Lesezeichen bearbeiten und verwalten
 
 - Mit der **rechten Maustaste auf ein Lesezeichen in der Lesezeichenleiste oder im Menü „Weitere“** kannst du es öffnen, bearbeiten oder löschen.
@@ -62,7 +71,7 @@ sudo apt install python3 python3-pyside6.qtwidgets python3-pyside6.qtwebenginewi
 ## Installation
 
 ```bash
-sudo apt install ./lunasurfer_0.3.57_all.deb
+sudo apt install ./lunasurfer_0.3.58_all.deb
 ```
 
 ## Start aus dem Quellcode
@@ -90,3 +99,7 @@ LunaSurfer setzt den Widevine-Pfad zusätzlich beim Start, wenn die CDM-Datei vo
 Widevine ist nicht Bestandteil von LunaSurfer. Die Wiedergabe von DRM-Inhalten hängt von Widevine, QtWebEngine, den verfügbaren Codecs und dem jeweiligen Streaming-Dienst ab.
 
 73 de DO2QG Andreas
+
+## PDF-Druck
+Der integrierte Chromium-PDF-Viewer übergibt seine Druckanforderung an den Qt-Druckdialog. Benötigt PySide6 QtPrintSupport.
+**Druckdialog:** Die LunaSurfer-eigenen Aktionen werden in allen zwölf unterstützten Oberflächensprachen beschriftet. Bezeichnungen der Druckoptionen selbst stammen weiterhin vom installierten CUPS-Druckertreiber und dessen Übersetzungen.

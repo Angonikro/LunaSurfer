@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.3.58 
+
+# Einstellungen thematisch neu sortiert
+- Einstellungen in sechs Bereiche gegliedert: Allgemein; Browser- und Webseiten-Design; Downloads; Sicherheit und Berechtigungen; Datenschutz und Browser-Verhalten; Passwörter und Browserdaten.
+- Webseiten-Lesbarkeit und Webseiten-Farbgebung stehen im Designbereich.
+- Download-Optionen, Berechtigungen, User-Agent, Cookies, Passwortmanager und Browserdaten sind thematisch gruppiert.
+- Bestehende Einstellungswerte, Schlüssel und Speicherroutine bleiben unverändert.
+
+# Privates Surfen
+- Separates privates Browserfenster über Menü und `Strg+Umschalt+N` ergänzt.
+- Private Fenster verwenden ein eigenes QtWebEngine-Off-the-Record-Profil ohne persistente Speicher- oder Cache-Pfade und ohne persistente Cookies.
+- Private URLs werden nicht in den normalen Verlauf oder die gespeicherte Sitzung geschrieben.
+- Private Downloads werden nur im laufenden Fenster verwaltet und nicht in der dauerhaften Download-Historie gespeichert; heruntergeladene Dateien bleiben im gewählten Download-Ordner erhalten.
+- Passwortmanager, Login-Erfassung und automatisches Ausfüllen sind im privaten Fenster deaktiviert.
+- Die vorhandenen normalen Browserprofile, Lesezeichen, Einstellungen und gespeicherten Passwörter bleiben unverändert.
+
+# PDF-Unterstützung
+- Den integrierten Chromium-PDF-Viewer von QtWebEngine aktiviert. PDF-Dateien können dadurch direkt in einem LunaSurfer-Tab angezeigt werden, sofern die installierte QtWebEngine-Build-Version den PDF-Viewer enthält.
+- Die PDF-Dateizuordnung wurde im Desktop-Eintrag ergänzt, sodass LunaSurfer auch als Öffnen-mit-Anwendung für PDF-Dateien angeboten werden kann.
+- Die bestehende Browser-Engine, Profile, Lesezeichen, Downloads und übrigen Funktionen bleiben unverändert.
+
+# Feineres Scrollen im Favoritenmanager
+- Das automatische Scrollen beim Ziehen eines Favoriten im Favoritenmanager deutlich verlangsamt und feiner abgestuft.
+- Der Bildlauf erfolgt jetzt in kleineren Schritten (5 statt 14 Pixel) und mit größerem Zeitabstand (70 statt 35 ms), damit Favoriten präziser an die gewünschte Position gezogen werden können.
+- Andere Drag-and-drop-Bereiche und die übrige Favoritenverwaltung bleiben unverändert.
+
 # LunaSurfer 0.3.57 - Drag-and-drop für Lesezeichen
 
 - Drag-and-drop in der Lesezeichenleiste und Favoritenmanager überarbeitet: Favoriten lassen sich zwischen Einträgen einsortieren oder auf einem Favoriten zu einem Ordner zusammenfassen.
@@ -578,3 +604,6 @@ Changelog
 - Die Änderung wird in der bestehenden Lesezeichenstruktur gespeichert und die Leiste anschließend aktualisiert.
 
 0.3.57 – Fix: Lesezeichen aus der Navigationsleiste sicher löschen; Toolbar-Neuaufbau nach Kontextmenü-Ereignis verzögert.
+
+- DEB-Fix: Der Starter `/usr/bin/lunasurfer` wird mit ausführbarem Dateirecht (0755) installiert.
+- Druckdialog-Aktionen (Drucken, Abbrechen, Hilfe, Eigenschaften und Durchsuchen) werden passend zur gewählten LunaSurfer-Sprache in allen 12 unterstützten Sprachen beschriftet. CUPS-Druckertreibertexte bleiben vom installierten Treiber abhängig.

@@ -7,4 +7,4 @@ Terminal=false
 Type=Application
 Categories=Network;WebBrowser;
 StartupNotify=true
-MimeType=text/html;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+MimeType=application/pdf;application/x-pdf;text/html;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;

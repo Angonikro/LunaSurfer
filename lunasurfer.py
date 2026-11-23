@@ -28,6 +28,7 @@ if WIDEVINE_CDM.is_file():
 
 from PySide6.QtCore import QUrl, QSize, QPoint, QMimeData, Qt, QTimer, QEvent, QObject, Slot, Signal, QThread, QTranslator, QLocale, QLibraryInfo, QFile, QIODevice
 from PySide6.QtGui import QAction, QKeySequence, QIcon, QDrag, QPainter, QPen, QColor
+from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
     QApplication, QAbstractItemView, QMainWindow, QTabWidget, QToolBar, QLineEdit, QToolButton, QWidgetAction,
     QVBoxLayout, QWidget, QMenu, QFileDialog, QMessageBox, QDialog,
@@ -2280,13 +2281,15 @@ class BookmarkManagerTree(QTreeWidget):
         self._bookmark_drop_folder_rect = None
         self._auto_scroll_direction = 0
         self._auto_scroll_timer = QTimer(self)
-        self._auto_scroll_timer.setInterval(35)
+        # Deliberate, fine-grained scrolling while dragging in the manager.
+        # The previous 14 px every 35 ms was too fast for precise placement.
+        self._auto_scroll_timer.setInterval(70)
         self._auto_scroll_timer.timeout.connect(self._auto_scroll_tick)
 
     def _auto_scroll_tick(self):
         bar = self.verticalScrollBar()
         old_value = bar.value()
-        bar.setValue(old_value + self._auto_scroll_direction * 14)
+        bar.setValue(old_value + self._auto_scroll_direction * 5)
         if bar.value() == old_value:
             self._auto_scroll_timer.stop()
 
@@ -2479,6 +2482,9 @@ class BrowserView(QWebEngineView):
         self.loadProgress.connect(lambda p: window.statusBar().showMessage(f"Laden … {p}%"))
         self.loadFinished.connect(self.on_load_finished)
         self.renderProcessTerminated.connect(self.on_render_process_terminated)
+        # Keep the printer alive until QtWebEngine reports completion.
+        self._luna_active_printer = None
+        self.printFinished.connect(self._luna_print_finished)
         # The page is replaced with a profile-specific QWebEnginePage in add_tab().
         # Configure fullscreen support there, otherwise the signal remains connected
         # to this temporary default page and video fullscreen never reaches the window.
@@ -2502,22 +2508,222 @@ class BrowserView(QWebEngineView):
             "LocalContentCanAccessRemoteUrls",
             "AllowRunningInsecureContent",
             "HyperlinkAuditingEnabled",
-            "PluginsEnabled",
         ):
             attribute = getattr(QWebEngineSettings.WebAttribute, attribute_name, None)
             if attribute is not None:
                 settings.setAttribute(attribute, False)
+        # Enable Qt WebEngine's built-in Chromium PDF viewer. Qt implements
+        # PDF viewing through its bundled PDF extension, which requires
+        # PluginsEnabled; no third-party plugin is installed by LunaSurfer.
+        pdf_viewer_attr = getattr(QWebEngineSettings.WebAttribute, "PdfViewerEnabled", None)
+        plugins_attr = getattr(QWebEngineSettings.WebAttribute, "PluginsEnabled", None)
+        if pdf_viewer_attr is not None:
+            settings.setAttribute(pdf_viewer_attr, True)
+            if plugins_attr is not None:
+                settings.setAttribute(plugins_attr, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.FullScreenSupportEnabled, True)
         page.fullScreenRequested.connect(self.handle_fullscreen)
+        # The Chromium PDF viewer emits printRequested from its toolbar.
+        # Connect on the actual profile-specific page, not the temporary page
+        # created by QWebEngineView before add_tab() replaces it.
+        page.printRequested.connect(self.handle_pdf_print_requested)
         # Handle camera, microphone, location and notification permissions in LunaSurfer.
         page.permissionRequested.connect(self.window_ref.handle_permission_request)
-        self.login_channel = QWebChannel(page)
-        self.login_bridge = LoginCaptureBridge(self.window_ref, self)
-        self.login_channel.registerObject('lunaLoginBridge', self.login_bridge)
-        # Keep the privileged bridge out of the website's MainWorld. Page scripts
-        # cannot inspect or invoke objects installed in ApplicationWorld.
-        page.setWebChannel(self.login_channel, QWebEngineScript.ScriptWorldId.ApplicationWorld)
+        if not self.window_ref.private_mode:
+            self.login_channel = QWebChannel(page)
+            self.login_bridge = LoginCaptureBridge(self.window_ref, self)
+            self.login_channel.registerObject('lunaLoginBridge', self.login_bridge)
+            # Keep the privileged bridge out of the website's MainWorld. Page scripts
+            # cannot inspect or invoke objects installed in ApplicationWorld.
+            page.setWebChannel(self.login_channel, QWebEngineScript.ScriptWorldId.ApplicationWorld)
+
+    def _translate_luna_print_dialog(self, dialog):
+        """Translate all LunaSurfer-owned print dialog buttons in 12 languages."""
+        language = str(self.window_ref.settings_data.get("language", "de")).lower()
+        language = language.replace("_", "-").split("-", 1)[0]
+        labels = {
+            "de": {"print": "Drucken", "cancel": "Abbrechen", "help": "Hilfe", "more_options": "Weitere Optionen", "less_options": "Weniger Optionen", "properties": "Eigenschaften…", "browse": "Durchsuchen…"},
+            "en": {"print": "Print", "cancel": "Cancel", "help": "Help", "more_options": "More options", "less_options": "Fewer options", "properties": "Properties…", "browse": "Browse…"},
+            "fr": {"print": "Imprimer", "cancel": "Annuler", "help": "Aide", "more_options": "Plus d’options", "less_options": "Moins d’options", "properties": "Propriétés…", "browse": "Parcourir…"},
+            "it": {"print": "Stampa", "cancel": "Annulla", "help": "Aiuto", "more_options": "Altre opzioni", "less_options": "Meno opzioni", "properties": "Proprietà…", "browse": "Sfoglia…"},
+            "nl": {"print": "Afdrukken", "cancel": "Annuleren", "help": "Help", "more_options": "Meer opties", "less_options": "Minder opties", "properties": "Eigenschappen…", "browse": "Bladeren…"},
+            "es": {"print": "Imprimir", "cancel": "Cancelar", "help": "Ayuda", "more_options": "Más opciones", "less_options": "Menos opciones", "properties": "Propiedades…", "browse": "Examinar…"},
+            "pt": {"print": "Imprimir", "cancel": "Cancelar", "help": "Ajuda", "more_options": "Mais opções", "less_options": "Menos opções", "properties": "Propriedades…", "browse": "Procurar…"},
+            "pl": {"print": "Drukuj", "cancel": "Anuluj", "help": "Pomoc", "more_options": "Więcej opcji", "less_options": "Mniej opcji", "properties": "Właściwości…", "browse": "Przeglądaj…"},
+            "ru": {"print": "Печать", "cancel": "Отмена", "help": "Справка", "more_options": "Больше параметров", "less_options": "Меньше параметров", "properties": "Свойства…", "browse": "Обзор…"},
+            "tr": {"print": "Yazdır", "cancel": "İptal", "help": "Yardım", "more_options": "Daha fazla seçenek", "less_options": "Daha az seçenek", "properties": "Özellikler…", "browse": "Gözat…"},
+            "ja": {"print": "印刷", "cancel": "キャンセル", "help": "ヘルプ", "more_options": "その他のオプション", "less_options": "オプションを減らす", "properties": "プロパティ…", "browse": "参照…"},
+            "zh": {"print": "打印", "cancel": "取消", "help": "帮助", "more_options": "更多选项", "less_options": "收起选项", "properties": "属性…", "browse": "浏览…"},
+        }
+        text = labels.get(language, labels["de"])
+        button_box = dialog.findChild(QDialogButtonBox)
+
+        if button_box is not None:
+            for button in button_box.buttons():
+                role = button_box.buttonRole(button)
+                if role == QDialogButtonBox.ButtonRole.AcceptRole:
+                    button.setText(text["print"])
+                elif role == QDialogButtonBox.ButtonRole.RejectRole:
+                    button.setText(text["cancel"])
+                elif role == QDialogButtonBox.ButtonRole.HelpRole:
+                    button.setText(text["help"])
+
+        # Qt's Unix print dialog places Properties beside the printer combo,
+        # Browse beside the output filename and Help at the left of the bottom
+        # button row. Identify each by geometry, not by a shared sorted index.
+        widgets = []
+        for widget_type in (QPushButton, QToolButton):
+            for button in dialog.findChildren(widget_type):
+                if not button.isVisible() or button.text().strip():
+                    continue
+                if button_box is not None and button_box.isAncestorOf(button):
+                    continue
+                pos = button.mapTo(dialog, button.rect().topLeft())
+                widgets.append((button, pos.x(), pos.y(), button.width(), button.height()))
+
+        combos = []
+        for combo in dialog.findChildren(QComboBox):
+            if combo.isVisible():
+                pos = combo.mapTo(dialog, combo.rect().topLeft())
+                if pos.y() < dialog.height() * 0.55:
+                    combos.append((pos.y(), combo))
+        if combos:
+            combos.sort(key=lambda item: item[0])
+            combo = combos[0][1]
+            combo_pos = combo.mapTo(dialog, combo.rect().topLeft())
+            combo_right = combo.mapTo(dialog, combo.rect().topRight()).x()
+            props = [(abs(y-combo_pos.y()) + abs(x-combo_right), w)
+                     for btn,x,y,w,h in widgets
+                     if abs(y-combo_pos.y()) <= max(18,h) and -8 <= x-combo_right <= 60]
+            if props:
+                # Find the exact widget again using the smallest geometric distance.
+                candidates = [item for item in widgets
+                              if abs(item[2]-combo_pos.y()) <= max(18,item[4])
+                              and -8 <= item[1]-combo_right <= 60]
+                candidates.sort(key=lambda item: (abs(item[2]-combo_pos.y()), abs(item[1]-combo_right)))
+                btn = candidates[0][0]
+                btn.setText(text["properties"])
+                btn.setToolTip(text["properties"])
+                btn.setAccessibleName(text["properties"])
+                btn.setMinimumWidth(105)
+                widgets = [item for item in widgets if item[0] is not btn]
+
+        path_fields = []
+        for field in dialog.findChildren(QLineEdit):
+            if not field.isVisible():
+                continue
+            value = field.text().strip()
+            if value and ("/" in value or "\\\\" in value):
+                pos = field.mapTo(dialog, field.rect().topLeft())
+                right = field.mapTo(dialog, field.rect().topRight()).x()
+                path_fields.append((pos.y(), right))
+        if path_fields:
+            fy, fr = min(path_fields, key=lambda item: item[0])
+            candidates = [item for item in widgets
+                          if abs(item[2]-fy) <= max(18,item[4])
+                          and -8 <= item[1]-fr <= 65]
+            if candidates:
+                candidates.sort(key=lambda item: (abs(item[2]-fy), abs(item[1]-fr)))
+                btn = candidates[0][0]
+                btn.setText(text["browse"])
+                btn.setToolTip(text["browse"])
+                btn.setAccessibleName(text["browse"])
+                btn.setMinimumWidth(105)
+                widgets = [item for item in widgets if item[0] is not btn]
+
+        # The remaining lower-left control expands/collapses the advanced
+        # print options; it is not a Help action. Keep its caption synchronized
+        # with the dialog's expanded state.
+        remaining = []
+        for widget_type in (QPushButton, QToolButton):
+            for button in dialog.findChildren(widget_type):
+                if button.text().strip() or not button.isVisible():
+                    continue
+                pos = button.mapTo(dialog, button.rect().topLeft())
+                remaining.append((button, pos.x(), pos.y()))
+        if remaining:
+            remaining.sort(key=lambda item: (-item[2], item[1]))
+            options_button = remaining[0][0]
+            collapsed_height = dialog.height()
+
+            def update_options_caption():
+                expanded = dialog.height() > collapsed_height + 20
+                caption = text["less_options"] if expanded else text["more_options"]
+                options_button.setText(caption)
+                options_button.setToolTip(caption)
+                options_button.setAccessibleName(caption)
+                options_button.setMinimumWidth(132)
+
+            update_options_caption()
+            options_button.clicked.connect(
+                lambda: QTimer.singleShot(0, update_options_caption)
+            )
+
+    def handle_pdf_print_requested(self):
+        """Handle Chromium's built-in PDF viewer print toolbar request."""
+        if self._luna_active_printer is not None:
+            return
+        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer.setResolution(300)
+        dialog = QPrintDialog(printer, self)
+        dialog.setWindowTitle(self.window_ref.tr("Drucken", "Print"))
+        # The application theme is intentionally dark, but printer-driver
+        # dialogs contain many native controls whose text/icons are not all
+        # styled by Qt's platform plugin. Give the complete print dialog (and
+        # its child printer-properties dialog) a dedicated high-contrast theme.
+        dialog.setStyleSheet("""
+            QDialog, QWidget { background-color: #f4f6f8; color: #202833; }
+            QLabel { background: transparent; color: #202833; }
+            QGroupBox { color: #202833; border: 1px solid #b8c2cc; border-radius: 4px; margin-top: 10px; padding: 8px 6px 6px 6px; }
+            QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; color: #202833; background: #f4f6f8; }
+            QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QDateTimeEdit,
+            QFontComboBox { background: #ffffff; color: #17212b; border: 1px solid #8795a3; border-radius: 3px; padding: 4px 6px; selection-background-color: #2878c8; selection-color: #ffffff; }
+            QComboBox QAbstractItemView { background: #ffffff; color: #17212b; selection-background-color: #2878c8; selection-color: #ffffff; }
+            QCheckBox, QRadioButton { background: transparent; color: #202833; spacing: 6px; }
+            QTabWidget::pane { background: #f4f6f8; border: 1px solid #b8c2cc; }
+            QTabBar::tab { background: #e1e6eb; color: #202833; border: 1px solid #aab5bf; padding: 6px 12px; margin-right: 2px; }
+            QTabBar::tab:selected { background: #ffffff; color: #102d49; border-bottom-color: #ffffff; font-weight: 600; }
+            QTreeView, QListView, QTableView, QTreeWidget, QListWidget, QTableWidget { background: #ffffff; color: #17212b; alternate-background-color: #edf1f5; border: 1px solid #aab5bf; selection-background-color: #2878c8; selection-color: #ffffff; }
+            QHeaderView::section { background: #e1e6eb; color: #202833; border: 1px solid #b8c2cc; padding: 4px; }
+            QPushButton { background: #e7edf3; color: #17212b; border: 1px solid #8795a3; border-radius: 3px; padding: 5px 12px; min-width: 65px; }
+            QPushButton:hover { background: #d7e8f8; border-color: #2878c8; }
+            QPushButton:pressed { background: #c4dcf2; }
+            QToolButton { background: #e7edf3; color: #17212b; border: 1px solid #8795a3; border-radius: 3px; padding: 3px; }
+            QToolTip { background: #fffbe6; color: #202833; border: 1px solid #aab5bf; }
+        """)
+        self._translate_luna_print_dialog(dialog)
+        QTimer.singleShot(0, lambda d=dialog: self._translate_luna_print_dialog(d))
+        if dialog.exec() != QPrintDialog.DialogCode.Accepted:
+            return
+        # Retain a strong reference: QtWebEngine uses the printer asynchronously.
+        self._luna_active_printer = printer
+        self.window_ref.statusBar().showMessage(
+            self.window_ref.tr("Druck wird vorbereitet …", "Preparing print …"), 5000
+        )
+        try:
+            self.print(printer)
+        except Exception as exc:
+            self._luna_active_printer = None
+            QMessageBox.warning(
+                self.window_ref,
+                self.window_ref.tr("Drucken", "Print"),
+                self.window_ref.tr("Drucken fehlgeschlagen.", "Printing failed.") + "\n" + str(exc),
+            )
+
+    def _luna_print_finished(self, success):
+        """Release QPrinter only after the asynchronous print callback."""
+        self._luna_active_printer = None
+        if success:
+            self.window_ref.statusBar().showMessage(
+                self.window_ref.tr("Druckauftrag gesendet.", "Print job sent."), 6000
+            )
+        else:
+            QMessageBox.warning(
+                self.window_ref,
+                self.window_ref.tr("Drucken", "Print"),
+                self.window_ref.tr("Drucken fehlgeschlagen.", "Printing failed."),
+            )
 
     def contextMenuEvent(self, event):
         """Show LunaSurfer's own context menu without QtWebEngine's native menu.
@@ -3097,7 +3303,7 @@ class BrowserView(QWebEngineView):
                 })();
             """)
         if ok:
-            if url.startswith(("http://", "https://")):
+            if (not self.window_ref.private_mode) and url.startswith(("http://", "https://")):
                 history = read_json(HISTORY_FILE, [])
                 history = [x for x in history if x.get("url") != url]
                 history.insert(0, {"title": self.title() or url, "url": url})
@@ -3139,8 +3345,9 @@ class BrowserView(QWebEngineView):
             QTimer.singleShot(0, self.window_ref.leave_web_fullscreen)
 
 class LunaSurfer(QMainWindow):
-    def __init__(self):
+    def __init__(self, private_mode=False):
         super().__init__()
+        self.private_mode = bool(private_mode)
         self.setWindowTitle(f"{APP_NAME} {APP_VERSION}")
         self.resize(1250, 820)
         self._web_fullscreen = False
@@ -3189,6 +3396,8 @@ class LunaSurfer(QMainWindow):
             "user_agent_custom": ""
         })
         self.settings_data.setdefault("translation_provider", "google")
+        if self.private_mode:
+            self.setWindowTitle(f"{APP_NAME} {APP_VERSION} – " + self.tr("Privates Surfen", "Private browsing"))
         self.settings_data.setdefault("website_color_mode", "normal")
         if self.settings_data.get("website_color_mode") not in ("normal", "black"):
             self.settings_data["website_color_mode"] = "normal"
@@ -3222,16 +3431,24 @@ class LunaSurfer(QMainWindow):
         self._password_lock_timer = QTimer(self)
         self._password_lock_timer.setSingleShot(True)
         self._password_lock_timer.timeout.connect(self.lock_password_manager)
-        self.profile = QWebEngineProfile("LunaSurfer", self)
+        # Private windows use a dedicated off-the-record profile. Qt keeps its
+        # cookies, cache and origin storage in memory and discards them with the
+        # profile; no persistent storage/cache paths are assigned.
+        self.profile = QWebEngineProfile(self) if self.private_mode else QWebEngineProfile("LunaSurfer", self)
+        if self.private_mode and not self.profile.isOffTheRecord():
+            raise RuntimeError("Private LunaSurfer profile is not off-the-record")
         self._native_user_agent = self.profile.httpUserAgent()
         self.settings_data.setdefault("user_agent_mode", "privacy")
         self.settings_data.setdefault("user_agent_custom", "")
         if self.settings_data.get("user_agent_mode") not in ("privacy", "native", "custom"):
             self.settings_data["user_agent_mode"] = "privacy"
         self.apply_user_agent()
-        self.profile.setPersistentStoragePath(str(DATA_DIR / "webengine"))
-        self.profile.setCachePath(str(pathlib.Path.home() / ".cache" / "lunasurfer" / "webengine"))
-        self.profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies)
+        if not self.private_mode:
+            self.profile.setPersistentStoragePath(str(DATA_DIR / "webengine"))
+            self.profile.setCachePath(str(pathlib.Path.home() / ".cache" / "lunasurfer" / "webengine"))
+            self.profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies)
+        else:
+            self.profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.NoPersistentCookies)
         self.cookie_store = self.profile.cookieStore()
         self.cookie_filter_callback = self.filter_cookies
         self.cookie_store.setCookieFilter(self.cookie_filter_callback)
@@ -3409,6 +3626,9 @@ class LunaSurfer(QMainWindow):
         self.password_action.triggered.connect(self.show_password_manager)
         self.addAction(self.password_action)
         self.password_button = QToolButton(self)
+        if self.private_mode:
+            self.password_button.hide()
+            self.password_action.setEnabled(False)
         self.password_button.setDefaultAction(self.password_action)
         self.password_button.setText("PW")
         self.password_button.setFixedSize(36, 34)
@@ -3438,11 +3658,16 @@ class LunaSurfer(QMainWindow):
 
         menu = QMenu(self.tr("Menü", "Menu"), self)
         menu.addAction(self.tr("Neuer Tab", "New tab"), lambda: self.add_tab(self.settings_data["home"]))
+        self.private_window_action = menu.addAction(self.tr("Neues privates Fenster", "New private window"), self.open_private_window)
         menu.addAction(self.tr("Lesezeichen", "Bookmarks"), self.show_bookmarks)
-        menu.addAction(self.tr("Verlauf", "History"), self.show_history)
+        self.history_action = menu.addAction(self.tr("Verlauf", "History"), self.show_history)
+        if self.private_mode:
+            self.history_action.setVisible(False)
         menu.addAction(self.tr("Downloads-Ordner öffnen", "Open downloads folder"), self.open_downloads)
         menu.addSeparator()
-        menu.addAction(self.tr("Einstellungen", "Settings"), self.show_settings)
+        self.settings_action = menu.addAction(self.tr("Einstellungen", "Settings"), self.show_settings)
+        if self.private_mode:
+            self.settings_action.setVisible(False)
         menu.addAction(self.tr("Anleitung", "User guide"), self.show_manual)
         menu.addAction(self.tr("Entwicklerwerkzeuge (F12)", "Developer tools (F12)"), self.toggle_devtools)
         menu.addAction(self.tr("Über LunaSurfer", "About LunaSurfer"), self.about)
@@ -3480,7 +3705,8 @@ class LunaSurfer(QMainWindow):
         self.restore_or_open_start_page()
         self.set_shortcuts()
         # Read the existing download history after startup without blocking the UI.
-        self._start_download_history_load()
+        if not self.private_mode:
+            self._start_download_history_load()
 
     def apply_browser_design(self):
         """Apply the selected LunaSurfer chrome design immediately."""
@@ -3628,10 +3854,24 @@ class LunaSurfer(QMainWindow):
         else:
             self.show_devtools()
 
+    def open_private_window(self):
+        """Open an isolated off-the-record browser window."""
+        app = QApplication.instance()
+        if app is None:
+            return
+        windows = getattr(app, "_lunasurfer_private_windows", None)
+        if windows is None:
+            windows = []
+            app._lunasurfer_private_windows = windows
+        window = LunaSurfer(private_mode=True)
+        windows.append(window)
+        window.show()
+
     def set_shortcuts(self):
         for seq, callback in [
             ("Ctrl+L", lambda: (self.address.setFocus(), self.address.selectAll())),
             ("Ctrl+T", lambda: self.add_tab(self.settings_data["home"])),
+            ("Ctrl+Shift+N", self.open_private_window),
             ("Ctrl+W", lambda: self.close_tab(self.tabs.currentIndex())),
             ("Ctrl+R", lambda: self.current_view() and self.current_view().reload()),
             ("F12", self.toggle_devtools),
@@ -3644,6 +3884,40 @@ class LunaSurfer(QMainWindow):
     def tr(self, de, en):
         """Return the selected application language."""
         language = self.settings_data.get("language", "de")
+        private_labels = {
+            "de": {"New private window": "Neues privates Fenster", "Private browsing": "Privates Surfen", "The password manager is disabled in private windows.": "Der Passwortmanager ist im privaten Fenster deaktiviert.", "Print": "Drucken", "Preparing print …": "Druck wird vorbereitet …", "Print job sent.": "Druckauftrag gesendet.", "Printing failed.": "Drucken fehlgeschlagen.", },
+            "en": {"New private window": "New private window", "Private browsing": "Private browsing", "The password manager is disabled in private windows.": "The password manager is disabled in private windows.", "Print": "Print", "Preparing print …": "Preparing print …", "Print job sent.": "Print job sent.", "Printing failed.": "Printing failed.", },
+            "fr": {"New private window": "Nouvelle fenêtre privée", "Private browsing": "Navigation privée", "The password manager is disabled in private windows.": "Le gestionnaire de mots de passe est désactivé dans les fenêtres privées.", "Print": "Imprimer", "Preparing print …": "Préparation de l’impression …", "Print job sent.": "Travail d’impression envoyé.", "Printing failed.": "Échec de l’impression.", },
+            "it": {"New private window": "Nuova finestra privata", "Private browsing": "Navigazione privata", "The password manager is disabled in private windows.": "Il gestore delle password è disattivato nelle finestre private.", "Print": "Stampa", "Preparing print …": "Preparazione della stampa …", "Print job sent.": "Lavoro di stampa inviato.", "Printing failed.": "Stampa non riuscita.", },
+            "nl": {"New private window": "Nieuw privévenster", "Private browsing": "Privénavigatie", "The password manager is disabled in private windows.": "De wachtwoordmanager is uitgeschakeld in privévensters.", "Print": "Afdrukken", "Preparing print …": "Afdrukken voorbereiden …", "Print job sent.": "Afdrukopdracht verzonden.", "Printing failed.": "Afdrukken mislukt.", },
+            "es": {"New private window": "Nueva ventana privada", "Private browsing": "Navegación privada", "The password manager is disabled in private windows.": "El gestor de contraseñas está desactivado en las ventanas privadas.", "Print": "Imprimir", "Preparing print …": "Preparando la impresión …", "Print job sent.": "Trabajo de impresión enviado.", "Printing failed.": "Error al imprimir.", },
+            "pt": {"New private window": "Nova janela privada", "Private browsing": "Navegação privada", "The password manager is disabled in private windows.": "O gestor de palavras-passe está desativado nas janelas privadas.", "Print": "Imprimir", "Preparing print …": "A preparar a impressão …", "Print job sent.": "Trabalho de impressão enviado.", "Printing failed.": "Falha na impressão.", },
+            "pl": {"New private window": "Nowe okno prywatne", "Private browsing": "Przeglądanie prywatne", "The password manager is disabled in private windows.": "Menedżer haseł jest wyłączony w oknach prywatnych.", "Print": "Drukuj", "Preparing print …": "Przygotowywanie drukowania …", "Print job sent.": "Wysłano zadanie drukowania.", "Printing failed.": "Drukowanie nie powiodło się.", },
+            "ru": {"New private window": "Новое приватное окно", "Private browsing": "Приватный просмотр", "The password manager is disabled in private windows.": "Менеджер паролей отключён в приватных окнах.", "Print": "Печать", "Preparing print …": "Подготовка к печати …", "Print job sent.": "Задание на печать отправлено.", "Printing failed.": "Не удалось распечатать.", },
+            "tr": {"New private window": "Yeni gizli pencere", "Private browsing": "Gizli gezinme", "The password manager is disabled in private windows.": "Şifre yöneticisi gizli pencerelerde devre dışıdır.", "Print": "Yazdır", "Preparing print …": "Yazdırma hazırlanıyor …", "Print job sent.": "Yazdırma işi gönderildi.", "Printing failed.": "Yazdırma başarısız.", },
+            "ja": {"New private window": "新しいプライベートウィンドウ", "Private browsing": "プライベートブラウジング", "The password manager is disabled in private windows.": "プライベートウィンドウではパスワードマネージャーは無効です。", "Print": "印刷", "Preparing print …": "印刷を準備しています …", "Print job sent.": "印刷ジョブを送信しました。", "Printing failed.": "印刷に失敗しました。", },
+            "zh-CN": {"New private window": "新建隐私窗口", "Private browsing": "隐私浏览", "The password manager is disabled in private windows.": "隐私窗口中已禁用密码管理器。", "Print": "打印", "Preparing print …": "正在准备打印 …", "Print job sent.": "打印任务已发送。", "Printing failed.": "打印失败。", },
+        }
+        if en in private_labels.get(language, {}):
+            return private_labels[language][en]
+        # Context-menu labels used by the bookmarks bar and bookmark manager.
+        # Keep this table complete for all twelve application languages.
+        bookmark_context_labels = {
+            "de": {"Rename folder": "Ordner umbenennen", "Rename folder…": "Ordner umbenennen…", "Copy": "Kopieren", "Cut": "Ausschneiden", "Paste": "Einfügen"},
+            "en": {"Rename folder": "Rename folder", "Rename folder…": "Rename folder…", "Copy": "Copy", "Cut": "Cut", "Paste": "Paste"},
+            "fr": {"Rename folder": "Renommer le dossier", "Rename folder…": "Renommer le dossier…", "Copy": "Copier", "Cut": "Couper", "Paste": "Coller"},
+            "it": {"Rename folder": "Rinomina cartella", "Rename folder…": "Rinomina cartella…", "Copy": "Copia", "Cut": "Taglia", "Paste": "Incolla"},
+            "nl": {"Rename folder": "Map hernoemen", "Rename folder…": "Map hernoemen…", "Copy": "Kopiëren", "Cut": "Knippen", "Paste": "Plakken"},
+            "es": {"Rename folder": "Renombrar carpeta", "Rename folder…": "Renombrar carpeta…", "Copy": "Copiar", "Cut": "Cortar", "Paste": "Pegar"},
+            "pt": {"Rename folder": "Renomear pasta", "Rename folder…": "Renomear pasta…", "Copy": "Copiar", "Cut": "Cortar", "Paste": "Colar"},
+            "pl": {"Rename folder": "Zmień nazwę folderu", "Rename folder…": "Zmień nazwę folderu…", "Copy": "Kopiuj", "Cut": "Wytnij", "Paste": "Wklej"},
+            "ru": {"Rename folder": "Переименовать папку", "Rename folder…": "Переименовать папку…", "Copy": "Копировать", "Cut": "Вырезать", "Paste": "Вставить"},
+            "tr": {"Rename folder": "Klasörü yeniden adlandır", "Rename folder…": "Klasörü yeniden adlandır…", "Copy": "Kopyala", "Cut": "Kes", "Paste": "Yapıştır"},
+            "ja": {"Rename folder": "フォルダー名を変更", "Rename folder…": "フォルダー名を変更…", "Copy": "コピー", "Cut": "切り取り", "Paste": "貼り付け"},
+            "zh-CN": {"Rename folder": "重命名文件夹", "Rename folder…": "重命名文件夹…", "Copy": "复制", "Cut": "剪切", "Paste": "粘贴"},
+        }
+        if en in bookmark_context_labels.get(language, {}):
+            return bookmark_context_labels[language][en]
         # Explicit translations for the bookmark destination dialog.  These
         # strings are application-owned (not Qt native dialog labels), so
         # they must be translated independently of Qt's system catalogs.
@@ -3913,11 +4187,16 @@ class LunaSurfer(QMainWindow):
         # Rebuild the popup menu so all menu entries are translated as well.
         menu = QMenu(self.tr("Menü", "Menu"), self)
         menu.addAction(self.tr("Neuer Tab", "New tab"), lambda: self.add_tab(self.settings_data["home"]))
+        self.private_window_action = menu.addAction(self.tr("Neues privates Fenster", "New private window"), self.open_private_window)
         menu.addAction(self.tr("Lesezeichen", "Bookmarks"), self.show_bookmarks)
-        menu.addAction(self.tr("Verlauf", "History"), self.show_history)
+        self.history_action = menu.addAction(self.tr("Verlauf", "History"), self.show_history)
+        if self.private_mode:
+            self.history_action.setVisible(False)
         menu.addAction(self.tr("Downloads-Ordner öffnen", "Open downloads folder"), self.open_downloads)
         menu.addSeparator()
-        menu.addAction(self.tr("Einstellungen", "Settings"), self.show_settings)
+        self.settings_action = menu.addAction(self.tr("Einstellungen", "Settings"), self.show_settings)
+        if self.private_mode:
+            self.settings_action.setVisible(False)
         menu.addAction(self.tr("Anleitung", "User guide"), self.show_manual)
         menu.addAction(self.tr("Entwicklerwerkzeuge (F12)", "Developer tools (F12)"), self.toggle_devtools)
         menu.addAction(self.tr("Über LunaSurfer", "About LunaSurfer"), self.about)
@@ -4072,7 +4351,8 @@ class LunaSurfer(QMainWindow):
         self.install_adblock_cosmetic_script(page)
         # Register login capture before the first real navigation so even an
         # authentication URL opened directly receives the DocumentReady hook.
-        self.install_login_capture(view)
+        if not self.private_mode:
+            self.install_login_capture(view)
         # Install protection before the first page script executes.
         if self.settings_data.get("fingerprint_enabled", True):
             levels = {"standard": 1, "strong": 2, "maximum": 3}
@@ -4102,8 +4382,9 @@ class LunaSurfer(QMainWindow):
         self.apply_font_size(view)
         index = self.tabs.addTab(view, self.tr("Neuer Tab", "New tab"))
         if switch: self.tabs.setCurrentIndex(index)
-        view.loadFinished.connect(lambda ok, v=view: self.install_login_capture(v) if ok else None)
-        view.loadFinished.connect(lambda ok, v=view: self.autofill_saved_login(v) if ok else None)
+        if not self.private_mode:
+            view.loadFinished.connect(lambda ok, v=view: self.install_login_capture(v) if ok else None)
+            view.loadFinished.connect(lambda ok, v=view: self.autofill_saved_login(v) if ok else None)
         view.loadFinished.connect(lambda ok, v=view: self.apply_fingerprint_to_view(v) if ok else None)
         view.loadFinished.connect(lambda ok, v=view: self.apply_readability_to_view(v) if ok else None)
         view.loadFinished.connect(lambda ok, v=view: self.apply_website_color_to_view(v) if ok else None)
@@ -5855,7 +6136,10 @@ class LunaSurfer(QMainWindow):
         populate()
         dialog.exec()
 
-    def show_history(self): self.show_list_dialog(self.tr("Verlauf", "History"), HISTORY_FILE, "url")
+    def show_history(self):
+        if self.private_mode:
+            return
+        self.show_list_dialog(self.tr("Verlauf", "History"), HISTORY_FILE, "url")
 
     @staticmethod
     def adblock_cosmetic_script():
@@ -6343,7 +6627,9 @@ class LunaSurfer(QMainWindow):
         return "active"
 
     def save_download_history(self):
-        """Persist history and terminal outcomes; live Qt objects are never serialized."""
+        """Persist normal downloads only; private downloads leave no browser record."""
+        if self.private_mode:
+            return
         records = []
         for item in self.download_items:
             download = item.get("download")
@@ -7042,7 +7328,7 @@ class LunaSurfer(QMainWindow):
         subprocess.Popen(["xdg-open", str(self.download_dir)])
 
     def restore_or_open_start_page(self):
-        if self.settings_data.get("startup_mode", "restore" if self.settings_data.get("restore_session", False) else "home") == "restore":
+        if (not self.private_mode) and self.settings_data.get("startup_mode", "restore" if self.settings_data.get("restore_session", False) else "home") == "restore":
             urls = read_json(SESSION_FILE, [])
             valid = [u for u in urls if isinstance(u, str) and u]
             if valid:
@@ -7054,6 +7340,22 @@ class LunaSurfer(QMainWindow):
         self.add_tab("about:blank" if mode == "blank" else self.settings_data.get("home", "https://duckduckgo.com"))
 
     def closeEvent(self, event):
+        if self.private_mode:
+            # Never write private URLs, geometry, cookies, cache, history or
+            # download metadata to the normal profile. The off-record profile
+            # is released when this window and its pages are destroyed.
+            for entry in self.download_items:
+                if self._download_status(entry) in ("active", "paused"):
+                    try:
+                        entry["download"].cancel()
+                    except Exception:
+                        pass
+            app = QApplication.instance()
+            windows = getattr(app, "_lunasurfer_private_windows", []) if app else []
+            if self in windows:
+                windows.remove(self)
+            event.accept()
+            return
         if self.settings_data.get("remember_window_size", True):
             g = self.geometry()
             self.settings_data["window_geometry"] = [g.x(), g.y(), g.width(), g.height()]
@@ -7539,6 +7841,9 @@ class LunaSurfer(QMainWindow):
         return {"url": f"{parsed.scheme}://{parsed.netloc}/", "site_key": site_key, "username": username.text(), "password": password.text()}
 
     def show_password_manager(self):
+        if self.private_mode:
+            QMessageBox.information(self, self.tr("Privates Surfen", "Private browsing"), self.tr("Der Passwortmanager ist im privaten Fenster deaktiviert.", "The password manager is disabled in private windows."))
+            return
         if not self._password_fernet and not self._password_setup_or_unlock(): return
         self._touch_password_manager()
         dialog = QDialog(self); dialog.setWindowTitle(self.tr("LunaSurfer – Passwortmanager", "LunaSurfer – Password manager")); dialog.resize(700, 430)
@@ -7594,6 +7899,8 @@ class LunaSurfer(QMainWindow):
 
     def install_login_capture(self, view):
         """Install Chromium-like login save and autofill hooks for this page."""
+        if self.private_mode:
+            return
         try:
             u = urllib.parse.urlparse(view.url().toString())
             self._password_debug_log("capture_install_called", f"host={u.hostname or ''} path={u.path or ''}")
@@ -8319,6 +8626,8 @@ class LunaSurfer(QMainWindow):
 
     def autofill_saved_login(self, view):
         """Re-trigger the page-side autofill scan after each completed navigation."""
+        if self.private_mode:
+            return
         try:
             view.page().runJavaScript(
                 "if (window.__lunaPasswordRescan) window.__lunaPasswordRescan();",
@@ -9281,10 +9590,58 @@ class LunaSurfer(QMainWindow):
             # The single-argument overload creates a spanning row, avoiding
             # clipping of headings such as 'Sicherheit und Berechtigungen'.
             form.addRow(label)
+        # 1. Allgemein
         add_section(self.tr("Allgemein", "General"))
-        form.addRow(self.tr("Sprache:", "Language:"), language); form.addRow(self.tr("Beim Start:", "On startup:"),startup); form.addRow(self.tr("Startseite:", "Homepage:"),home); form.addRow(self.tr("Suchmaschine:", "Search engine:"),engine); form.addRow(self.tr("Übersetzungsanbieter:", "Translation provider:"), translation_provider); form.addRow("", translation_help); form.addRow(self.tr("Browser-Design:", "Browser design:"),browser_design); form.addRow(self.tr("Webseiten-Design:", "Website appearance:"),theme); form.addRow("",show_bookmarks_bar); add_section(self.tr("Downloads", "Downloads")); form.addRow(self.tr("Download-Ordner:", "Download folder:"),row); form.addRow("",ask_download); form.addRow("",warn_executable_downloads); form.addRow("",show_download_complete_popup); form.addRow(self.tr("Standard-Zoom:", "Default zoom:"),zoom); form.addRow(self.tr("Standard-Schriftgröße:", "Default font size:"),font_size); form.addRow(self.tr("Webseiten-Lesbarkeit:", "Website readability:"), readability); form.addRow(self.tr("Webseiten-Farbgebung:", "Website colors:"), website_color)
+        form.addRow(self.tr("Sprache:", "Language:"), language)
+        form.addRow(self.tr("Beim Start:", "On startup:"), startup)
+        form.addRow(self.tr("Startseite:", "Homepage:"), home)
+        form.addRow(self.tr("Suchmaschine:", "Search engine:"), engine)
+        form.addRow(self.tr("Übersetzungsanbieter:", "Translation provider:"), translation_provider)
+        form.addRow("", translation_help)
+
+        # 2. Browser- und Webseiten-Design
+        add_section(self.tr("Browser- und Webseiten-Design", "Browser and website design"))
+        form.addRow(self.tr("Browser-Design:", "Browser design:"), browser_design)
+        form.addRow(self.tr("Webseiten-Design:", "Website appearance:"), theme)
+        form.addRow(self.tr("Webseiten-Lesbarkeit:", "Website readability:"), readability)
+        form.addRow(self.tr("Webseiten-Farbgebung:", "Website colors:"), website_color)
+        form.addRow("", show_bookmarks_bar)
+        form.addRow(self.tr("Standard-Zoom:", "Default zoom:"), zoom)
+        form.addRow(self.tr("Standard-Schriftgröße:", "Default font size:"), font_size)
+
+        # 3. Downloads
+        add_section(self.tr("Downloads", "Downloads"))
+        form.addRow(self.tr("Download-Ordner:", "Download folder:"), row)
+        form.addRow("", ask_download)
+        form.addRow("", warn_executable_downloads)
+        form.addRow("", show_download_complete_popup)
+
+        # 4. Sicherheit und Berechtigungen
         add_section(self.tr("Sicherheit und Berechtigungen", "Security and permissions"))
-        form.addRow(self.tr("Sicherheit:", "Security:"),block); form.addRow("", javascript)
+        form.addRow(self.tr("Pop-ups:", "Pop-ups:"), block)
+        form.addRow("", javascript)
+        manage_permissions = QPushButton(self.tr(
+            "Gespeicherte Webseiten-Berechtigungen bearbeiten…",
+            "Edit saved website permissions…"
+        ))
+        manage_permissions.setToolTip(self.tr(
+            "Gespeicherte Entscheidungen für einzelne Webseiten verwalten",
+            "Manage saved permission decisions for individual websites"
+        ))
+        manage_permissions.clicked.connect(self.show_permission_manager)
+        form.addRow(self.tr("Webseiten-Berechtigungen:", "Website permissions:"), manage_permissions)
+        for key, box in permission_boxes.items():
+            labels = {
+                "permission_camera": ("Kamera", "Camera"),
+                "permission_microphone": ("Mikrofon", "Microphone"),
+                "permission_location": ("Standort", "Location"),
+                "permission_notifications": ("Benachrichtigungen", "Notifications"),
+            }
+            de_label, en_label = labels[key]
+            form.addRow(self.tr(de_label, en_label) + ":", box)
+
+        # 5. Datenschutz und Browser-Verhalten
+        add_section(self.tr("Datenschutz und Browser-Verhalten", "Privacy and browser behavior"))
         add_section(self.tr("User-Agent-Verwaltung", "User-Agent management"))
         ua_mode = QComboBox()
         ua_mode.addItem(self.tr("Datenschutz-Standard (reduzierter Chrome-UA)", "Privacy default (reduced Chrome UA)"), "privacy")
@@ -9319,6 +9676,12 @@ class LunaSurfer(QMainWindow):
         form.addRow(self.tr("Eigener Wert:", "Custom value:"), ua_custom)
         form.addRow(self.tr("Aktuell:", "Current:"), ua_current)
         form.addRow("", ua_help)
+        form.addRow("", dnt)
+        form.addRow(self.tr("Cookie-Modus:", "Cookie mode:"), cookie_mode)
+        form.addRow(self.tr("Browser-Verhalten:", "Browser behavior:"), confirm_tabs)
+
+        # 6. Passwörter und Browserdaten
+        add_section(self.tr("Passwörter und Browserdaten", "Passwords and browser data"))
         password_auto_save = QCheckBox(self.tr("Passwörter nach erfolgreicher Anmeldung zum Speichern anbieten", "Offer to save passwords after successful sign-in"))
         password_auto_save.setChecked(self.settings_data.get("password_auto_save", True))
         password_unlock_required = QCheckBox(self.tr("Passwortmanager muss vor dem automatischen Ausfüllen entsperrt sein", "Password manager must be unlocked before autofill"))
@@ -9337,26 +9700,25 @@ class LunaSurfer(QMainWindow):
         form.addRow("", delete_passwords_button)
         form.addRow("", password_auto_save)
         form.addRow("", password_unlock_required)
-        manage_permissions = QPushButton(self.tr(
-            "Gespeicherte Webseiten-Berechtigungen bearbeiten…",
-            "Edit saved website permissions…"
-        ))
-        manage_permissions.setToolTip(self.tr(
-            "Gespeicherte Entscheidungen für einzelne Webseiten verwalten",
-            "Manage saved permission decisions for individual websites"
-        ))
-        manage_permissions.clicked.connect(self.show_permission_manager)
-        form.addRow(self.tr("Webseiten-Berechtigungen:", "Website permissions:"), manage_permissions)
-        for key, box in permission_boxes.items():
-            labels = {"permission_camera": ("Kamera", "Camera"), "permission_microphone": ("Mikrofon", "Microphone"), "permission_location": ("Standort", "Location"), "permission_notifications": ("Benachrichtigungen", "Notifications")}
-            de_label, en_label = labels[key]
-            form.addRow(self.tr(de_label, en_label) + ":", box)
-        form.addRow("",dnt); form.addRow(self.tr("Browser-Verhalten:", "Browser behavior:"),confirm_tabs)
-        privacy=QHBoxLayout(); a=QPushButton(self.tr("Verlauf löschen", "Clear history")); b=QPushButton(self.tr("Cache löschen", "Clear cache")); c=QPushButton(self.tr("Cookies löschen", "Clear cookies")); [privacy.addWidget(x) for x in (a,b,c)]
+
+        privacy = QHBoxLayout()
+        a = QPushButton(self.tr("Verlauf löschen", "Clear history"))
+        b = QPushButton(self.tr("Cache löschen", "Clear cache"))
+        c = QPushButton(self.tr("Cookies löschen", "Clear cookies"))
+        [privacy.addWidget(x) for x in (a, b, c)]
         clear_all = QPushButton(self.tr("Alles löschen", "Clear everything"))
         clear_all.setStyleSheet("QPushButton { background-color: #b3261e; color: white; font-weight: 600; padding: 8px 14px; border-radius: 5px; } QPushButton:hover { background-color: #d13b32; }")
-        add_section(self.tr("Datenschutz und Browserdaten", "Privacy and browser data"))
-        form.addRow(self.tr("Cookie-Modus:", "Cookie mode:"), cookie_mode); form.addRow(self.tr("Browserdaten:", "Browser data:"),privacy); form.addRow("", clear_all); form.addRow("",clear_history_exit); form.addRow("",clear_cache_exit); form.addRow("",clear_cookies_exit); form.addRow("",remember_window_size); form.addRow("",default_browser); a.clicked.connect(self.clear_history); b.clicked.connect(self.clear_cache); c.clicked.connect(self.clear_cookies); clear_all.clicked.connect(self.clear_all_browser_data)
+        form.addRow(self.tr("Browserdaten:", "Browser data:"), privacy)
+        form.addRow("", clear_all)
+        form.addRow("", clear_history_exit)
+        form.addRow("", clear_cache_exit)
+        form.addRow("", clear_cookies_exit)
+        form.addRow("", remember_window_size)
+        form.addRow("", default_browser)
+        a.clicked.connect(self.clear_history)
+        b.clicked.connect(self.clear_cache)
+        c.clicked.connect(self.clear_cookies)
+        clear_all.clicked.connect(self.clear_all_browser_data)
         buttons=QHBoxLayout(); save=QPushButton(self.tr("Speichern", "Save")); cancel=QPushButton(self.tr("Abbrechen", "Cancel")); buttons.addWidget(save); buttons.addWidget(cancel); form.addRow(buttons)
         save.clicked.connect(lambda:self.save_settings_v39(page,home.text(),engine.currentText(),engine.currentData(),theme.currentData(),show_bookmarks_bar.isChecked(),startup.currentData(),download_dir.text(),ask_download.isChecked(),zoom.currentData(),font_size.currentData(),block.isChecked(),dnt.isChecked(),confirm_tabs.isChecked(),{k:v.currentData() for k,v in permission_boxes.items()},clear_history_exit.isChecked(),clear_cache_exit.isChecked(),clear_cookies_exit.isChecked(),remember_window_size.isChecked(),language.currentData(),default_browser.isChecked(),browser_design.currentData(),javascript.isChecked(),cookie_mode.currentData(),password_auto_save.isChecked(),password_unlock_required.isChecked(),readability.currentData(),website_color.currentData(),ua_mode.currentData(),ua_custom.text(),translation_provider.currentData(),show_download_complete_popup.isChecked(),warn_executable_downloads.isChecked()))
         cancel.clicked.connect(lambda: self.close_settings_page(page))
@@ -9529,9 +9891,12 @@ class LunaSurfer(QMainWindow):
         return True
 
     def apply_cookie_mode(self):
-        """Apply persistence behavior; cookie filtering is handled by CookieStore."""
+        """Apply cookie policy; private profiles never persist cookies."""
         mode = self.settings_data.get("cookie_mode", "third")
-        policy = QWebEngineProfile.PersistentCookiesPolicy.NoPersistentCookies if mode == "session" else QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies
+        if self.private_mode:
+            policy = QWebEngineProfile.PersistentCookiesPolicy.NoPersistentCookies
+        else:
+            policy = QWebEngineProfile.PersistentCookiesPolicy.NoPersistentCookies if mode == "session" else QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies
         self.profile.setPersistentCookiesPolicy(policy)
 
     def clear_cookies(self):
