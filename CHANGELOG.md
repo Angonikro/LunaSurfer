@@ -1,4 +1,10 @@
-## 0.3.55 – Favoritendialog vollständig lokalisiert
+## 0.3.56 – Speicherziel für Favoriten erweitert
+- Im Speicherdialog gibt es jetzt zusätzlich „Weitere Lesezeichen“ als Ziel für Favoriten direkt auf der obersten Ebene außerhalb der Lesezeichenleiste und anderer Ordner.
+- Die vorhandenen Hauptordner und Unterordner bleiben separat auswählbar; neue Ordner können auch direkt auf der obersten Ebene angelegt werden.
+- Die bestehende Lesezeichenstruktur bleibt erhalten.
+- Übersetzungen vervollständigt
+
+## 0.3.55
 - „Add bookmark“ und „Save in:“ im Dialog zum Speichern von Favoriten werden jetzt in allen 12 unterstützten Sprachen korrekt angezeigt.
 - Die bereits vorhandenen Übersetzungen für „Neuer Ordner…“, „Neuer Ordner“ und „Ordnername“ bleiben erhalten.
 - Die Übersetzungen sind unabhängig von den installierten Qt-Systemübersetzungen.

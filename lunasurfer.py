@@ -3217,18 +3217,18 @@ class LunaSurfer(QMainWindow):
         # strings are application-owned (not Qt native dialog labels), so
         # they must be translated independently of Qt's system catalogs.
         bookmark_folder_labels = {
-            "de": {"New folder…": "Neuer Ordner…", "New folder": "Neuer Ordner", "Folder name:": "Ordnername:", "Add bookmark": "Lesezeichen hinzufügen", "Save in:": "Speichern in:"},
-            "en": {"New folder…": "New folder…", "New folder": "New folder", "Folder name:": "Folder name:", "Add bookmark": "Add bookmark", "Save in:": "Save in:"},
-            "fr": {"New folder…": "Nouveau dossier…", "New folder": "Nouveau dossier", "Folder name:": "Nom du dossier :", "Add bookmark": "Ajouter un favori", "Save in:": "Enregistrer dans :"},
-            "it": {"New folder…": "Nuova cartella…", "New folder": "Nuova cartella", "Folder name:": "Nome della cartella:", "Add bookmark": "Aggiungi segnalibro", "Save in:": "Salva in:"},
-            "nl": {"New folder…": "Nieuwe map…", "New folder": "Nieuwe map", "Folder name:": "Mapnaam:", "Add bookmark": "Bladwijzer toevoegen", "Save in:": "Opslaan in:"},
-            "es": {"New folder…": "Nueva carpeta…", "New folder": "Nueva carpeta", "Folder name:": "Nombre de la carpeta:", "Add bookmark": "Añadir marcador", "Save in:": "Guardar en:"},
-            "pt": {"New folder…": "Nova pasta…", "New folder": "Nova pasta", "Folder name:": "Nome da pasta:", "Add bookmark": "Adicionar favorito", "Save in:": "Salvar em:"},
-            "pl": {"New folder…": "Nowy folder…", "New folder": "Nowy folder", "Folder name:": "Nazwa folderu:", "Add bookmark": "Dodaj zakładkę", "Save in:": "Zapisz w:"},
-            "ru": {"New folder…": "Новая папка…", "New folder": "Новая папка", "Folder name:": "Имя папки:", "Add bookmark": "Добавить закладку", "Save in:": "Сохранить в:"},
-            "tr": {"New folder…": "Yeni klasör…", "New folder": "Yeni klasör", "Folder name:": "Klasör adı:", "Add bookmark": "Yer işareti ekle", "Save in:": "Şuraya kaydet:"},
-            "ja": {"New folder…": "新しいフォルダー…", "New folder": "新しいフォルダー", "Folder name:": "フォルダー名:", "Add bookmark": "ブックマークを追加", "Save in:": "保存先:"},
-            "zh-CN": {"New folder…": "新建文件夹…", "New folder": "新建文件夹", "Folder name:": "文件夹名称：", "Add bookmark": "添加书签", "Save in:": "保存到："},
+            "de": {"New folder…": "Neuer Ordner…", "New folder": "Neuer Ordner", "Folder name:": "Ordnername:", "Add bookmark": "Lesezeichen hinzufügen", "Save in:": "Speichern in:", "Other bookmarks": "Weitere Lesezeichen"},
+            "en": {"New folder…": "New folder…", "New folder": "New folder", "Folder name:": "Folder name:", "Add bookmark": "Add bookmark", "Save in:": "Save in:", "Other bookmarks": "Other bookmarks"},
+            "fr": {"New folder…": "Nouveau dossier…", "New folder": "Nouveau dossier", "Folder name:": "Nom du dossier :", "Add bookmark": "Ajouter un favori", "Save in:": "Enregistrer dans :", "Other bookmarks": "Autres favoris"},
+            "it": {"New folder…": "Nuova cartella…", "New folder": "Nuova cartella", "Folder name:": "Nome della cartella:", "Add bookmark": "Aggiungi segnalibro", "Save in:": "Salva in:", "Other bookmarks": "Altri segnalibri"},
+            "nl": {"New folder…": "Nieuwe map…", "New folder": "Nieuwe map", "Folder name:": "Mapnaam:", "Add bookmark": "Bladwijzer toevoegen", "Save in:": "Opslaan in:", "Other bookmarks": "Andere bladwijzers"},
+            "es": {"New folder…": "Nueva carpeta…", "New folder": "Nueva carpeta", "Folder name:": "Nombre de la carpeta:", "Add bookmark": "Añadir marcador", "Save in:": "Guardar en:", "Other bookmarks": "Otros marcadores"},
+            "pt": {"New folder…": "Nova pasta…", "New folder": "Nova pasta", "Folder name:": "Nome da pasta:", "Add bookmark": "Adicionar favorito", "Save in:": "Salvar em:", "Other bookmarks": "Outros favoritos"},
+            "pl": {"New folder…": "Nowy folder…", "New folder": "Nowy folder", "Folder name:": "Nazwa folderu:", "Add bookmark": "Dodaj zakładkę", "Save in:": "Zapisz w:", "Other bookmarks": "Inne zakładki"},
+            "ru": {"New folder…": "Новая папка…", "New folder": "Новая папка", "Folder name:": "Имя папки:", "Add bookmark": "Добавить закладку", "Save in:": "Сохранить в:", "Other bookmarks": "Другие закладки"},
+            "tr": {"New folder…": "Yeni klasör…", "New folder": "Yeni klasör", "Folder name:": "Klasör adı:", "Add bookmark": "Yer işareti ekle", "Save in:": "Şuraya kaydet:", "Other bookmarks": "Diğer yer işaretleri"},
+            "ja": {"New folder…": "新しいフォルダー…", "New folder": "新しいフォルダー", "Folder name:": "フォルダー名:", "Add bookmark": "ブックマークを追加", "Save in:": "保存先:", "Other bookmarks": "その他のブックマーク"},
+            "zh-CN": {"New folder…": "新建文件夹…", "New folder": "新建文件夹", "Folder name:": "文件夹名称：", "Add bookmark": "添加书签", "Save in:": "保存到：", "Other bookmarks": "其他书签"},
         }
         if en in bookmark_folder_labels.get(language, {}):
             return bookmark_folder_labels[language][en]
@@ -4190,6 +4190,19 @@ class LunaSurfer(QMainWindow):
         tree.setHeaderHidden(True)
         tree.setMinimumHeight(230)
         tree.setStyleSheet("QTreeWidget { background:#1d2430; color:#e8edf5; border:1px solid #354155; border-radius:8px; padding:5px; } QTreeWidget::item { padding:6px; }")
+
+        def add_root_destination():
+            # Loose bookmarks live directly in the top-level list. They were
+            # previously invisible here because only folder entries were shown.
+            root_node = QTreeWidgetItem(tree, [self.tr("Weitere Lesezeichen", "Other bookmarks")])
+            root_node.setIcon(0, self.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon))
+            root_node.setData(0, Qt.ItemDataRole.UserRole, ())
+            root_node.setToolTip(0, self.tr(
+                "Direkt außerhalb der Lesezeichenordner speichern",
+                "Save directly outside bookmark folders"
+            ))
+            return root_node
+
         def add_folders(parent, entries, path=()):
             for i, entry in enumerate(entries if isinstance(entries, list) else []):
                 if not isinstance(entry, dict) or not (entry.get("type") == "folder" or "children" in entry):
@@ -4198,9 +4211,10 @@ class LunaSurfer(QMainWindow):
                 node.setIcon(0, self.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon))
                 node.setData(0, Qt.ItemDataRole.UserRole, tuple(path) + (i,))
                 add_folders(node, entry.get("children", []), tuple(path) + (i,))
+
+        root_destination = add_root_destination()
         add_folders(tree, items)
-        if tree.topLevelItemCount():
-            tree.setCurrentItem(tree.topLevelItem(0))
+        tree.setCurrentItem(root_destination)
         layout.addWidget(tree, 1)
         row = QHBoxLayout()
         new_folder_btn = QPushButton(self.tr("Neuer Ordner…", "New folder…"))
@@ -4211,9 +4225,22 @@ class LunaSurfer(QMainWindow):
         buttons.button(QDialogButtonBox.StandardButton.Save).setText(self.tr("Speichern", "Save"))
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self.tr("Abbrechen", "Cancel"))
         layout.addWidget(buttons)
+
         def selected_folder_path():
             node = tree.currentItem()
-            return node.data(0, Qt.ItemDataRole.UserRole) if node else None
+            return node.data(0, Qt.ItemDataRole.UserRole) if node else ()
+
+        def find_tree_node(path):
+            """Find a folder by its data path, independent of visual row indexes."""
+            root = tree.invisibleRootItem()
+            stack = [root.child(i) for i in range(root.childCount())]
+            while stack:
+                node = stack.pop()
+                if node.data(0, Qt.ItemDataRole.UserRole) == tuple(path):
+                    return node
+                stack.extend(node.child(i) for i in range(node.childCount()))
+            return None
+
         def new_folder():
             folder_name, ok = QInputDialog.getText(dialog, self.tr("Neuer Ordner", "New folder"), self.tr("Ordnername:", "Folder name:"))
             if not ok or not folder_name.strip():
@@ -4221,20 +4248,25 @@ class LunaSurfer(QMainWindow):
             data = read_json(BOOKMARKS_FILE, [])
             path = selected_folder_path()
             target = data
-            if path is not None:
-                for index in path:
-                    target = target[index].setdefault("children", [])
+            if path:
+                try:
+                    for index in path:
+                        target = target[index].setdefault("children", [])
+                except (IndexError, KeyError, TypeError):
+                    target = data
+                    path = ()
             target.append({"type": "folder", "title": folder_name.strip(), "children": []})
             write_json(BOOKMARKS_FILE, data)
             self.refresh_bookmarks_bar()
             tree.clear()
+            add_root_destination()
             add_folders(tree, data)
-            # Select the newly created folder.
-            parent = tree.invisibleRootItem()
-            for index in (path or ()):
-                parent = parent.child(index)
-            parent.child(parent.childCount() - 1).setSelected(True)
-            parent.child(parent.childCount() - 1).setExpanded(True)
+            new_path = tuple(path) + (len(target) - 1,)
+            created = find_tree_node(new_path)
+            if created:
+                tree.setCurrentItem(created)
+                created.setExpanded(True)
+
         def save_bookmark():
             name = name_edit.text().strip() or address_edit.text().strip()
             address = address_edit.text().strip()
@@ -4244,7 +4276,7 @@ class LunaSurfer(QMainWindow):
             data = read_json(BOOKMARKS_FILE, [])
             path = selected_folder_path()
             target = data
-            if path is not None:
+            if path:
                 try:
                     for index in path:
                         target = target[index].setdefault("children", [])
@@ -4253,6 +4285,8 @@ class LunaSurfer(QMainWindow):
             # Update an existing URL rather than creating duplicates.
             def find(entries):
                 for entry in entries:
+                    if not isinstance(entry, dict):
+                        continue
                     if entry.get("url") == address:
                         return entry
                     found = find(entry.get("children", [])) if isinstance(entry.get("children"), list) else None
@@ -4268,6 +4302,7 @@ class LunaSurfer(QMainWindow):
             self.refresh_bookmarks_bar()
             self.statusBar().showMessage(self.tr("Lesezeichen gespeichert", "Bookmark saved"), 3000)
             dialog.accept()
+
         new_folder_btn.clicked.connect(new_folder)
         buttons.accepted.connect(save_bookmark)
         buttons.rejected.connect(dialog.reject)
