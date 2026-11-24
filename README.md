@@ -35,7 +35,7 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 - Persistentes Browser-Profil und Cookies
 - Widevine-Unterstützung, wenn das CDM auf dem System vorhanden ist
 - In den Einstellungen kann gewählt werden, ob LunaSurfer Fenstergröße und Fensterposition beim Beenden speichern und beim nächsten Start wiederherstellen soll.
-- Integrierter Adblocker mit fünf Stufen: Standard, Stark, Sehr stark, Super stark und Mega stark; inklusive eigener Blockiermuster und Whitelist
+- Integrierter Adblocker mit sechs Stufen: Standard, Stark, Sehr stark, Super stark und Mega stark Ultra stark; inklusive eigener Blockiermuster und Whitelist
 - Passwortmanager mit Argon2id-Schlüsselableitung, 128 MiB Speicherbedarf und automatischer Migration vorhandener PBKDF2-Tresore
 - User-Agent-Verwaltung: Datenschutz-Standard, nativer QtWebEngine-User-Agent oder eigener User-Agent; Änderungen werden ohne Browserneustart übernommen
 - Webseiten-Übersetzung über die Schaltfläche „文“: ganze Seiten in 12 Zielsprachen übersetzen und zur Originalseite zurückkehren (Google Übersetzer; Internetverbindung erforderlich)
@@ -50,6 +50,7 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 
 - Mit der **rechten Maustaste auf ein Lesezeichen in der Lesezeichenleiste oder im Menü „Weitere“** kannst du es öffnen, bearbeiten oder löschen.
 - Unter **Menü → Lesezeichen verwalten** kannst du gespeicherte Lesezeichen öffnen, bearbeiten und löschen. Der Manager bietet eine aufklappbare Ordnerstruktur, Suche nach Namen und Adressen sowie Import und Export.
+- Leseteichen können jetzt auch mit Drag and Drop verschoben werden.
 
 ## Speicherorte
 
