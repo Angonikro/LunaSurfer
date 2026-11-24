@@ -50,7 +50,7 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 
 - Mit der **rechten Maustaste auf ein Lesezeichen in der Lesezeichenleiste oder im Menü „Weitere“** kannst du es öffnen, bearbeiten oder löschen.
 - Unter **Menü → Lesezeichen verwalten** kannst du gespeicherte Lesezeichen öffnen, bearbeiten und löschen. Der Manager bietet eine aufklappbare Ordnerstruktur, Suche nach Namen und Adressen sowie Import und Export.
-- Leseteichen können jetzt auch mit Drag and Drop verschoben werden.
+- Lesezeichen können jetzt auch mit Drag and Drop verschoben werden.
 
 ## Speicherorte
 
