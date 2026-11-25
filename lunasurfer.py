@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.59 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.60 - Qt 6 / QtWebEngine browser."""
 import json
+import csv
+import io
 import copy
 import pathlib
 import sys
@@ -47,9 +49,9 @@ from cryptography.fernet import Fernet, InvalidToken
 APP_NAME = "LunaSurfer"
 _VERSION_FILE = pathlib.Path(__file__).resolve().with_name("VERSION")
 try:
-    APP_VERSION = _VERSION_FILE.read_text(encoding="utf-8").strip() or "0.3.59"
+    APP_VERSION = _VERSION_FILE.read_text(encoding="utf-8").strip() or "0.3.60"
 except OSError:
-    APP_VERSION = "0.3.59"
+    APP_VERSION = "0.3.60"
 CONFIG_DIR = pathlib.Path.home() / ".config" / "lunasurfer"
 DATA_DIR = pathlib.Path.home() / ".local" / "share" / "lunasurfer"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
@@ -81,6 +83,118 @@ FILTER_LIST_SOURCES = {
     "easyprivacy": "https://easylist.to/easylist/easyprivacy.txt",
 }
 FILTER_LIST_MAX_BYTES = 8 * 1024 * 1024
+
+# Independent threat-intelligence feeds. Phishing Army publishes a plain
+# domain list; URLhaus recent.csv requires a personal Auth-Key and is matched
+# by exact URL (not by whole hostname) to avoid collateral blocking.
+THREAT_FEED_DIR = DATA_DIR / "web_threats"
+URLHAUS_KEY_FILE = CONFIG_DIR / "urlhaus_auth_key"
+PHISHING_FEED_URL = "https://phishing.army/download/phishing-army-domains.txt"
+URLHAUS_RECENT_CSV = "https://urlhaus-api.abuse.ch/v2/files/exports/{key}/recent.csv"
+THREAT_FEED_MAX_BYTES = 24 * 1024 * 1024
+
+
+def parse_phishing_domains(text):
+    domains = set()
+    for raw in str(text or "").splitlines():
+        line = raw.strip().lower()
+        if not line or line.startswith(("#", "!", ";")):
+            continue
+        if line.startswith("0.0.0.0 ") or line.startswith("127.0.0.1 "):
+            line = line.split()[1] if len(line.split()) > 1 else ""
+        line = line.split()[0].strip(".") if line else ""
+        if line.startswith("||"):
+            line = line[2:].split("^")[0].strip(".")
+        if line.startswith("www."):
+            # Keep the reported hostname only; do not broaden to its parent.
+            pass
+        if len(line) <= 253 and re.fullmatch(r"(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", line):
+            domains.add(line)
+    if len(domains) < 100:
+        raise ValueError("Phishing feed contains too few valid domains")
+    return domains
+
+
+def parse_urlhaus_csv(text):
+    """Parse URLhaus recent.csv, whose header starts with a comment marker.
+
+    URLhaus exports the first column header as ``# id``.  csv.DictReader
+    otherwise keeps that marker and the URL column is still available, but
+    normalize the header explicitly and tolerate harmless comment/blank lines
+    before it so feed-format changes do not silently break updates.
+    """
+    exact_urls = set()
+    rows = csv.reader(io.StringIO(str(text or "")))
+    fieldnames = None
+    data_rows = []
+    for row in rows:
+        if not row or not any(cell.strip() for cell in row):
+            continue
+        candidate = [cell.strip().lstrip("\ufeff") for cell in row]
+        candidate[0] = candidate[0].lstrip("# ").strip()
+        normalized_names = [name.strip().lower() for name in candidate]
+        if "url" in normalized_names and ("id" in normalized_names or "dateadded" in normalized_names):
+            fieldnames = normalized_names
+            break
+    if not fieldnames:
+        raise ValueError("URLhaus CSV header is missing or has no URL column")
+    for values in rows:
+        if not values or not any(cell.strip() for cell in values):
+            continue
+        if len(values) < len(fieldnames):
+            values += [""] * (len(fieldnames) - len(values))
+        row = dict(zip(fieldnames, values))
+        url = (row.get("url") or "").strip().strip('"')
+        status = (row.get("url_status") or "").strip().lower()
+        threat = (row.get("threat") or "").strip().lower()
+        if status != "online" or (threat and threat != "malware_download"):
+            continue
+        try:
+            parsed = urllib.parse.urlsplit(url)
+            if parsed.scheme.lower() not in ("http", "https") or not parsed.hostname:
+                continue
+            normalized = urllib.parse.urlunsplit((parsed.scheme.lower(), parsed.netloc.lower(), parsed.path or "/", parsed.query, ""))
+            exact_urls.add(normalized)
+        except Exception:
+            continue
+    if len(exact_urls) < 10:
+        raise ValueError("URLhaus feed contains too few active malware URLs")
+    return exact_urls
+
+
+class ThreatFeedDownloadWorker(QThread):
+    """Fetch one independent threat feed without blocking the browser UI."""
+    result_ready = Signal(str, object, object)
+
+    def __init__(self, feed_name, auth_key="", parent=None):
+        super().__init__(parent)
+        self.feed_name = feed_name
+        self.auth_key = str(auth_key or "").strip()
+
+    def run(self):
+        try:
+            if self.feed_name == "phishing":
+                url = PHISHING_FEED_URL
+                request = urllib.request.Request(url, headers={"User-Agent": "LunaSurfer threat-feed updater", "Accept": "text/plain,*/*;q=0.8"})
+            elif self.feed_name == "urlhaus":
+                if not self.auth_key:
+                    raise ValueError("Für URLhaus wird ein kostenloser Auth-Key benötigt")
+                url = URLHAUS_RECENT_CSV.format(key=urllib.parse.quote(self.auth_key, safe=""))
+                request = urllib.request.Request(url, headers={"User-Agent": "LunaSurfer threat-feed updater", "Accept": "text/csv,*/*;q=0.8"})
+            else:
+                raise ValueError("Unknown threat feed")
+            with urllib.request.urlopen(request, timeout=35) as response:
+                if urllib.parse.urlsplit(response.geturl()).scheme.lower() != "https":
+                    raise ValueError("Feed did not remain on HTTPS")
+                raw = response.read(THREAT_FEED_MAX_BYTES + 1)
+            if len(raw) > THREAT_FEED_MAX_BYTES:
+                raise ValueError("Threat feed exceeds the 24 MiB safety limit")
+            content = raw.decode("utf-8-sig", errors="replace")
+            parsed = parse_phishing_domains(content) if self.feed_name == "phishing" else parse_urlhaus_csv(content)
+            self.result_ready.emit(self.feed_name, content, {"count": len(parsed)})
+        except Exception as exc:
+            self.result_ready.emit(self.feed_name, None, {"error": str(exc)[:300]})
+
 
 
 def parse_adblock_filter_text(text):
@@ -241,7 +355,7 @@ class FilterListDownloadWorker(QThread):
                 request = urllib.request.Request(
                     url,
                     headers={
-                        "User-Agent": "LunaSurfer/0.3.59 filter-list updater",
+                        "User-Agent": "LunaSurfer/0.3.60 filter-list updater",
                         "Accept": "text/plain,*/*;q=0.8",
                     },
                 )
@@ -1712,50 +1826,60 @@ class ChromiumBookmarksParser(HTMLParser):
         elif tag == "dl":
             if len(self._stack) > 1: self._stack.pop()
 
-class AddressLineEdit(QLineEdit):
-    """Address field with a language-aware context menu.
+class LocalizedContextMenuLineEdit(QLineEdit):
+    """Line edit with a readable, fully localized editing context menu."""
+    _LABELS = {
+        "de": ("Rückgängig", "Wiederholen", "Ausschneiden", "Kopieren", "Einfügen", "Löschen", "Alles auswählen"),
+        "en": ("Undo", "Redo", "Cut", "Copy", "Paste", "Delete", "Select All"),
+        "fr": ("Annuler", "Rétablir", "Couper", "Copier", "Coller", "Supprimer", "Tout sélectionner"),
+        "it": ("Annulla", "Ripeti", "Taglia", "Copia", "Incolla", "Elimina", "Seleziona tutto"),
+        "nl": ("Ongedaan maken", "Opnieuw", "Knippen", "Kopiëren", "Plakken", "Verwijderen", "Alles selecteren"),
+        "es": ("Deshacer", "Rehacer", "Cortar", "Copiar", "Pegar", "Eliminar", "Seleccionar todo"),
+        "pt": ("Desfazer", "Refazer", "Cortar", "Copiar", "Colar", "Eliminar", "Selecionar tudo"),
+        "pl": ("Cofnij", "Ponów", "Wytnij", "Kopiuj", "Wklej", "Usuń", "Zaznacz wszystko"),
+        "ru": ("Отменить", "Повторить", "Вырезать", "Копировать", "Вставить", "Удалить", "Выделить всё"),
+        "tr": ("Geri al", "Yinele", "Kes", "Kopyala", "Yapıştır", "Sil", "Tümünü seç"),
+        "ja": ("元に戻す", "やり直す", "切り取り", "コピー", "貼り付け", "削除", "すべて選択"),
+        "zh-CN": ("撤销", "重做", "剪切", "复制", "粘贴", "删除", "全选"),
+    }
 
-    Qt's built-in QLineEdit menu follows the Qt platform translation and may
-    remain English even when LunaSurfer itself is switched to German.  This
-    menu is owned by LunaSurfer so it always follows the selected language.
-    """
-    def __init__(self, window):
-        super().__init__()
+    def __init__(self, window, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.window_ref = window
 
-    def mouseDoubleClickEvent(self, event):
-        # A double-click anywhere in the address field selects the complete URL,
-        # matching the expected browser address-bar behavior.
-        super().mouseDoubleClickEvent(event)
-        self.selectAll()
-
     def contextMenuEvent(self, event):
-        menu = QMenu(self)
         language = self.window_ref.settings_data.get("language", "de")
-        if language == "zh-CN":
-            labels = ("撤销", "重做", "剪切", "复制", "粘贴", "删除", "全选")
-        elif language == "ja":
-            labels = ("元に戻す", "やり直す", "切り取り", "コピー", "貼り付け", "削除", "すべて選択")
-        elif language == "ru":
-            labels = ("Отменить", "Повторить", "Вырезать", "Копировать", "Вставить", "Удалить", "Выделить всё")
-        elif language == "tr":
-            labels = ("Geri al", "Yinele", "Kes", "Kopyala", "Yapıştır", "Sil", "Tümünü seç")
-        elif language == "pl":
-            labels = ("Cofnij", "Ponów", "Wytnij", "Kopiuj", "Wklej", "Usuń", "Zaznacz wszystko")
-        elif language == "nl":
-            labels = ("Ongedaan maken", "Opnieuw", "Knippen", "Kopiëren", "Plakken", "Verwijderen", "Alles selecteren")
-        elif language == "fr":
-            labels = ("Annuler", "Rétablir", "Couper", "Copier", "Coller", "Supprimer", "Tout sélectionner")
-        elif language == "it":
-            labels = ("Annulla", "Ripeti", "Taglia", "Copia", "Incolla", "Elimina", "Seleziona tutto")
-        elif language == "pt":
-            labels = ("Anular", "Refazer", "Cortar", "Copiar", "Colar", "Eliminar", "Selecionar tudo")
-        elif language == "es":
-            labels = ("Deshacer", "Rehacer", "Cortar", "Copiar", "Pegar", "Eliminar", "Seleccionar todo")
-        elif language == "en":
-            labels = ("Undo", "Redo", "Cut", "Copy", "Paste", "Delete", "Select All")
-        else:
-            labels = ("Rückgängig", "Wiederholen", "Ausschneiden", "Kopieren", "Einfügen", "Löschen", "Alles auswählen")
+        labels = self._LABELS.get(language, self._LABELS["de"])
+        menu = QMenu(self)
+        # QMenu is a separate popup window; styling only the parent dialog does
+        # not reliably style it on Linux/Qt platform themes.
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #17385f;
+                color: #ffffff;
+                border: 1px solid #78a9dc;
+                padding: 5px;
+            }
+            QMenu::item {
+                background: transparent;
+                color: #ffffff;
+                padding: 7px 30px 7px 12px;
+                min-width: 150px;
+                border-radius: 4px;
+            }
+            QMenu::item:selected {
+                background-color: #2878d0;
+                color: #ffffff;
+            }
+            QMenu::item:disabled {
+                color: #a9bad0;
+            }
+            QMenu::separator {
+                height: 1px;
+                background: #52769d;
+                margin: 5px 7px;
+            }
+        """)
         actions = [
             menu.addAction(labels[0], self.undo),
             menu.addAction(labels[1], self.redo),
@@ -1770,16 +1894,26 @@ class AddressLineEdit(QLineEdit):
         menu.addSeparator()
         actions.append(menu.addAction(labels[6], self.selectAll))
         has_selection = bool(self.hasSelectedText())
-        actions[0].setEnabled(self.isUndoAvailable())
-        actions[1].setEnabled(self.isRedoAvailable())
-        actions[2].setEnabled(has_selection and not self.isReadOnly())
+        editable = not self.isReadOnly()
+        actions[0].setEnabled(self.isUndoAvailable() and editable)
+        actions[1].setEnabled(self.isRedoAvailable() and editable)
+        actions[2].setEnabled(has_selection and editable)
         actions[3].setEnabled(has_selection)
-        actions[4].setEnabled(not self.isReadOnly())
-        actions[5].setEnabled(has_selection and not self.isReadOnly())
+        actions[4].setEnabled(editable)
+        actions[5].setEnabled(has_selection and editable)
         menu.exec(event.globalPos())
         event.accept()
 
 
+class AddressLineEdit(LocalizedContextMenuLineEdit):
+    """Address field with language-aware editing menu and URL selection."""
+    def __init__(self, window):
+        super().__init__(window)
+
+    def mouseDoubleClickEvent(self, event):
+        # A double-click anywhere in the address field selects the complete URL.
+        super().mouseDoubleClickEvent(event)
+        self.selectAll()
 
 
 class PageFindLineEdit(QLineEdit):
@@ -1811,10 +1945,27 @@ class PrivacyInterceptor(QWebEngineUrlRequestInterceptor):
     def interceptRequest(self, info):
         if self.window_ref.settings_data.get("send_dnt", False):
             info.setHttpHeader(b"DNT", b"1")
+        request_url = info.requestUrl()
+        raw_url = request_url.toString()
+        host = request_url.host().lower().rstrip(".")
+        # Threat protection is deliberately independent of the ad blocker.
+        if self.window_ref.settings_data.get("web_threat_protection_enabled", True):
+            exceptions = [str(x).lower().strip().lstrip(".").rstrip(".") for x in self.window_ref.settings_data.get("web_threat_exceptions", [])]
+            if not any(host == item or host.endswith("." + item) for item in exceptions if item):
+                if self.window_ref.settings_data.get("phishing_protection_enabled", True):
+                    domains = self.window_ref.web_threat_rules.get("phishing", set())
+                    if any(host == item or host.endswith("." + item) for item in domains):
+                        info.block(True)
+                        return
+                if self.window_ref.settings_data.get("malware_protection_enabled", True):
+                    parsed_url = urllib.parse.urlsplit(raw_url)
+                    normalized_url = urllib.parse.urlunsplit((parsed_url.scheme.lower(), parsed_url.netloc.lower(), parsed_url.path or "/", parsed_url.query, ""))
+                    if normalized_url in self.window_ref.web_threat_rules.get("urlhaus", set()):
+                        info.block(True)
+                        return
         if not self.window_ref.settings_data.get("adblock_enabled", True):
             return
-        url = info.requestUrl().toString().lower()
-        host = info.requestUrl().host().lower()
+        url = raw_url.lower()
         whitelist = [str(x).lower() for x in self.window_ref.settings_data.get("adblock_whitelist", [])]
         if any(host == x or host.endswith("." + x) for x in whitelist):
             return
@@ -3635,6 +3786,14 @@ class LunaSurfer(QMainWindow):
             "filter_auto_update": True,
             "filter_update_interval_hours": 24,
             "filter_lists_last_update": {},
+            "web_threat_protection_enabled": True,
+            "phishing_protection_enabled": True,
+            "malware_protection_enabled": True,
+            "web_threat_auto_update": True,
+            "web_threat_update_interval_hours": 3,
+            "web_threat_last_update": {},
+            "web_threat_last_error": {},
+            "web_threat_exceptions": [],
             "user_agent_mode": "privacy",
             "user_agent_custom": ""
         })
@@ -3705,14 +3864,23 @@ class LunaSurfer(QMainWindow):
         self.external_filter_rules = {}
         self._filter_update_worker = None
         self._filter_update_dialog_labels = None
+        self.web_threat_rules = {"phishing": set(), "urlhaus": set()}
+        self._threat_update_workers = {}
+        self._threat_dialog_labels = None
         self._load_external_filter_rules()
+        self._load_web_threat_rules()
         self.profile.setUrlRequestInterceptor(self.privacy_interceptor)
         self._filter_update_timer = QTimer(self)
         self._filter_update_timer.setInterval(60 * 60 * 1000)
         self._filter_update_timer.timeout.connect(self._maybe_update_filter_lists)
         self._filter_update_timer.start()
+        self._threat_update_timer = QTimer(self)
+        self._threat_update_timer.setInterval(60 * 60 * 1000)
+        self._threat_update_timer.timeout.connect(self._maybe_update_web_threat_feeds)
+        self._threat_update_timer.start()
         if not self.private_mode:
             QTimer.singleShot(2500, self._maybe_update_filter_lists)
+            QTimer.singleShot(4000, self._maybe_update_web_threat_feeds)
         self.profile.downloadRequested.connect(self.on_download)
         self.download_dir = pathlib.Path(self.settings_data.get("download_dir", str(DOWNLOAD_DIR))).expanduser()
 
@@ -4137,6 +4305,1275 @@ class LunaSurfer(QMainWindow):
     def tr(self, de, en):
         """Return the selected application language."""
         language = self.settings_data.get("language", "de")
+        # Complete translations for the Protection & privacy dialog. Check this
+        # catalogue before the older per-language fallbacks so no tab or label
+        # silently falls back to English.
+        privacy_ui_labels = {'de': {'Ad blocker': 'Werbeblocker',
+                'Fingerprint protection': 'Fingerprint-Schutz',
+                'Filter lists': 'Filterlisten',
+                'Website protection': 'Webseitenschutz',
+                'Enable ad blocker': 'Werbeblocker aktivieren',
+                'Blocking strength:': 'Blockierstärke:',
+                'Custom block patterns (separate with semicolons):': 'Eigene Blockiermuster (mit Semikolon trennen):',
+                'Whitelist domains (separate with semicolons):': 'Whitelist-Domains (mit Semikolon trennen):',
+                'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'Der '
+                                                                                                                                          'Werbeblocker '
+                                                                                                                                          'filtert '
+                                                                                                                                          'bekannte '
+                                                                                                                                          'Werbe- '
+                                                                                                                                          'und '
+                                                                                                                                          'Tracking-Domains. '
+                                                                                                                                          'Höhere '
+                                                                                                                                          'Stufen '
+                                                                                                                                          'blockieren '
+                                                                                                                                          'mehr, '
+                                                                                                                                          'können '
+                                                                                                                                          'aber '
+                                                                                                                                          'einzelne '
+                                                                                                                                          'Webseiten '
+                                                                                                                                          'beeinträchtigen.',
+                'Enable fingerprint protection': 'Fingerprint-Schutz aktivieren',
+                'Protection level:': 'Schutzstufe:',
+                'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Standard: '
+                                                                                                                                                                                                                                            'Canvas-, '
+                                                                                                                                                                                                                                            'Audio- '
+                                                                                                                                                                                                                                            'und '
+                                                                                                                                                                                                                                            'grundlegender '
+                                                                                                                                                                                                                                            'Hardware-Schutz. '
+                                                                                                                                                                                                                                            'Stark: '
+                                                                                                                                                                                                                                            'zusätzlich '
+                                                                                                                                                                                                                                            'WebGL-Maskierung. '
+                                                                                                                                                                                                                                            'Maximum: '
+                                                                                                                                                                                                                                            'zusätzliche '
+                                                                                                                                                                                                                                            'Abschirmung '
+                                                                                                                                                                                                                                            'von '
+                                                                                                                                                                                                                                            'Hardwareangaben '
+                                                                                                                                                                                                                                            'und '
+                                                                                                                                                                                                                                            'Browser-Client-Hints. '
+                                                                                                                                                                                                                                            'Änderungen '
+                                                                                                                                                                                                                                            'werden '
+                                                                                                                                                                                                                                            'sofort '
+                                                                                                                                                                                                                                            'angewendet; '
+                                                                                                                                                                                                                                            'ein '
+                                                                                                                                                                                                                                            'Neustart '
+                                                                                                                                                                                                                                            'ist '
+                                                                                                                                                                                                                                            'nicht '
+                                                                                                                                                                                                                                            'nötig.',
+                'Use external filter lists': 'Externe Filterlisten verwenden',
+                'These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.': 'Die '
+                                                                                                                         'Listen '
+                                                                                                                         'ergänzen '
+                                                                                                                         'die '
+                                                                                                                         'vorhandenen '
+                                                                                                                         'Blockierstufen. '
+                                                                                                                         'Sie '
+                                                                                                                         'wirken '
+                                                                                                                         'nur, '
+                                                                                                                         'wenn '
+                                                                                                                         'der '
+                                                                                                                         'Werbeblocker '
+                                                                                                                         'eingeschaltet '
+                                                                                                                         'ist.',
+                'Rules: ': 'Regeln: ',
+                'Automatic updates': 'Automatische Aktualisierung',
+                'Update interval:': 'Aktualisierungsintervall:',
+                'Last update:': 'Letzte Aktualisierung:',
+                'Enable website threat protection': 'Webseitenschutz aktivieren',
+                'Blocks known phishing domains and active malware distribution URLs. Independent of the ad blocker.': 'Blockiert '
+                                                                                                                      'bekannte '
+                                                                                                                      'Phishing-Domains '
+                                                                                                                      'und '
+                                                                                                                      'aktive '
+                                                                                                                      'Malware-Verteilungs-URLs. '
+                                                                                                                      'Unabhängig '
+                                                                                                                      'vom '
+                                                                                                                      'Werbeblocker.',
+                'Phishing protection (Phishing Army)': 'Phishing-Schutz (Phishing Army)',
+                'Entries: ': 'Einträge: ',
+                'Update phishing list now': 'Phishing-Liste jetzt aktualisieren',
+                'Malware protection (URLhaus)': 'Malware-Schutz (URLhaus)',
+                'URLhaus Auth-Key (available free from abuse.ch):': 'URLhaus-Auth-Key (kostenlos bei abuse.ch '
+                                                                    'erhältlich):',
+                'Enter your personal Auth-Key': 'Persönlichen Auth-Key eingeben',
+                'A free Auth-Key is required for URLhaus.': 'Für URLhaus ist ein kostenloser Auth-Key erforderlich.',
+                'Update malware list now': 'Malware-Liste jetzt aktualisieren',
+                'Automatically update both lists': 'Automatische Aktualisierung beider Listen',
+                'Interval:': 'Intervall:',
+                'Exceptions (domains, separated by semicolons):': 'Ausnahmen (Domains, mit Semikolon trennen):',
+                'Save': 'Speichern',
+                'Cancel': 'Abbrechen',
+                'Strong': 'Stark',
+                'Very strong': 'Sehr stark',
+                'Super strong': 'Super stark',
+                'Mega strong': 'Mega stark',
+                'Ultra strong': 'Ultra stark',
+                'Maximum': 'Maximum'},
+         'en': {'Ad blocker': 'Ad blocker',
+                'Fingerprint protection': 'Fingerprint protection',
+                'Filter lists': 'Filter lists',
+                'Website protection': 'Website protection',
+                'Enable ad blocker': 'Enable ad blocker',
+                'Blocking strength:': 'Blocking strength:',
+                'Custom block patterns (separate with semicolons):': 'Custom block patterns (separate with '
+                                                                     'semicolons):',
+                'Whitelist domains (separate with semicolons):': 'Whitelist domains (separate with semicolons):',
+                'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'The '
+                                                                                                                                          'ad '
+                                                                                                                                          'blocker '
+                                                                                                                                          'filters '
+                                                                                                                                          'known '
+                                                                                                                                          'advertising '
+                                                                                                                                          'and '
+                                                                                                                                          'tracking '
+                                                                                                                                          'domains. '
+                                                                                                                                          'Higher '
+                                                                                                                                          'levels '
+                                                                                                                                          'block '
+                                                                                                                                          'more, '
+                                                                                                                                          'but '
+                                                                                                                                          'may '
+                                                                                                                                          'affect '
+                                                                                                                                          'some '
+                                                                                                                                          'websites.',
+                'Enable fingerprint protection': 'Enable fingerprint protection',
+                'Protection level:': 'Protection level:',
+                'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Standard: '
+                                                                                                                                                                                                                                            'canvas, '
+                                                                                                                                                                                                                                            'audio '
+                                                                                                                                                                                                                                            'and '
+                                                                                                                                                                                                                                            'basic '
+                                                                                                                                                                                                                                            'hardware '
+                                                                                                                                                                                                                                            'protection. '
+                                                                                                                                                                                                                                            'Strong: '
+                                                                                                                                                                                                                                            'additionally '
+                                                                                                                                                                                                                                            'masks '
+                                                                                                                                                                                                                                            'WebGL '
+                                                                                                                                                                                                                                            'identifiers. '
+                                                                                                                                                                                                                                            'Maximum: '
+                                                                                                                                                                                                                                            'additional '
+                                                                                                                                                                                                                                            'hardware '
+                                                                                                                                                                                                                                            'and '
+                                                                                                                                                                                                                                            'browser '
+                                                                                                                                                                                                                                            'client-hint '
+                                                                                                                                                                                                                                            'protection. '
+                                                                                                                                                                                                                                            'Changes '
+                                                                                                                                                                                                                                            'apply '
+                                                                                                                                                                                                                                            'immediately; '
+                                                                                                                                                                                                                                            'no '
+                                                                                                                                                                                                                                            'restart '
+                                                                                                                                                                                                                                            'is '
+                                                                                                                                                                                                                                            'required.',
+                'Use external filter lists': 'Use external filter lists',
+                'These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.': 'These '
+                                                                                                                         'lists '
+                                                                                                                         'supplement '
+                                                                                                                         'the '
+                                                                                                                         'existing '
+                                                                                                                         'blocking '
+                                                                                                                         'levels. '
+                                                                                                                         'They '
+                                                                                                                         'apply '
+                                                                                                                         'only '
+                                                                                                                         'while '
+                                                                                                                         'the '
+                                                                                                                         'ad '
+                                                                                                                         'blocker '
+                                                                                                                         'is '
+                                                                                                                         'enabled.',
+                'Rules: ': 'Rules: ',
+                'Automatic updates': 'Automatic updates',
+                'Update interval:': 'Update interval:',
+                'Last update:': 'Last update:',
+                'Enable website threat protection': 'Enable website threat protection',
+                'Blocks known phishing domains and active malware distribution URLs. Independent of the ad blocker.': 'Blocks '
+                                                                                                                      'known '
+                                                                                                                      'phishing '
+                                                                                                                      'domains '
+                                                                                                                      'and '
+                                                                                                                      'active '
+                                                                                                                      'malware '
+                                                                                                                      'distribution '
+                                                                                                                      'URLs. '
+                                                                                                                      'Independent '
+                                                                                                                      'of '
+                                                                                                                      'the '
+                                                                                                                      'ad '
+                                                                                                                      'blocker.',
+                'Phishing protection (Phishing Army)': 'Phishing protection (Phishing Army)',
+                'Entries: ': 'Entries: ',
+                'Update phishing list now': 'Update phishing list now',
+                'Malware protection (URLhaus)': 'Malware protection (URLhaus)',
+                'URLhaus Auth-Key (available free from abuse.ch):': 'URLhaus Auth-Key (available free from '
+                                                                    'abuse.ch):',
+                'Enter your personal Auth-Key': 'Enter your personal Auth-Key',
+                'A free Auth-Key is required for URLhaus.': 'A free Auth-Key is required for URLhaus.',
+                'Update malware list now': 'Update malware list now',
+                'Automatically update both lists': 'Automatically update both lists',
+                'Interval:': 'Interval:',
+                'Exceptions (domains, separated by semicolons):': 'Exceptions (domains, separated by semicolons):',
+                'Save': 'Save',
+                'Cancel': 'Cancel',
+                'Strong': 'Strong',
+                'Very strong': 'Very strong',
+                'Super strong': 'Super strong',
+                'Mega strong': 'Mega strong',
+                'Ultra strong': 'Ultra strong',
+                'Maximum': 'Maximum'},
+         'fr': {'Ad blocker': 'Bloqueur de publicités',
+                'Fingerprint protection': 'Protection contre l’empreinte numérique',
+                'Filter lists': 'Listes de filtres',
+                'Website protection': 'Protection des sites web',
+                'Enable ad blocker': 'Activer le bloqueur de publicités',
+                'Blocking strength:': 'Niveau de blocage :',
+                'Custom block patterns (separate with semicolons):': 'Motifs de blocage personnalisés (séparés par '
+                                                                     'des points-virgules) :',
+                'Whitelist domains (separate with semicolons):': 'Domaines autorisés (séparés par des '
+                                                                 'points-virgules) :',
+                'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'Le '
+                                                                                                                                          'bloqueur '
+                                                                                                                                          'filtre '
+                                                                                                                                          'les '
+                                                                                                                                          'domaines '
+                                                                                                                                          'publicitaires '
+                                                                                                                                          'et '
+                                                                                                                                          'de '
+                                                                                                                                          'suivi '
+                                                                                                                                          'connus. '
+                                                                                                                                          'Les '
+                                                                                                                                          'niveaux '
+                                                                                                                                          'élevés '
+                                                                                                                                          'bloquent '
+                                                                                                                                          'davantage, '
+                                                                                                                                          'mais '
+                                                                                                                                          'peuvent '
+                                                                                                                                          'affecter '
+                                                                                                                                          'certains '
+                                                                                                                                          'sites.',
+                'Enable fingerprint protection': 'Activer la protection contre l’empreinte numérique',
+                'Protection level:': 'Niveau de protection :',
+                'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Standard '
+                                                                                                                                                                                                                                            ': '
+                                                                                                                                                                                                                                            'protection '
+                                                                                                                                                                                                                                            'Canvas, '
+                                                                                                                                                                                                                                            'audio '
+                                                                                                                                                                                                                                            'et '
+                                                                                                                                                                                                                                            'matériel '
+                                                                                                                                                                                                                                            'de '
+                                                                                                                                                                                                                                            'base. '
+                                                                                                                                                                                                                                            'Renforcé '
+                                                                                                                                                                                                                                            ': '
+                                                                                                                                                                                                                                            'masque '
+                                                                                                                                                                                                                                            'également '
+                                                                                                                                                                                                                                            'les '
+                                                                                                                                                                                                                                            'identifiants '
+                                                                                                                                                                                                                                            'WebGL. '
+                                                                                                                                                                                                                                            'Maximum '
+                                                                                                                                                                                                                                            ': '
+                                                                                                                                                                                                                                            'protection '
+                                                                                                                                                                                                                                            'supplémentaire '
+                                                                                                                                                                                                                                            'des '
+                                                                                                                                                                                                                                            'informations '
+                                                                                                                                                                                                                                            'matérielles '
+                                                                                                                                                                                                                                            'et '
+                                                                                                                                                                                                                                            'des '
+                                                                                                                                                                                                                                            'Client '
+                                                                                                                                                                                                                                            'Hints '
+                                                                                                                                                                                                                                            'du '
+                                                                                                                                                                                                                                            'navigateur. '
+                                                                                                                                                                                                                                            'Les '
+                                                                                                                                                                                                                                            'changements '
+                                                                                                                                                                                                                                            'sont '
+                                                                                                                                                                                                                                            'immédiats, '
+                                                                                                                                                                                                                                            'sans '
+                                                                                                                                                                                                                                            'redémarrage.',
+                'Use external filter lists': 'Utiliser des listes de filtres externes',
+                'These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.': 'Ces '
+                                                                                                                         'listes '
+                                                                                                                         'complètent '
+                                                                                                                         'les '
+                                                                                                                         'niveaux '
+                                                                                                                         'de '
+                                                                                                                         'blocage '
+                                                                                                                         'existants. '
+                                                                                                                         'Elles '
+                                                                                                                         'ne '
+                                                                                                                         's’appliquent '
+                                                                                                                         'que '
+                                                                                                                         'si '
+                                                                                                                         'le '
+                                                                                                                         'bloqueur '
+                                                                                                                         'de '
+                                                                                                                         'publicités '
+                                                                                                                         'est '
+                                                                                                                         'activé.',
+                'Rules: ': 'Règles : ',
+                'Automatic updates': 'Mises à jour automatiques',
+                'Update interval:': 'Intervalle de mise à jour :',
+                'Last update:': 'Dernière mise à jour :',
+                'Enable website threat protection': 'Activer la protection contre les menaces web',
+                'Blocks known phishing domains and active malware distribution URLs. Independent of the ad blocker.': 'Bloque '
+                                                                                                                      'les '
+                                                                                                                      'domaines '
+                                                                                                                      'd’hameçonnage '
+                                                                                                                      'connus '
+                                                                                                                      'et '
+                                                                                                                      'les '
+                                                                                                                      'URL '
+                                                                                                                      'diffusant '
+                                                                                                                      'des '
+                                                                                                                      'logiciels '
+                                                                                                                      'malveillants. '
+                                                                                                                      'Indépendamment '
+                                                                                                                      'du '
+                                                                                                                      'bloqueur '
+                                                                                                                      'de '
+                                                                                                                      'publicités.',
+                'Phishing protection (Phishing Army)': 'Protection anti-hameçonnage (Phishing Army)',
+                'Entries: ': 'Entrées : ',
+                'Update phishing list now': 'Mettre à jour la liste anti-hameçonnage',
+                'Malware protection (URLhaus)': 'Protection contre les logiciels malveillants (URLhaus)',
+                'URLhaus Auth-Key (available free from abuse.ch):': 'Clé d’authentification URLhaus (gratuite sur '
+                                                                    'abuse.ch) :',
+                'Enter your personal Auth-Key': 'Saisissez votre clé d’authentification personnelle',
+                'A free Auth-Key is required for URLhaus.': 'Une clé d’authentification gratuite est nécessaire pour '
+                                                            'URLhaus.',
+                'Update malware list now': 'Mettre à jour la liste des logiciels malveillants',
+                'Automatically update both lists': 'Mettre automatiquement à jour les deux listes',
+                'Interval:': 'Intervalle :',
+                'Exceptions (domains, separated by semicolons):': 'Exceptions (domaines séparés par des '
+                                                                  'points-virgules) :',
+                'Save': 'Enregistrer',
+                'Cancel': 'Annuler',
+                'Strong': 'Renforcé',
+                'Very strong': 'Très renforcé',
+                'Super strong': 'Super renforcé',
+                'Mega strong': 'Ultra renforcé',
+                'Ultra strong': 'Protection maximale',
+                'Maximum': 'Maximum'},
+         'it': {'Ad blocker': 'Blocco pubblicità',
+                'Fingerprint protection': 'Protezione fingerprint',
+                'Filter lists': 'Elenchi di filtri',
+                'Website protection': 'Protezione dei siti web',
+                'Enable ad blocker': 'Attiva il blocco pubblicità',
+                'Blocking strength:': 'Livello di blocco:',
+                'Custom block patterns (separate with semicolons):': 'Modelli di blocco personalizzati (separati da '
+                                                                     'punto e virgola):',
+                'Whitelist domains (separate with semicolons):': 'Domini consentiti (separati da punto e virgola):',
+                'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'Il '
+                                                                                                                                          'blocco '
+                                                                                                                                          'pubblicità '
+                                                                                                                                          'filtra '
+                                                                                                                                          'i '
+                                                                                                                                          'domini '
+                                                                                                                                          'pubblicitari '
+                                                                                                                                          'e '
+                                                                                                                                          'di '
+                                                                                                                                          'tracciamento '
+                                                                                                                                          'noti. '
+                                                                                                                                          'I '
+                                                                                                                                          'livelli '
+                                                                                                                                          'più '
+                                                                                                                                          'alti '
+                                                                                                                                          'bloccano '
+                                                                                                                                          'di '
+                                                                                                                                          'più, '
+                                                                                                                                          'ma '
+                                                                                                                                          'possono '
+                                                                                                                                          'influire '
+                                                                                                                                          'su '
+                                                                                                                                          'alcuni '
+                                                                                                                                          'siti.',
+                'Enable fingerprint protection': 'Attiva la protezione fingerprint',
+                'Protection level:': 'Livello di protezione:',
+                'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Standard: '
+                                                                                                                                                                                                                                            'protezione '
+                                                                                                                                                                                                                                            'Canvas, '
+                                                                                                                                                                                                                                            'audio '
+                                                                                                                                                                                                                                            'e '
+                                                                                                                                                                                                                                            'hardware '
+                                                                                                                                                                                                                                            'di '
+                                                                                                                                                                                                                                            'base. '
+                                                                                                                                                                                                                                            'Forte: '
+                                                                                                                                                                                                                                            'maschera '
+                                                                                                                                                                                                                                            'anche '
+                                                                                                                                                                                                                                            'gli '
+                                                                                                                                                                                                                                            'identificatori '
+                                                                                                                                                                                                                                            'WebGL. '
+                                                                                                                                                                                                                                            'Massimo: '
+                                                                                                                                                                                                                                            'ulteriore '
+                                                                                                                                                                                                                                            'protezione '
+                                                                                                                                                                                                                                            'dei '
+                                                                                                                                                                                                                                            'dati '
+                                                                                                                                                                                                                                            'hardware '
+                                                                                                                                                                                                                                            'e '
+                                                                                                                                                                                                                                            'dei '
+                                                                                                                                                                                                                                            'Client '
+                                                                                                                                                                                                                                            'Hints '
+                                                                                                                                                                                                                                            'del '
+                                                                                                                                                                                                                                            'browser. '
+                                                                                                                                                                                                                                            'Le '
+                                                                                                                                                                                                                                            'modifiche '
+                                                                                                                                                                                                                                            'sono '
+                                                                                                                                                                                                                                            'immediate, '
+                                                                                                                                                                                                                                            'senza '
+                                                                                                                                                                                                                                            'riavvio.',
+                'Use external filter lists': 'Usa elenchi di filtri esterni',
+                'These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.': 'Questi '
+                                                                                                                         'elenchi '
+                                                                                                                         'integrano '
+                                                                                                                         'i '
+                                                                                                                         'livelli '
+                                                                                                                         'di '
+                                                                                                                         'blocco '
+                                                                                                                         'esistenti. '
+                                                                                                                         'Si '
+                                                                                                                         'applicano '
+                                                                                                                         'solo '
+                                                                                                                         'quando '
+                                                                                                                         'il '
+                                                                                                                         'blocco '
+                                                                                                                         'pubblicità '
+                                                                                                                         'è '
+                                                                                                                         'attivo.',
+                'Rules: ': 'Regole: ',
+                'Automatic updates': 'Aggiornamenti automatici',
+                'Update interval:': 'Intervallo di aggiornamento:',
+                'Last update:': 'Ultimo aggiornamento:',
+                'Enable website threat protection': 'Attiva la protezione dalle minacce web',
+                'Blocks known phishing domains and active malware distribution URLs. Independent of the ad blocker.': 'Blocca '
+                                                                                                                      'i '
+                                                                                                                      'domini '
+                                                                                                                      'di '
+                                                                                                                      'phishing '
+                                                                                                                      'noti '
+                                                                                                                      'e '
+                                                                                                                      'gli '
+                                                                                                                      'URL '
+                                                                                                                      'che '
+                                                                                                                      'distribuiscono '
+                                                                                                                      'malware. '
+                                                                                                                      'Indipendentemente '
+                                                                                                                      'dal '
+                                                                                                                      'blocco '
+                                                                                                                      'pubblicità.',
+                'Phishing protection (Phishing Army)': 'Protezione anti-phishing (Phishing Army)',
+                'Entries: ': 'Voci: ',
+                'Update phishing list now': 'Aggiorna ora l’elenco anti-phishing',
+                'Malware protection (URLhaus)': 'Protezione malware (URLhaus)',
+                'URLhaus Auth-Key (available free from abuse.ch):': 'Chiave Auth URLhaus (disponibile gratuitamente '
+                                                                    'su abuse.ch):',
+                'Enter your personal Auth-Key': 'Inserisci la tua chiave Auth personale',
+                'A free Auth-Key is required for URLhaus.': 'Per URLhaus è necessaria una chiave Auth gratuita.',
+                'Update malware list now': 'Aggiorna ora l’elenco malware',
+                'Automatically update both lists': 'Aggiorna automaticamente entrambi gli elenchi',
+                'Interval:': 'Intervallo:',
+                'Exceptions (domains, separated by semicolons):': 'Eccezioni (domini separati da punto e virgola):',
+                'Save': 'Salva',
+                'Cancel': 'Annulla',
+                'Strong': 'Forte',
+                'Very strong': 'Molto forte',
+                'Super strong': 'Super forte',
+                'Mega strong': 'Mega forte',
+                'Ultra strong': 'Ultra forte',
+                'Maximum': 'Massimo'},
+         'nl': {'Ad blocker': 'Advertentieblokkering',
+                'Fingerprint protection': 'Fingerprintbescherming',
+                'Filter lists': 'Filterlijsten',
+                'Website protection': 'Websitebescherming',
+                'Enable ad blocker': 'Advertentieblokkering inschakelen',
+                'Blocking strength:': 'Blokkeerniveau:',
+                'Custom block patterns (separate with semicolons):': 'Aangepaste blokkeerpatronen (scheiden met '
+                                                                     'puntkomma’s):',
+                'Whitelist domains (separate with semicolons):': 'Domeinen op de toestemmingslijst (scheiden met '
+                                                                 'puntkomma’s):',
+                'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'De '
+                                                                                                                                          'advertentieblokkering '
+                                                                                                                                          'filtert '
+                                                                                                                                          'bekende '
+                                                                                                                                          'advertentie- '
+                                                                                                                                          'en '
+                                                                                                                                          'trackingdomeinen. '
+                                                                                                                                          'Hogere '
+                                                                                                                                          'niveaus '
+                                                                                                                                          'blokkeren '
+                                                                                                                                          'meer, '
+                                                                                                                                          'maar '
+                                                                                                                                          'kunnen '
+                                                                                                                                          'sommige '
+                                                                                                                                          'websites '
+                                                                                                                                          'beïnvloeden.',
+                'Enable fingerprint protection': 'Fingerprintbescherming inschakelen',
+                'Protection level:': 'Beschermingsniveau:',
+                'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Standaard: '
+                                                                                                                                                                                                                                            'Canvas-, '
+                                                                                                                                                                                                                                            'audio- '
+                                                                                                                                                                                                                                            'en '
+                                                                                                                                                                                                                                            'basis-hardwarebescherming. '
+                                                                                                                                                                                                                                            'Sterk: '
+                                                                                                                                                                                                                                            'maskeert '
+                                                                                                                                                                                                                                            'ook '
+                                                                                                                                                                                                                                            'WebGL-identificaties. '
+                                                                                                                                                                                                                                            'Maximum: '
+                                                                                                                                                                                                                                            'extra '
+                                                                                                                                                                                                                                            'bescherming '
+                                                                                                                                                                                                                                            'van '
+                                                                                                                                                                                                                                            'hardwaregegevens '
+                                                                                                                                                                                                                                            'en '
+                                                                                                                                                                                                                                            'browser-Client-Hints. '
+                                                                                                                                                                                                                                            'Wijzigingen '
+                                                                                                                                                                                                                                            'worden '
+                                                                                                                                                                                                                                            'direct '
+                                                                                                                                                                                                                                            'toegepast; '
+                                                                                                                                                                                                                                            'opnieuw '
+                                                                                                                                                                                                                                            'starten '
+                                                                                                                                                                                                                                            'is '
+                                                                                                                                                                                                                                            'niet '
+                                                                                                                                                                                                                                            'nodig.',
+                'Use external filter lists': 'Externe filterlijsten gebruiken',
+                'These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.': 'Deze '
+                                                                                                                         'lijsten '
+                                                                                                                         'vullen '
+                                                                                                                         'de '
+                                                                                                                         'bestaande '
+                                                                                                                         'blokkeerniveaus '
+                                                                                                                         'aan. '
+                                                                                                                         'Ze '
+                                                                                                                         'werken '
+                                                                                                                         'alleen '
+                                                                                                                         'als '
+                                                                                                                         'de '
+                                                                                                                         'advertentieblokkering '
+                                                                                                                         'is '
+                                                                                                                         'ingeschakeld.',
+                'Rules: ': 'Regels: ',
+                'Automatic updates': 'Automatische updates',
+                'Update interval:': 'Update-interval:',
+                'Last update:': 'Laatste update:',
+                'Enable website threat protection': 'Websitebescherming tegen bedreigingen inschakelen',
+                'Blocks known phishing domains and active malware distribution URLs. Independent of the ad blocker.': 'Blokkeert '
+                                                                                                                      'bekende '
+                                                                                                                      'phishingdomeinen '
+                                                                                                                      'en '
+                                                                                                                      'URL’s '
+                                                                                                                      'die '
+                                                                                                                      'actief '
+                                                                                                                      'malware '
+                                                                                                                      'verspreiden. '
+                                                                                                                      'Onafhankelijk '
+                                                                                                                      'van '
+                                                                                                                      'de '
+                                                                                                                      'advertentieblokkering.',
+                'Phishing protection (Phishing Army)': 'Phishingbescherming (Phishing Army)',
+                'Entries: ': 'Items: ',
+                'Update phishing list now': 'Phishinglijst nu bijwerken',
+                'Malware protection (URLhaus)': 'Malwarebescherming (URLhaus)',
+                'URLhaus Auth-Key (available free from abuse.ch):': 'URLhaus-authenticatiesleutel (gratis '
+                                                                    'verkrijgbaar via abuse.ch):',
+                'Enter your personal Auth-Key': 'Voer uw persoonlijke authenticatiesleutel in',
+                'A free Auth-Key is required for URLhaus.': 'Voor URLhaus is een gratis authenticatiesleutel '
+                                                            'vereist.',
+                'Update malware list now': 'Malwarelijst nu bijwerken',
+                'Automatically update both lists': 'Beide lijsten automatisch bijwerken',
+                'Interval:': 'Interval:',
+                'Exceptions (domains, separated by semicolons):': 'Uitzonderingen (domeinen scheiden met '
+                                                                  'puntkomma’s):',
+                'Save': 'Opslaan',
+                'Cancel': 'Annuleren',
+                'Strong': 'Sterk',
+                'Very strong': 'Zeer sterk',
+                'Super strong': 'Supersterk',
+                'Mega strong': 'Megasterk',
+                'Ultra strong': 'Ultrasterk',
+                'Maximum': 'Maximum'},
+         'es': {'Ad blocker': 'Bloqueador de anuncios',
+                'Fingerprint protection': 'Protección contra huellas digitales',
+                'Filter lists': 'Listas de filtros',
+                'Website protection': 'Protección de sitios web',
+                'Enable ad blocker': 'Activar el bloqueador de anuncios',
+                'Blocking strength:': 'Nivel de bloqueo:',
+                'Custom block patterns (separate with semicolons):': 'Patrones de bloqueo personalizados (separados '
+                                                                     'por punto y coma):',
+                'Whitelist domains (separate with semicolons):': 'Dominios permitidos (separados por punto y coma):',
+                'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'El '
+                                                                                                                                          'bloqueador '
+                                                                                                                                          'filtra '
+                                                                                                                                          'dominios '
+                                                                                                                                          'conocidos '
+                                                                                                                                          'de '
+                                                                                                                                          'publicidad '
+                                                                                                                                          'y '
+                                                                                                                                          'seguimiento. '
+                                                                                                                                          'Los '
+                                                                                                                                          'niveles '
+                                                                                                                                          'superiores '
+                                                                                                                                          'bloquean '
+                                                                                                                                          'más, '
+                                                                                                                                          'pero '
+                                                                                                                                          'pueden '
+                                                                                                                                          'afectar '
+                                                                                                                                          'a '
+                                                                                                                                          'algunos '
+                                                                                                                                          'sitios.',
+                'Enable fingerprint protection': 'Activar la protección contra huellas digitales',
+                'Protection level:': 'Nivel de protección:',
+                'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Estándar: '
+                                                                                                                                                                                                                                            'protección '
+                                                                                                                                                                                                                                            'de '
+                                                                                                                                                                                                                                            'Canvas, '
+                                                                                                                                                                                                                                            'audio '
+                                                                                                                                                                                                                                            'y '
+                                                                                                                                                                                                                                            'hardware '
+                                                                                                                                                                                                                                            'básico. '
+                                                                                                                                                                                                                                            'Fuerte: '
+                                                                                                                                                                                                                                            'también '
+                                                                                                                                                                                                                                            'oculta '
+                                                                                                                                                                                                                                            'los '
+                                                                                                                                                                                                                                            'identificadores '
+                                                                                                                                                                                                                                            'WebGL. '
+                                                                                                                                                                                                                                            'Máxima: '
+                                                                                                                                                                                                                                            'protección '
+                                                                                                                                                                                                                                            'adicional '
+                                                                                                                                                                                                                                            'de '
+                                                                                                                                                                                                                                            'datos '
+                                                                                                                                                                                                                                            'de '
+                                                                                                                                                                                                                                            'hardware '
+                                                                                                                                                                                                                                            'y '
+                                                                                                                                                                                                                                            'Client '
+                                                                                                                                                                                                                                            'Hints '
+                                                                                                                                                                                                                                            'del '
+                                                                                                                                                                                                                                            'navegador. '
+                                                                                                                                                                                                                                            'Los '
+                                                                                                                                                                                                                                            'cambios '
+                                                                                                                                                                                                                                            'se '
+                                                                                                                                                                                                                                            'aplican '
+                                                                                                                                                                                                                                            'inmediatamente; '
+                                                                                                                                                                                                                                            'no '
+                                                                                                                                                                                                                                            'es '
+                                                                                                                                                                                                                                            'necesario '
+                                                                                                                                                                                                                                            'reiniciar.',
+                'Use external filter lists': 'Usar listas de filtros externas',
+                'These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.': 'Estas '
+                                                                                                                         'listas '
+                                                                                                                         'complementan '
+                                                                                                                         'los '
+                                                                                                                         'niveles '
+                                                                                                                         'de '
+                                                                                                                         'bloqueo '
+                                                                                                                         'existentes. '
+                                                                                                                         'Solo '
+                                                                                                                         'se '
+                                                                                                                         'aplican '
+                                                                                                                         'cuando '
+                                                                                                                         'el '
+                                                                                                                         'bloqueador '
+                                                                                                                         'de '
+                                                                                                                         'anuncios '
+                                                                                                                         'está '
+                                                                                                                         'activado.',
+                'Rules: ': 'Reglas: ',
+                'Automatic updates': 'Actualizaciones automáticas',
+                'Update interval:': 'Intervalo de actualización:',
+                'Last update:': 'Última actualización:',
+                'Enable website threat protection': 'Activar la protección contra amenazas web',
+                'Blocks known phishing domains and active malware distribution URLs. Independent of the ad blocker.': 'Bloquea '
+                                                                                                                      'dominios '
+                                                                                                                      'conocidos '
+                                                                                                                      'de '
+                                                                                                                      'phishing '
+                                                                                                                      'y '
+                                                                                                                      'URL '
+                                                                                                                      'que '
+                                                                                                                      'distribuyen '
+                                                                                                                      'malware. '
+                                                                                                                      'Es '
+                                                                                                                      'independiente '
+                                                                                                                      'del '
+                                                                                                                      'bloqueador '
+                                                                                                                      'de '
+                                                                                                                      'anuncios.',
+                'Phishing protection (Phishing Army)': 'Protección contra phishing (Phishing Army)',
+                'Entries: ': 'Entradas: ',
+                'Update phishing list now': 'Actualizar la lista de phishing ahora',
+                'Malware protection (URLhaus)': 'Protección contra malware (URLhaus)',
+                'URLhaus Auth-Key (available free from abuse.ch):': 'Clave de autenticación de URLhaus (gratuita en '
+                                                                    'abuse.ch):',
+                'Enter your personal Auth-Key': 'Introduce tu clave de autenticación personal',
+                'A free Auth-Key is required for URLhaus.': 'URLhaus requiere una clave de autenticación gratuita.',
+                'Update malware list now': 'Actualizar la lista de malware ahora',
+                'Automatically update both lists': 'Actualizar ambas listas automáticamente',
+                'Interval:': 'Intervalo:',
+                'Exceptions (domains, separated by semicolons):': 'Excepciones (dominios separados por punto y '
+                                                                  'coma):',
+                'Save': 'Guardar',
+                'Cancel': 'Cancelar',
+                'Strong': 'Fuerte',
+                'Very strong': 'Muy fuerte',
+                'Super strong': 'Súper fuerte',
+                'Mega strong': 'Muy potente',
+                'Ultra strong': 'Ultra fuerte',
+                'Maximum': 'Máximo'},
+         'pt': {'Ad blocker': 'Bloqueador de anúncios',
+                'Fingerprint protection': 'Proteção contra impressão digital',
+                'Filter lists': 'Listas de filtros',
+                'Website protection': 'Proteção de sites',
+                'Enable ad blocker': 'Ativar bloqueador de anúncios',
+                'Blocking strength:': 'Nível de bloqueio:',
+                'Custom block patterns (separate with semicolons):': 'Padrões de bloqueio personalizados (separados '
+                                                                     'por ponto e vírgula):',
+                'Whitelist domains (separate with semicolons):': 'Domínios permitidos (separados por ponto e '
+                                                                 'vírgula):',
+                'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'O '
+                                                                                                                                          'bloqueador '
+                                                                                                                                          'filtra '
+                                                                                                                                          'domínios '
+                                                                                                                                          'conhecidos '
+                                                                                                                                          'de '
+                                                                                                                                          'publicidade '
+                                                                                                                                          'e '
+                                                                                                                                          'rastreamento. '
+                                                                                                                                          'Níveis '
+                                                                                                                                          'superiores '
+                                                                                                                                          'bloqueiam '
+                                                                                                                                          'mais, '
+                                                                                                                                          'mas '
+                                                                                                                                          'podem '
+                                                                                                                                          'afetar '
+                                                                                                                                          'alguns '
+                                                                                                                                          'sites.',
+                'Enable fingerprint protection': 'Ativar proteção contra impressão digital',
+                'Protection level:': 'Nível de proteção:',
+                'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Padrão: '
+                                                                                                                                                                                                                                            'proteção '
+                                                                                                                                                                                                                                            'Canvas, '
+                                                                                                                                                                                                                                            'áudio '
+                                                                                                                                                                                                                                            'e '
+                                                                                                                                                                                                                                            'hardware '
+                                                                                                                                                                                                                                            'básico. '
+                                                                                                                                                                                                                                            'Forte: '
+                                                                                                                                                                                                                                            'também '
+                                                                                                                                                                                                                                            'oculta '
+                                                                                                                                                                                                                                            'identificadores '
+                                                                                                                                                                                                                                            'WebGL. '
+                                                                                                                                                                                                                                            'Máximo: '
+                                                                                                                                                                                                                                            'proteção '
+                                                                                                                                                                                                                                            'adicional '
+                                                                                                                                                                                                                                            'de '
+                                                                                                                                                                                                                                            'dados '
+                                                                                                                                                                                                                                            'de '
+                                                                                                                                                                                                                                            'hardware '
+                                                                                                                                                                                                                                            'e '
+                                                                                                                                                                                                                                            'Client '
+                                                                                                                                                                                                                                            'Hints '
+                                                                                                                                                                                                                                            'do '
+                                                                                                                                                                                                                                            'navegador. '
+                                                                                                                                                                                                                                            'As '
+                                                                                                                                                                                                                                            'alterações '
+                                                                                                                                                                                                                                            'são '
+                                                                                                                                                                                                                                            'imediatas; '
+                                                                                                                                                                                                                                            'não '
+                                                                                                                                                                                                                                            'é '
+                                                                                                                                                                                                                                            'necessário '
+                                                                                                                                                                                                                                            'reiniciar.',
+                'Use external filter lists': 'Usar listas de filtros externas',
+                'These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.': 'Estas '
+                                                                                                                         'listas '
+                                                                                                                         'complementam '
+                                                                                                                         'os '
+                                                                                                                         'níveis '
+                                                                                                                         'de '
+                                                                                                                         'bloqueio '
+                                                                                                                         'existentes. '
+                                                                                                                         'Só '
+                                                                                                                         'são '
+                                                                                                                         'aplicadas '
+                                                                                                                         'quando '
+                                                                                                                         'o '
+                                                                                                                         'bloqueador '
+                                                                                                                         'de '
+                                                                                                                         'anúncios '
+                                                                                                                         'está '
+                                                                                                                         'ativado.',
+                'Rules: ': 'Regras: ',
+                'Automatic updates': 'Atualizações automáticas',
+                'Update interval:': 'Intervalo de atualização:',
+                'Last update:': 'Última atualização:',
+                'Enable website threat protection': 'Ativar proteção contra ameaças nos sites',
+                'Blocks known phishing domains and active malware distribution URLs. Independent of the ad blocker.': 'Bloqueia '
+                                                                                                                      'domínios '
+                                                                                                                      'de '
+                                                                                                                      'phishing '
+                                                                                                                      'conhecidos '
+                                                                                                                      'e '
+                                                                                                                      'URLs '
+                                                                                                                      'que '
+                                                                                                                      'distribuem '
+                                                                                                                      'malware. '
+                                                                                                                      'Independentemente '
+                                                                                                                      'do '
+                                                                                                                      'bloqueador '
+                                                                                                                      'de '
+                                                                                                                      'anúncios.',
+                'Phishing protection (Phishing Army)': 'Proteção contra phishing (Phishing Army)',
+                'Entries: ': 'Registos: ',
+                'Update phishing list now': 'Atualizar lista de phishing agora',
+                'Malware protection (URLhaus)': 'Proteção contra malware (URLhaus)',
+                'URLhaus Auth-Key (available free from abuse.ch):': 'Chave de autenticação URLhaus (gratuita em '
+                                                                    'abuse.ch):',
+                'Enter your personal Auth-Key': 'Introduza a sua chave de autenticação pessoal',
+                'A free Auth-Key is required for URLhaus.': 'É necessária uma chave de autenticação gratuita para o '
+                                                            'URLhaus.',
+                'Update malware list now': 'Atualizar lista de malware agora',
+                'Automatically update both lists': 'Atualizar automaticamente ambas as listas',
+                'Interval:': 'Intervalo:',
+                'Exceptions (domains, separated by semicolons):': 'Exceções (domínios separados por ponto e '
+                                                                  'vírgula):',
+                'Save': 'Guardar',
+                'Cancel': 'Cancelar',
+                'Strong': 'Forte',
+                'Very strong': 'Muito forte',
+                'Super strong': 'Super forte',
+                'Mega strong': 'Mega forte',
+                'Ultra strong': 'Ultra forte',
+                'Maximum': 'Máximo'},
+         'pl': {'Ad blocker': 'Blokowanie reklam',
+                'Fingerprint protection': 'Ochrona przed fingerprintingiem',
+                'Filter lists': 'Listy filtrów',
+                'Website protection': 'Ochrona stron internetowych',
+                'Enable ad blocker': 'Włącz blokowanie reklam',
+                'Blocking strength:': 'Poziom blokowania:',
+                'Custom block patterns (separate with semicolons):': 'Własne wzorce blokowania (oddzielone '
+                                                                     'średnikami):',
+                'Whitelist domains (separate with semicolons):': 'Dozwolone domeny (oddzielone średnikami):',
+                'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'Bloker '
+                                                                                                                                          'filtruje '
+                                                                                                                                          'znane '
+                                                                                                                                          'domeny '
+                                                                                                                                          'reklamowe '
+                                                                                                                                          'i '
+                                                                                                                                          'śledzące. '
+                                                                                                                                          'Wyższe '
+                                                                                                                                          'poziomy '
+                                                                                                                                          'blokują '
+                                                                                                                                          'więcej, '
+                                                                                                                                          'ale '
+                                                                                                                                          'mogą '
+                                                                                                                                          'wpływać '
+                                                                                                                                          'na '
+                                                                                                                                          'działanie '
+                                                                                                                                          'niektórych '
+                                                                                                                                          'stron.',
+                'Enable fingerprint protection': 'Włącz ochronę przed fingerprintingiem',
+                'Protection level:': 'Poziom ochrony:',
+                'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Standard: '
+                                                                                                                                                                                                                                            'ochrona '
+                                                                                                                                                                                                                                            'Canvas, '
+                                                                                                                                                                                                                                            'audio '
+                                                                                                                                                                                                                                            'i '
+                                                                                                                                                                                                                                            'podstawowych '
+                                                                                                                                                                                                                                            'danych '
+                                                                                                                                                                                                                                            'sprzętowych. '
+                                                                                                                                                                                                                                            'Silna: '
+                                                                                                                                                                                                                                            'dodatkowo '
+                                                                                                                                                                                                                                            'maskuje '
+                                                                                                                                                                                                                                            'identyfikatory '
+                                                                                                                                                                                                                                            'WebGL. '
+                                                                                                                                                                                                                                            'Maksymalna: '
+                                                                                                                                                                                                                                            'dodatkowa '
+                                                                                                                                                                                                                                            'ochrona '
+                                                                                                                                                                                                                                            'danych '
+                                                                                                                                                                                                                                            'sprzętowych '
+                                                                                                                                                                                                                                            'i '
+                                                                                                                                                                                                                                            'Client '
+                                                                                                                                                                                                                                            'Hints '
+                                                                                                                                                                                                                                            'przeglądarki. '
+                                                                                                                                                                                                                                            'Zmiany '
+                                                                                                                                                                                                                                            'są '
+                                                                                                                                                                                                                                            'natychmiastowe; '
+                                                                                                                                                                                                                                            'restart '
+                                                                                                                                                                                                                                            'nie '
+                                                                                                                                                                                                                                            'jest '
+                                                                                                                                                                                                                                            'wymagany.',
+                'Use external filter lists': 'Używaj zewnętrznych list filtrów',
+                'These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.': 'Listy '
+                                                                                                                         'uzupełniają '
+                                                                                                                         'istniejące '
+                                                                                                                         'poziomy '
+                                                                                                                         'blokowania. '
+                                                                                                                         'Działają '
+                                                                                                                         'tylko '
+                                                                                                                         'wtedy, '
+                                                                                                                         'gdy '
+                                                                                                                         'blokowanie '
+                                                                                                                         'reklam '
+                                                                                                                         'jest '
+                                                                                                                         'włączone.',
+                'Rules: ': 'Reguły: ',
+                'Automatic updates': 'Automatyczne aktualizacje',
+                'Update interval:': 'Interwał aktualizacji:',
+                'Last update:': 'Ostatnia aktualizacja:',
+                'Enable website threat protection': 'Włącz ochronę stron przed zagrożeniami',
+                'Blocks known phishing domains and active malware distribution URLs. Independent of the ad blocker.': 'Blokuje '
+                                                                                                                      'znane '
+                                                                                                                      'domeny '
+                                                                                                                      'phishingowe '
+                                                                                                                      'i '
+                                                                                                                      'adresy '
+                                                                                                                      'URL '
+                                                                                                                      'rozpowszechniające '
+                                                                                                                      'złośliwe '
+                                                                                                                      'oprogramowanie. '
+                                                                                                                      'Niezależnie '
+                                                                                                                      'od '
+                                                                                                                      'blokowania '
+                                                                                                                      'reklam.',
+                'Phishing protection (Phishing Army)': 'Ochrona przed phishingiem (Phishing Army)',
+                'Entries: ': 'Wpisy: ',
+                'Update phishing list now': 'Aktualizuj listę phishingową',
+                'Malware protection (URLhaus)': 'Ochrona przed malware (URLhaus)',
+                'URLhaus Auth-Key (available free from abuse.ch):': 'Klucz Auth URLhaus (bezpłatny na abuse.ch):',
+                'Enter your personal Auth-Key': 'Wprowadź swój osobisty klucz Auth',
+                'A free Auth-Key is required for URLhaus.': 'URLhaus wymaga bezpłatnego klucza Auth.',
+                'Update malware list now': 'Aktualizuj listę malware',
+                'Automatically update both lists': 'Automatycznie aktualizuj obie listy',
+                'Interval:': 'Interwał:',
+                'Exceptions (domains, separated by semicolons):': 'Wyjątki (domeny oddzielone średnikami):',
+                'Save': 'Zapisz',
+                'Cancel': 'Anuluj',
+                'Strong': 'Silny',
+                'Very strong': 'Bardzo silny',
+                'Super strong': 'Super silny',
+                'Mega strong': 'Mega silny',
+                'Ultra strong': 'Ultra silny',
+                'Maximum': 'Maksymalny'},
+         'ru': {'Ad blocker': 'Блокировщик рекламы',
+                'Fingerprint protection': 'Защита от цифрового отпечатка',
+                'Filter lists': 'Списки фильтров',
+                'Website protection': 'Защита веб-сайтов',
+                'Enable ad blocker': 'Включить блокировщик рекламы',
+                'Blocking strength:': 'Уровень блокировки:',
+                'Custom block patterns (separate with semicolons):': 'Пользовательские шаблоны блокировки (через '
+                                                                     'точку с запятой):',
+                'Whitelist domains (separate with semicolons):': 'Домены белого списка (через точку с запятой):',
+                'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'Блокировщик '
+                                                                                                                                          'фильтрует '
+                                                                                                                                          'известные '
+                                                                                                                                          'рекламные '
+                                                                                                                                          'и '
+                                                                                                                                          'отслеживающие '
+                                                                                                                                          'домены. '
+                                                                                                                                          'Более '
+                                                                                                                                          'высокий '
+                                                                                                                                          'уровень '
+                                                                                                                                          'блокирует '
+                                                                                                                                          'больше, '
+                                                                                                                                          'но '
+                                                                                                                                          'может '
+                                                                                                                                          'влиять '
+                                                                                                                                          'на '
+                                                                                                                                          'работу '
+                                                                                                                                          'некоторых '
+                                                                                                                                          'сайтов.',
+                'Enable fingerprint protection': 'Включить защиту от цифрового отпечатка',
+                'Protection level:': 'Уровень защиты:',
+                'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Стандарт: '
+                                                                                                                                                                                                                                            'защита '
+                                                                                                                                                                                                                                            'Canvas, '
+                                                                                                                                                                                                                                            'аудио '
+                                                                                                                                                                                                                                            'и '
+                                                                                                                                                                                                                                            'основных '
+                                                                                                                                                                                                                                            'аппаратных '
+                                                                                                                                                                                                                                            'данных. '
+                                                                                                                                                                                                                                            'Усиленный: '
+                                                                                                                                                                                                                                            'дополнительно '
+                                                                                                                                                                                                                                            'маскирует '
+                                                                                                                                                                                                                                            'идентификаторы '
+                                                                                                                                                                                                                                            'WebGL. '
+                                                                                                                                                                                                                                            'Максимальный: '
+                                                                                                                                                                                                                                            'дополнительная '
+                                                                                                                                                                                                                                            'защита '
+                                                                                                                                                                                                                                            'аппаратных '
+                                                                                                                                                                                                                                            'данных '
+                                                                                                                                                                                                                                            'и '
+                                                                                                                                                                                                                                            'Client '
+                                                                                                                                                                                                                                            'Hints '
+                                                                                                                                                                                                                                            'браузера. '
+                                                                                                                                                                                                                                            'Изменения '
+                                                                                                                                                                                                                                            'применяются '
+                                                                                                                                                                                                                                            'сразу, '
+                                                                                                                                                                                                                                            'перезапуск '
+                                                                                                                                                                                                                                            'не '
+                                                                                                                                                                                                                                            'требуется.',
+                'Use external filter lists': 'Использовать внешние списки фильтров',
+                'These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.': 'Эти '
+                                                                                                                         'списки '
+                                                                                                                         'дополняют '
+                                                                                                                         'существующие '
+                                                                                                                         'уровни '
+                                                                                                                         'блокировки. '
+                                                                                                                         'Они '
+                                                                                                                         'действуют '
+                                                                                                                         'только '
+                                                                                                                         'при '
+                                                                                                                         'включённом '
+                                                                                                                         'блокировщике '
+                                                                                                                         'рекламы.',
+                'Rules: ': 'Правила: ',
+                'Automatic updates': 'Автоматические обновления',
+                'Update interval:': 'Интервал обновления:',
+                'Last update:': 'Последнее обновление:',
+                'Enable website threat protection': 'Включить защиту веб-сайтов от угроз',
+                'Blocks known phishing domains and active malware distribution URLs. Independent of the ad blocker.': 'Блокирует '
+                                                                                                                      'известные '
+                                                                                                                      'фишинговые '
+                                                                                                                      'домены '
+                                                                                                                      'и '
+                                                                                                                      'URL-адреса '
+                                                                                                                      'распространения '
+                                                                                                                      'вредоносных '
+                                                                                                                      'программ. '
+                                                                                                                      'Независимо '
+                                                                                                                      'от '
+                                                                                                                      'блокировщика '
+                                                                                                                      'рекламы.',
+                'Phishing protection (Phishing Army)': 'Защита от фишинга (Phishing Army)',
+                'Entries: ': 'Записей: ',
+                'Update phishing list now': 'Обновить список фишинга',
+                'Malware protection (URLhaus)': 'Защита от вредоносных программ (URLhaus)',
+                'URLhaus Auth-Key (available free from abuse.ch):': 'Ключ авторизации URLhaus (бесплатно на '
+                                                                    'abuse.ch):',
+                'Enter your personal Auth-Key': 'Введите личный ключ авторизации',
+                'A free Auth-Key is required for URLhaus.': 'Для URLhaus требуется бесплатный ключ авторизации.',
+                'Update malware list now': 'Обновить список вредоносных URL',
+                'Automatically update both lists': 'Автоматически обновлять оба списка',
+                'Interval:': 'Интервал:',
+                'Exceptions (domains, separated by semicolons):': 'Исключения (домены через точку с запятой):',
+                'Save': 'Сохранить',
+                'Cancel': 'Отмена',
+                'Strong': 'Высокий',
+                'Very strong': 'Очень высокий',
+                'Super strong': 'Сверхвысокий',
+                'Mega strong': 'Максимально высокий',
+                'Ultra strong': 'Ультра',
+                'Maximum': 'Максимальный'},
+         'tr': {'Ad blocker': 'Reklam engelleyici',
+                'Fingerprint protection': 'Parmak izi koruması',
+                'Filter lists': 'Filtre listeleri',
+                'Website protection': 'Web sitesi koruması',
+                'Enable ad blocker': 'Reklam engelleyiciyi etkinleştir',
+                'Blocking strength:': 'Engelleme düzeyi:',
+                'Custom block patterns (separate with semicolons):': 'Özel engelleme kalıpları (noktalı virgülle '
+                                                                     'ayırın):',
+                'Whitelist domains (separate with semicolons):': 'İzin verilen alan adları (noktalı virgülle '
+                                                                 'ayırın):',
+                'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': 'Reklam '
+                                                                                                                                          'engelleyici '
+                                                                                                                                          'bilinen '
+                                                                                                                                          'reklam '
+                                                                                                                                          've '
+                                                                                                                                          'izleme '
+                                                                                                                                          'alan '
+                                                                                                                                          'adlarını '
+                                                                                                                                          'filtreler. '
+                                                                                                                                          'Daha '
+                                                                                                                                          'yüksek '
+                                                                                                                                          'düzeyler '
+                                                                                                                                          'daha '
+                                                                                                                                          'fazlasını '
+                                                                                                                                          'engeller '
+                                                                                                                                          'ancak '
+                                                                                                                                          'bazı '
+                                                                                                                                          'siteleri '
+                                                                                                                                          'etkileyebilir.',
+                'Enable fingerprint protection': 'Parmak izi korumasını etkinleştir',
+                'Protection level:': 'Koruma düzeyi:',
+                'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': 'Standart: '
+                                                                                                                                                                                                                                            'Canvas, '
+                                                                                                                                                                                                                                            'ses '
+                                                                                                                                                                                                                                            've '
+                                                                                                                                                                                                                                            'temel '
+                                                                                                                                                                                                                                            'donanım '
+                                                                                                                                                                                                                                            'koruması. '
+                                                                                                                                                                                                                                            'Güçlü: '
+                                                                                                                                                                                                                                            'ayrıca '
+                                                                                                                                                                                                                                            'WebGL '
+                                                                                                                                                                                                                                            'tanımlayıcılarını '
+                                                                                                                                                                                                                                            'maskeler. '
+                                                                                                                                                                                                                                            'Maksimum: '
+                                                                                                                                                                                                                                            'donanım '
+                                                                                                                                                                                                                                            'bilgileri '
+                                                                                                                                                                                                                                            've '
+                                                                                                                                                                                                                                            'tarayıcı '
+                                                                                                                                                                                                                                            'Client '
+                                                                                                                                                                                                                                            'Hints '
+                                                                                                                                                                                                                                            'için '
+                                                                                                                                                                                                                                            'ek '
+                                                                                                                                                                                                                                            'koruma. '
+                                                                                                                                                                                                                                            'Değişiklikler '
+                                                                                                                                                                                                                                            'hemen '
+                                                                                                                                                                                                                                            'uygulanır; '
+                                                                                                                                                                                                                                            'yeniden '
+                                                                                                                                                                                                                                            'başlatma '
+                                                                                                                                                                                                                                            'gerekmez.',
+                'Use external filter lists': 'Harici filtre listelerini kullan',
+                'These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.': 'Bu '
+                                                                                                                         'listeler '
+                                                                                                                         'mevcut '
+                                                                                                                         'engelleme '
+                                                                                                                         'düzeylerini '
+                                                                                                                         'tamamlar. '
+                                                                                                                         'Yalnızca '
+                                                                                                                         'reklam '
+                                                                                                                         'engelleyici '
+                                                                                                                         'açıkken '
+                                                                                                                         'uygulanır.',
+                'Rules: ': 'Kurallar: ',
+                'Automatic updates': 'Otomatik güncellemeler',
+                'Update interval:': 'Güncelleme aralığı:',
+                'Last update:': 'Son güncelleme:',
+                'Enable website threat protection': 'Web sitesi tehdit korumasını etkinleştir',
+                'Blocks known phishing domains and active malware distribution URLs. Independent of the ad blocker.': 'Bilinen '
+                                                                                                                      'kimlik '
+                                                                                                                      'avı '
+                                                                                                                      'alan '
+                                                                                                                      'adlarını '
+                                                                                                                      've '
+                                                                                                                      'etkin '
+                                                                                                                      'kötü '
+                                                                                                                      'amaçlı '
+                                                                                                                      'yazılım '
+                                                                                                                      'dağıtım '
+                                                                                                                      'URL’lerini '
+                                                                                                                      'engeller. '
+                                                                                                                      'Reklam '
+                                                                                                                      'engelleyiciden '
+                                                                                                                      'bağımsızdır.',
+                'Phishing protection (Phishing Army)': 'Kimlik avı koruması (Phishing Army)',
+                'Entries: ': 'Kayıtlar: ',
+                'Update phishing list now': 'Kimlik avı listesini şimdi güncelle',
+                'Malware protection (URLhaus)': 'Kötü amaçlı yazılım koruması (URLhaus)',
+                'URLhaus Auth-Key (available free from abuse.ch):': 'URLhaus kimlik doğrulama anahtarı (abuse.ch '
+                                                                    'üzerinden ücretsiz):',
+                'Enter your personal Auth-Key': 'Kişisel kimlik doğrulama anahtarınızı girin',
+                'A free Auth-Key is required for URLhaus.': 'URLhaus için ücretsiz bir kimlik doğrulama anahtarı '
+                                                            'gerekir.',
+                'Update malware list now': 'Kötü amaçlı yazılım listesini şimdi güncelle',
+                'Automatically update both lists': 'Her iki listeyi otomatik güncelle',
+                'Interval:': 'Aralık:',
+                'Exceptions (domains, separated by semicolons):': 'İstisnalar (alan adlarını noktalı virgülle '
+                                                                  'ayırın):',
+                'Save': 'Kaydet',
+                'Cancel': 'İptal',
+                'Strong': 'Güçlü',
+                'Very strong': 'Çok güçlü',
+                'Super strong': 'Süper güçlü',
+                'Mega strong': 'Mega güçlü',
+                'Ultra strong': 'Ultra güçlü',
+                'Maximum': 'Maksimum'},
+         'ja': {'Ad blocker': '広告ブロッカー',
+                'Fingerprint protection': 'フィンガープリント保護',
+                'Filter lists': 'フィルターリスト',
+                'Website protection': 'ウェブサイト保護',
+                'Enable ad blocker': '広告ブロッカーを有効にする',
+                'Blocking strength:': 'ブロック強度:',
+                'Custom block patterns (separate with semicolons):': 'カスタムブロックパターン（セミコロンで区切る）:',
+                'Whitelist domains (separate with semicolons):': '許可リストのドメイン（セミコロンで区切る）:',
+                'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': '広告ブロッカーは既知の広告・追跡ドメインをフィルターします。強度を上げるとより多く遮断しますが、一部のサイトに影響する場合があります。',
+                'Enable fingerprint protection': 'フィンガープリント保護を有効にする',
+                'Protection level:': '保護レベル:',
+                'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': '標準: '
+                                                                                                                                                                                                                                            'Canvas、音声、基本的なハードウェアを保護します。強力: '
+                                                                                                                                                                                                                                            'WebGL識別情報もマスクします。最大: '
+                                                                                                                                                                                                                                            'ハードウェア情報とブラウザーのClient '
+                                                                                                                                                                                                                                            'Hintsをさらに保護します。変更はすぐに適用され、再起動は不要です。',
+                'Use external filter lists': '外部フィルターリストを使用',
+                'These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.': 'これらのリストは既存のブロックレベルを補完します。広告ブロッカーが有効な場合にのみ適用されます。',
+                'Rules: ': 'ルール数: ',
+                'Automatic updates': '自動更新',
+                'Update interval:': '更新間隔:',
+                'Last update:': '最終更新:',
+                'Enable website threat protection': 'ウェブサイトの脅威保護を有効にする',
+                'Blocks known phishing domains and active malware distribution URLs. Independent of the ad blocker.': '既知のフィッシングドメインとマルウェア配布URLをブロックします。広告ブロッカーとは独立して動作します。',
+                'Phishing protection (Phishing Army)': 'フィッシング保護 (Phishing Army)',
+                'Entries: ': '件数: ',
+                'Update phishing list now': 'フィッシングリストを今すぐ更新',
+                'Malware protection (URLhaus)': 'マルウェア保護 (URLhaus)',
+                'URLhaus Auth-Key (available free from abuse.ch):': 'URLhaus認証キー（abuse.chで無料取得可能）:',
+                'Enter your personal Auth-Key': '個人用認証キーを入力',
+                'A free Auth-Key is required for URLhaus.': 'URLhausには無料の認証キーが必要です。',
+                'Update malware list now': 'マルウェアリストを今すぐ更新',
+                'Automatically update both lists': '両方のリストを自動更新',
+                'Interval:': '間隔:',
+                'Exceptions (domains, separated by semicolons):': '例外ドメイン（セミコロンで区切る）:',
+                'Save': '保存',
+                'Cancel': 'キャンセル',
+                'Strong': '強',
+                'Very strong': '非常に強い',
+                'Super strong': '超強力',
+                'Mega strong': '極めて強力',
+                'Ultra strong': 'ウルトラ強力',
+                'Maximum': '最大'},
+         'zh-CN': {'Ad blocker': '广告拦截器',
+                   'Fingerprint protection': '指纹保护',
+                   'Filter lists': '过滤列表',
+                   'Website protection': '网站防护',
+                   'Enable ad blocker': '启用广告拦截器',
+                   'Blocking strength:': '拦截强度：',
+                   'Custom block patterns (separate with semicolons):': '自定义拦截规则（用分号分隔）：',
+                   'Whitelist domains (separate with semicolons):': '允许列表域名（用分号分隔）：',
+                   'The ad blocker filters known advertising and tracking domains. Higher levels block more, but may affect some websites.': '广告拦截器会过滤已知的广告和跟踪域名。更高级别可拦截更多内容，但可能影响某些网站。',
+                   'Enable fingerprint protection': '启用指纹保护',
+                   'Protection level:': '保护级别：',
+                   'Standard: canvas, audio and basic hardware protection. Strong: additionally masks WebGL identifiers. Maximum: additional hardware and browser client-hint protection. Changes apply immediately; no restart is required.': '标准：提供 '
+                                                                                                                                                                                                                                               'Canvas、音频和基础硬件保护。强：额外隐藏 '
+                                                                                                                                                                                                                                               'WebGL '
+                                                                                                                                                                                                                                               '标识。最高：进一步保护硬件信息和浏览器 '
+                                                                                                                                                                                                                                               'Client '
+                                                                                                                                                                                                                                               'Hints。更改立即生效，无需重启。',
+                   'Use external filter lists': '使用外部过滤列表',
+                   'These lists supplement the existing blocking levels. They apply only while the ad blocker is enabled.': '这些列表补充现有拦截级别。仅在广告拦截器启用时生效。',
+                   'Rules: ': '规则数：',
+                   'Automatic updates': '自动更新',
+                   'Update interval:': '更新间隔：',
+                   'Last update:': '上次更新：',
+                   'Enable website threat protection': '启用网站威胁防护',
+                   'Blocks known phishing domains and active malware distribution URLs. Independent of the ad blocker.': '拦截已知钓鱼域名和传播恶意软件的网址。此功能独立于广告拦截器。',
+                   'Phishing protection (Phishing Army)': '钓鱼防护（Phishing Army）',
+                   'Entries: ': '条目数：',
+                   'Update phishing list now': '立即更新钓鱼列表',
+                   'Malware protection (URLhaus)': '恶意软件防护（URLhaus）',
+                   'URLhaus Auth-Key (available free from abuse.ch):': 'URLhaus 身份验证密钥（可从 abuse.ch 免费获取）：',
+                   'Enter your personal Auth-Key': '输入您的个人身份验证密钥',
+                   'A free Auth-Key is required for URLhaus.': 'URLhaus 需要免费的身份验证密钥。',
+                   'Update malware list now': '立即更新恶意软件列表',
+                   'Automatically update both lists': '自动更新两个列表',
+                   'Interval:': '间隔：',
+                   'Exceptions (domains, separated by semicolons):': '例外域名（用分号分隔）：',
+                   'Save': '保存',
+                   'Cancel': '取消',
+                   'Strong': '强',
+                   'Very strong': '很强',
+                   'Super strong': '超强',
+                   'Mega strong': '极强',
+                   'Ultra strong': '极致',
+                   'Maximum': '最高'}}
+        protection_extra_labels = {
+            "de": {"Update now": "Jetzt aktualisieren", "e.g. example-ads.com": "z. B. example-ads.com", "e.g. example.com; trusted.example": "z. B. example.com; trusted.example"},
+            "en": {"Update now": "Update now", "e.g. example-ads.com": "e.g. example-ads.com", "e.g. example.com; trusted.example": "e.g. example.com; trusted.example"},
+            "fr": {"Update now": "Mettre à jour", "e.g. example-ads.com": "p. ex. example-ads.com", "e.g. example.com; trusted.example": "p. ex. example.com; trusted.example"},
+            "it": {"Update now": "Aggiorna ora", "e.g. example-ads.com": "es. example-ads.com", "e.g. example.com; trusted.example": "es. example.com; trusted.example"},
+            "nl": {"Update now": "Nu bijwerken", "e.g. example-ads.com": "bijv. example-ads.com", "e.g. example.com; trusted.example": "bijv. example.com; trusted.example"},
+            "es": {"Update now": "Actualizar ahora", "e.g. example-ads.com": "p. ej. example-ads.com", "e.g. example.com; trusted.example": "p. ej. example.com; trusted.example"},
+            "pt": {"Update now": "Atualizar agora", "e.g. example-ads.com": "ex.: example-ads.com", "e.g. example.com; trusted.example": "ex.: example.com; trusted.example"},
+            "pl": {"Update now": "Aktualizuj teraz", "e.g. example-ads.com": "np. example-ads.com", "e.g. example.com; trusted.example": "np. example.com; trusted.example"},
+            "ru": {"Update now": "Обновить сейчас", "e.g. example-ads.com": "например, example-ads.com", "e.g. example.com; trusted.example": "например, example.com; trusted.example"},
+            "tr": {"Update now": "Şimdi güncelle", "e.g. example-ads.com": "örn. example-ads.com", "e.g. example.com; trusted.example": "örn. example.com; trusted.example"},
+            "ja": {"Update now": "今すぐ更新", "e.g. example-ads.com": "例: example-ads.com", "e.g. example.com; trusted.example": "例: example.com; trusted.example"},
+            "zh-CN": {"Update now": "立即更新", "e.g. example-ads.com": "例如：example-ads.com", "e.g. example.com; trusted.example": "例如：example.com; trusted.example"},
+        }
+        if en in protection_extra_labels.get(language, {}):
+            return protection_extra_labels[language][en]
+        if en in privacy_ui_labels.get(language, {}):
+            return privacy_ui_labels[language][en]
         private_labels = {
             "de": {"New private window": "Neues privates Fenster", "Private browsing": "Privates Surfen", "The password manager is disabled in private windows.": "Der Passwortmanager ist im privaten Fenster deaktiviert.", "Print": "Drucken", "Preparing print …": "Druck wird vorbereitet …", "Print job sent.": "Druckauftrag gesendet.", "Printing failed.": "Drucken fehlgeschlagen.", },
             "en": {"New private window": "New private window", "Private browsing": "Private browsing", "The password manager is disabled in private windows.": "The password manager is disabled in private windows.", "Print": "Print", "Preparing print …": "Preparing print …", "Print job sent.": "Print job sent.", "Printing failed.": "Printing failed.", },
@@ -6905,6 +8342,137 @@ class LunaSurfer(QMainWindow):
         if worker is not None:
             worker.deleteLater()
 
+    def _read_urlhaus_auth_key(self):
+        try:
+            return URLHAUS_KEY_FILE.read_text(encoding="utf-8").strip()
+        except OSError:
+            return ""
+
+    def _save_urlhaus_auth_key(self, value):
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        URLHAUS_KEY_FILE.write_text(str(value or "").strip(), encoding="utf-8")
+        try:
+            URLHAUS_KEY_FILE.chmod(0o600)
+        except OSError:
+            pass
+
+    def _load_web_threat_rules(self):
+        THREAT_FEED_DIR.mkdir(parents=True, exist_ok=True)
+        loaded = {"phishing": set(), "urlhaus": set()}
+        phishing_path = THREAT_FEED_DIR / "phishing-domains.txt"
+        urlhaus_path = THREAT_FEED_DIR / "urlhaus-recent.csv"
+        try:
+            if phishing_path.is_file():
+                loaded["phishing"] = parse_phishing_domains(phishing_path.read_text(encoding="utf-8", errors="replace"))
+        except Exception:
+            pass
+        try:
+            if urlhaus_path.is_file():
+                loaded["urlhaus"] = parse_urlhaus_csv(urlhaus_path.read_text(encoding="utf-8", errors="replace"))
+        except Exception:
+            pass
+        self.web_threat_rules = loaded
+
+    def _web_threat_status_text(self, name):
+        stamps = self.settings_data.get("web_threat_last_update", {})
+        stamp = stamps.get(name) if isinstance(stamps, dict) else None
+        if not stamp:
+            return self.tr("Noch nicht aktualisiert", "Not updated yet")
+        try:
+            return time.strftime("%d.%m.%Y %H:%M", time.localtime(float(stamp)))
+        except (TypeError, ValueError):
+            return self.tr("Unbekannt", "Unknown")
+
+    def _web_threat_count(self, name):
+        return len(self.web_threat_rules.get(name, set()))
+
+    def _maybe_update_web_threat_feeds(self, force=False, feed_name=None):
+        if self.private_mode:
+            return
+        if not force and not self.settings_data.get("web_threat_auto_update", True):
+            return
+        try:
+            interval = max(3, min(168, int(self.settings_data.get("web_threat_update_interval_hours", 3) or 3)))
+        except (TypeError, ValueError):
+            interval = 3
+        stamps = self.settings_data.get("web_threat_last_update", {})
+        if not isinstance(stamps, dict):
+            stamps = {}
+        feeds = [feed_name] if feed_name else ["phishing", "urlhaus"]
+        for name in feeds:
+            if name == "urlhaus" and not self._read_urlhaus_auth_key():
+                continue
+            worker = self._threat_update_workers.get(name)
+            if worker is not None and worker.isRunning():
+                continue
+            stamp = stamps.get(name)
+            path = THREAT_FEED_DIR / ("phishing-domains.txt" if name == "phishing" else "urlhaus-recent.csv")
+            if not force and path.is_file() and stamp:
+                try:
+                    if time.time() - float(stamp) < interval * 3600:
+                        continue
+                except (TypeError, ValueError):
+                    pass
+            self._start_web_threat_update(name)
+
+    def _start_web_threat_update(self, name):
+        if self.private_mode:
+            return
+        worker = self._threat_update_workers.get(name)
+        if worker is not None and worker.isRunning():
+            return
+        key = self._read_urlhaus_auth_key() if name == "urlhaus" else ""
+        worker = ThreatFeedDownloadWorker(name, key, self)
+        worker.result_ready.connect(self._on_web_threat_feed_downloaded)
+        self._threat_update_workers[name] = worker
+        worker.start()
+        labels = self._threat_dialog_labels or {}
+        status = labels.get(name, {}).get("status")
+        if status:
+            status.setText(self.tr("Wird aktualisiert …", "Updating …"))
+
+    def _on_web_threat_feed_downloaded(self, name, content, result):
+        errors = self.settings_data.get("web_threat_last_error", {})
+        if not isinstance(errors, dict):
+            errors = {}
+        stamps = self.settings_data.get("web_threat_last_update", {})
+        if not isinstance(stamps, dict):
+            stamps = {}
+        if content is not None:
+            try:
+                THREAT_FEED_DIR.mkdir(parents=True, exist_ok=True)
+                target = THREAT_FEED_DIR / ("phishing-domains.txt" if name == "phishing" else "urlhaus-recent.csv")
+                temp = target.with_suffix(target.suffix + ".tmp")
+                temp.write_text(content, encoding="utf-8")
+                # Re-parse before atomically replacing the last known-good feed.
+                parsed = parse_phishing_domains(content) if name == "phishing" else parse_urlhaus_csv(content)
+                if len(parsed) < (100 if name == "phishing" else 10):
+                    raise ValueError("Downloaded feed failed validation")
+                temp.replace(target)
+                stamps[name] = time.time()
+                errors.pop(name, None)
+            except Exception as exc:
+                try:
+                    temp.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                errors[name] = str(exc)[:300]
+        else:
+            errors[name] = str((result or {}).get("error", "Update failed"))[:300]
+        self.settings_data["web_threat_last_update"] = stamps
+        self.settings_data["web_threat_last_error"] = errors
+        write_json(CONFIG_FILE, self.settings_data)
+        self._load_web_threat_rules()
+        labels = (self._threat_dialog_labels or {}).get(name, {})
+        if labels:
+            labels["count"].setText(self.tr("Einträge: ", "Entries: ") + str(self._web_threat_count(name)))
+            labels["last"].setText(self._web_threat_status_text(name))
+            error = errors.get(name)
+            labels["status"].setText((self.tr("Fehler: ", "Error: ") + error) if error else self.tr("Aktuell", "Up to date"))
+        worker = self._threat_update_workers.pop(name, None)
+        if worker is not None:
+            worker.deleteLater()
+
     def show_adblock_settings(self):
         """Open the combined ad-blocker, filter-list and fingerprint panel."""
         dialog = QDialog(self)
@@ -7006,13 +8574,13 @@ class LunaSurfer(QMainWindow):
         ad_layout.addWidget(QLabel(self.tr(
             "Eigene Blockiermuster (mit Semikolon trennen):",
             "Custom block patterns (separate with semicolons):")))
-        patterns = QLineEdit("; ".join(self.settings_data.get("adblock_custom_blocklist", [])))
-        patterns.setPlaceholderText("z. B. example-ads.com")
+        patterns = LocalizedContextMenuLineEdit(self, "; ".join(self.settings_data.get("adblock_custom_blocklist", [])))
+        patterns.setPlaceholderText(self.tr("z. B. example-ads.com", "e.g. example-ads.com"))
         ad_layout.addWidget(patterns)
         ad_layout.addWidget(QLabel(self.tr(
             "Whitelist-Domains (mit Semikolon trennen):",
             "Whitelist domains (separate with semicolons):")))
-        whitelist = QLineEdit("; ".join(self.settings_data.get("adblock_whitelist", [])))
+        whitelist = LocalizedContextMenuLineEdit(self, "; ".join(self.settings_data.get("adblock_whitelist", [])))
         ad_layout.addWidget(whitelist)
         ad_info = QLabel(self.tr(
             "Der Werbeblocker filtert bekannte Werbe- und Tracking-Domains. Höhere Stufen blockieren mehr, können aber einzelne Webseiten beeinträchtigen.",
@@ -7101,6 +8669,85 @@ class LunaSurfer(QMainWindow):
         update_now.clicked.connect(lambda: self._maybe_update_filter_lists(force=True))
         tabs.addTab(filter_tab, self.tr("Filterlisten", "Filter lists"))
 
+        # Independent phishing and malware URL protection.
+        threat_tab = QWidget(dialog)
+        threat_layout = QVBoxLayout(threat_tab)
+        threat_enabled = QCheckBox(self.tr("Webseitenschutz aktivieren", "Enable website threat protection"))
+        threat_enabled.setChecked(self.settings_data.get("web_threat_protection_enabled", True))
+        threat_layout.addWidget(threat_enabled)
+        threat_layout.addWidget(QLabel(self.tr(
+            "Blockiert bekannte Phishing-Domains und aktive Malware-Verteilungs-URLs. Unabhängig vom Werbeblocker.",
+            "Blocks known phishing domains and active malware distribution URLs. Independent of the ad blocker.")))
+
+        phishing_enabled = QCheckBox(self.tr("Phishing-Schutz (Phishing Army)", "Phishing protection (Phishing Army)"))
+        phishing_enabled.setChecked(self.settings_data.get("phishing_protection_enabled", True))
+        threat_layout.addWidget(phishing_enabled)
+        phishing_row = QHBoxLayout()
+        phishing_count = QLabel(self.tr("Einträge: ", "Entries: ") + str(self._web_threat_count("phishing")))
+        phishing_last = QLabel(self._web_threat_status_text("phishing"))
+        phishing_status = QLabel("")
+        phishing_row.addWidget(phishing_count)
+        phishing_row.addWidget(QLabel(self.tr("Letztes Update:", "Last update:")))
+        phishing_row.addWidget(phishing_last, 1)
+        threat_layout.addLayout(phishing_row)
+        phishing_status.setWordWrap(True)
+        threat_layout.addWidget(phishing_status)
+        phishing_update = QPushButton(self.tr("Phishing-Liste jetzt aktualisieren", "Update phishing list now"))
+        phishing_update.clicked.connect(lambda: self._maybe_update_web_threat_feeds(force=True, feed_name="phishing"))
+        threat_layout.addWidget(phishing_update)
+
+        threat_layout.addSpacing(8)
+        malware_enabled = QCheckBox(self.tr("Malware-Schutz (URLhaus)", "Malware protection (URLhaus)"))
+        malware_enabled.setChecked(self.settings_data.get("malware_protection_enabled", True))
+        threat_layout.addWidget(malware_enabled)
+        key_label = QLabel(self.tr("URLhaus Auth-Key (kostenlos bei abuse.ch erhältlich):", "URLhaus Auth-Key (available free from abuse.ch):"))
+        threat_layout.addWidget(key_label)
+        urlhaus_key = LocalizedContextMenuLineEdit(self, self._read_urlhaus_auth_key())
+        urlhaus_key.setEchoMode(QLineEdit.EchoMode.Password)
+        urlhaus_key.setPlaceholderText(self.tr("Persönlichen Auth-Key eingeben", "Enter your personal Auth-Key"))
+        threat_layout.addWidget(urlhaus_key)
+        urlhaus_row = QHBoxLayout()
+        urlhaus_count = QLabel(self.tr("Einträge: ", "Entries: ") + str(self._web_threat_count("urlhaus")))
+        urlhaus_last = QLabel(self._web_threat_status_text("urlhaus"))
+        urlhaus_row.addWidget(urlhaus_count)
+        urlhaus_row.addWidget(QLabel(self.tr("Letztes Update:", "Last update:")))
+        urlhaus_row.addWidget(urlhaus_last, 1)
+        threat_layout.addLayout(urlhaus_row)
+        urlhaus_status = QLabel(self.tr("Für URLhaus ist ein kostenloser Auth-Key erforderlich.", "A free Auth-Key is required for URLhaus."))
+        urlhaus_status.setWordWrap(True)
+        threat_layout.addWidget(urlhaus_status)
+        urlhaus_update = QPushButton(self.tr("Malware-Liste jetzt aktualisieren", "Update malware list now"))
+        def update_urlhaus_now():
+            self._save_urlhaus_auth_key(urlhaus_key.text())
+            self._maybe_update_web_threat_feeds(force=True, feed_name="urlhaus")
+        urlhaus_update.clicked.connect(update_urlhaus_now)
+        threat_layout.addWidget(urlhaus_update)
+
+        threat_layout.addSpacing(8)
+        threat_auto = QCheckBox(self.tr("Automatische Aktualisierung beider Listen", "Automatically update both lists"))
+        threat_auto.setChecked(self.settings_data.get("web_threat_auto_update", True))
+        threat_layout.addWidget(threat_auto)
+        threat_interval_row = QHBoxLayout()
+        threat_interval_row.addWidget(QLabel(self.tr("Intervall:", "Interval:")))
+        threat_interval = QComboBox()
+        for hours in (3, 6, 12, 24):
+            threat_interval.addItem(self.tr(f"{hours} Stunden", f"{hours} hours"), hours)
+        current_threat_interval = int(self.settings_data.get("web_threat_update_interval_hours", 3) or 3)
+        threat_interval.setCurrentIndex(max(0, threat_interval.findData(current_threat_interval)))
+        threat_interval_row.addWidget(threat_interval)
+        threat_interval_row.addStretch(1)
+        threat_layout.addLayout(threat_interval_row)
+        threat_layout.addWidget(QLabel(self.tr("Ausnahmen (Domains, mit Semikolon trennen):", "Exceptions (domains, separated by semicolons):")))
+        threat_exceptions = LocalizedContextMenuLineEdit(self, "; ".join(self.settings_data.get("web_threat_exceptions", [])))
+        threat_exceptions.setPlaceholderText(self.tr("z. B. example.com; trusted.example", "e.g. example.com; trusted.example"))
+        threat_layout.addWidget(threat_exceptions)
+        threat_layout.addStretch(1)
+        self._threat_dialog_labels = {
+            "phishing": {"count": phishing_count, "last": phishing_last, "status": phishing_status},
+            "urlhaus": {"count": urlhaus_count, "last": urlhaus_last, "status": urlhaus_status},
+        }
+        tabs.addTab(threat_tab, self.tr("Webseitenschutz", "Website protection"))
+
         outer.addWidget(tabs)
         buttons = QHBoxLayout()
         buttons.addStretch(1)
@@ -7122,10 +8769,19 @@ class LunaSurfer(QMainWindow):
             self.settings_data["easyprivacy_enabled"] = easyprivacy_enabled.isChecked()
             self.settings_data["filter_auto_update"] = auto_update.isChecked()
             self.settings_data["filter_update_interval_hours"] = int(interval.currentData())
+            self.settings_data["web_threat_protection_enabled"] = threat_enabled.isChecked()
+            self.settings_data["phishing_protection_enabled"] = phishing_enabled.isChecked()
+            self.settings_data["malware_protection_enabled"] = malware_enabled.isChecked()
+            self.settings_data["web_threat_auto_update"] = threat_auto.isChecked()
+            self.settings_data["web_threat_update_interval_hours"] = int(threat_interval.currentData())
+            self.settings_data["web_threat_exceptions"] = [x.strip().lower().lstrip(".") for x in threat_exceptions.text().split(";") if x.strip()]
+            self._save_urlhaus_auth_key(urlhaus_key.text())
             write_json(CONFIG_FILE, self.settings_data)
             self._load_external_filter_rules()
             if auto_update.isChecked():
                 self._maybe_update_filter_lists()
+            if threat_auto.isChecked():
+                self._maybe_update_web_threat_feeds()
             self.update_adblock_button()
             self.apply_adblock_cosmetic_live()
             self.apply_fingerprint_protection_live()
@@ -9381,12 +11037,13 @@ class LunaSurfer(QMainWindow):
 <li><b>Use LunaSurfer as default browser:</b> asks the desktop environment to register LunaSurfer as the preferred browser for web links.</li>
 </ul>
 <h2>7. Separate Protection &amp; Privacy panel</h2>
-<p>Open this panel with the shield button in the toolbar. It has two tabs:</p>
+<p>Open this panel with the shield button in the toolbar. It has four tabs: Ad blocker, Fingerprint protection, Filter lists and Website protection.</p>
 <h3>Ad blocker</h3><ul>
 <li><b>Enable ad blocker:</b> turns filtering on or off.</li><li><b>Blocking strength:</b> Standard, Strong, Very strong, Super strong, Mega strong or Ultra strong. Higher levels filter more patterns but can break site features or hide content.</li>
 <li><b>Custom block patterns:</b> add domains or patterns separated by semicolons, for example <code>example-ads.com; tracker.example</code>.</li>
 <li><b>Whitelist domains:</b> list domains that should be exempted from ad-block filtering, separated by semicolons. Use this for trusted sites that do not work correctly.</li>
 </ul>
+<h3>Website protection</h3><ul><li><b>Enable website threat protection:</b> independently blocks known phishing domains and active malware distribution URLs; it does not depend on the ad blocker.</li><li><b>Phishing protection (Phishing Army):</b> checks requested hostnames against the Phishing Army domain feed. The feed can be refreshed manually or automatically.</li><li><b>Malware protection (URLhaus):</b> checks exact active malware URLs from the URLhaus recent export. A free URLhaus Auth-Key is required; only exact reported URLs are blocked to reduce false positives.</li><li><b>Automatic updates:</b> updates both feeds on the selected interval. Each list also has its own manual update button, last-update time, entry count and error status.</li><li><b>Exceptions:</b> domains listed here bypass the new threat feeds. Exceptions do not change the existing ad blocker or fingerprint protection.</li></ul>
 <h3>Fingerprint protection</h3><ul>
 <li><b>Enable fingerprint protection:</b> activates measures intended to reduce identifying browser and device signals.</li>
 <li><b>Protection level – Standard:</b> Canvas, audio and basic hardware protection.</li><li><b>Strong:</b> adds WebGL identifier masking.</li><li><b>Maximum:</b> adds further shielding of hardware details and browser Client Hints.</li>
@@ -9406,7 +11063,7 @@ class LunaSurfer(QMainWindow):
 <tr><td><b>F12</b></td><td>Shows or hides the Developer Tools panel. It is intended for diagnostics and advanced website inspection. The panel may contain technical information about the current page, requests and scripts.</td></tr></table>
 <p><b>Usage notes:</b> The LunaSurfer window must be active. Shortcuts are context-sensitive: while typing in a website field, the website or field may consume a key combination. Press F12 again to hide Developer Tools. Developer Tools are intended for advanced users; changing page code or storage can affect the current website session.</p>
 <h2>10. Troubleshooting and safety</h2><ul><li>If a website breaks, test whether JavaScript, cookies, pop-up blocking, ad blocking or fingerprint protection is responsible. Change one setting at a time.</li><li>If autofill does not appear, unlock the vault and check that an entry exists for the exact website.</li><li>If media does not play, check system codecs and browser compatibility. Protected streaming may require supported DRM components.</li><li>Check the domain before entering credentials. Keep LunaSurfer and Debian updated from trusted sources.</li></ul>
-<p class='tip'><b>Privacy note:</b> privacy controls reduce selected browser signals and requests; they do not make a user anonymous. Websites, network providers and the operating system may still process activity data.</p><p><i>Goldisoft · LunaSurfer 0.3.38</i></p>"""
+<p class='tip'><b>Privacy note:</b> privacy controls reduce selected browser signals and requests; they do not make a user anonymous. Websites, network providers and the operating system may still process activity data.</p><p><i>Goldisoft · LunaSurfer 0.3.60</i></p>"""
         elif self.settings_data.get("language", "de") == "fr":
             content = """<h1>LunaSurfer – Guide complet</h1>
 <p>Ce guide décrit le navigateur, les options de la page Paramètres et le panneau séparé Protection et confidentialité. Les noms correspondent à l’interface française.</p>
@@ -10036,7 +11693,7 @@ class LunaSurfer(QMainWindow):
 <tr><td><b>F12</b></td><td>Blendet das Fenster der Entwicklerwerkzeuge ein oder aus. Es dient zur Fehlersuche und zur erweiterten Untersuchung von Webseiten. Dort können technische Informationen zur aktuellen Seite, zu Netzwerkanfragen und Skripten angezeigt werden.</td></tr></table>
 <p><b>Hinweise zur Verwendung:</b> Das LunaSurfer-Fenster muss aktiv sein. Tastenkürzel hängen vom aktuellen Kontext ab: Beim Schreiben in einem Webseitenfeld kann die Website oder das Eingabefeld eine Tastenkombination selbst verarbeiten. Mit erneutem Drücken von F12 blendest du die Entwicklerwerkzeuge wieder aus. Die Entwicklerwerkzeuge richten sich an erfahrene Nutzer; Änderungen an Seitencode oder Speicher können die aktuelle Sitzung der Website beeinflussen.</p>
 <h2>10. Fehlerbehebung und Sicherheit</h2><ul><li>Wenn eine Website nicht funktioniert, prüfe JavaScript, Cookies, Pop-up-Blockierung, Werbeblocker und Fingerprint-Schutz. Ändere immer nur eine Einstellung auf einmal.</li><li>Wenn automatisches Ausfüllen nicht erscheint, entsperre den Tresor und prüfe, ob ein Eintrag für genau diese Website vorhanden ist.</li><li>Wenn Medien nicht abgespielt werden, prüfe System-Codecs und Browserkompatibilität. Geschützte Streams benötigen möglicherweise unterstützte DRM-Komponenten.</li><li>Prüfe die Domain, bevor du Zugangsdaten eingibst. Halte LunaSurfer und Debian über vertrauenswürdige Quellen aktuell.</li></ul>
-<p class='tip'><b>Hinweis zum Datenschutz:</b> Datenschutzfunktionen reduzieren ausgewählte Browser-Signale und Anfragen. Sie machen dich nicht anonym. Websites, Netzwerkanbieter und das Betriebssystem können weiterhin Nutzungsdaten verarbeiten.</p><p><i>Goldisoft · LunaSurfer 0.3.38</i></p>"""
+<p class='tip'><b>Hinweis zum Datenschutz:</b> Datenschutzfunktionen reduzieren ausgewählte Browser-Signale und Anfragen. Sie machen dich nicht anonym. Websites, Netzwerkanbieter und das Betriebssystem können weiterhin Nutzungsdaten verarbeiten.</p><p><i>Goldisoft · LunaSurfer 0.3.60</i></p>"""
         browser.setHtml("<!doctype html><html><head><meta charset='utf-8'>" + style + "</head><body>" + content + "</body></html>")
         layout.addWidget(browser)
         buttons = QHBoxLayout()

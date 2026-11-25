@@ -1,4 +1,4 @@
-# LunaSurfer 0.3.59
+# LunaSurfer 0.3.60
 
 Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 
@@ -8,12 +8,16 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 
 ## Funktionen
 
-- Tabs, Adress-/Suchleiste, Navigation und Startseite
-- Integrierter Chromium-PDF-Viewer: PDF-Dateien direkt in einem Browser-Tab anzeigen (abhängig von der installierten QtWebEngine-Build-Version)
+- Webseitenschutz im Schild-Dialog:** Phishing-Army-Domainliste und URLhaus-Malware-URL-Liste mit getrennten manuellen und automatischen Updates, Status, Zeitstempel, Eintragszahlen und Domain-Ausnahmen. URLhaus benötigt einen kostenlosen persönlichen Auth-Key.
+- Integrierter Adblocker mit sechs Stufen: Standard, Stark, Sehr stark, Super stark und Mega stark Ultra stark; inklusive eigener Blockiermuster und Whitelist
+- Passwortmanager mit Argon2id-Schlüsselableitung, 128 MiB Speicherbedarf und automatischer Migration vorhandener PBKDF2-Tresore
+- User-Agent-Verwaltung: Datenschutz-Standard, nativer QtWebEngine-User-Agent oder eigener User-Agent; Änderungen werden ohne Browserneustart übernommen
 - Privates Surfen in einem separaten Fenster über **Menü → Neues privates Fenster** oder `Strg` + `Umschalt` + `N`
 - Private Fenster verwenden ein eigenes Off-the-Record-Profil: Cookies, Cache und Website-Speicher werden nicht dauerhaft gespeichert
 - Private URLs erscheinen nicht im normalen Verlauf und werden nicht in der normalen Sitzung gespeichert; private Downloads werden nicht in der Download-Historie abgelegt
 - Passwortmanager und automatische Passworterfassung sind in privaten Fenstern deaktiviert; heruntergeladene Dateien bleiben wie üblich im gewählten Download-Ordner
+- Tabs, Adress-/Suchleiste, Navigation und Startseite
+- Integrierter Chromium-PDF-Viewer: PDF-Dateien direkt in einem Browser-Tab anzeigen (abhängig von der installierten QtWebEngine-Build-Version)
 - Einstellungen öffnen wie bei Chromium in einem eigenen Browser-Tab statt in einem separaten Dialog; vorhandene Browser-Tabs bleiben erhalten
 - Überarbeitetes dunkles Einstellungsdesign mit stimmigen Hintergründen, Eingabefeldern und Bedienelementen
 - Große, gut erkennbare Symbole in der oberen Leiste
@@ -35,9 +39,6 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 - Persistentes Browser-Profil und Cookies
 - Widevine-Unterstützung, wenn das CDM auf dem System vorhanden ist
 - In den Einstellungen kann gewählt werden, ob LunaSurfer Fenstergröße und Fensterposition beim Beenden speichern und beim nächsten Start wiederherstellen soll.
-- Integrierter Adblocker mit sechs Stufen: Standard, Stark, Sehr stark, Super stark und Mega stark Ultra stark; inklusive eigener Blockiermuster und Whitelist
-- Passwortmanager mit Argon2id-Schlüsselableitung, 128 MiB Speicherbedarf und automatischer Migration vorhandener PBKDF2-Tresore
-- User-Agent-Verwaltung: Datenschutz-Standard, nativer QtWebEngine-User-Agent oder eigener User-Agent; Änderungen werden ohne Browserneustart übernommen
 - Webseiten-Übersetzung über die Schaltfläche „文“: ganze Seiten in 12 Zielsprachen übersetzen und zur Originalseite zurückkehren (Google Übersetzer; Internetverbindung erforderlich)
 - LunaSurfer besitzt jetzt auch 12 Sprachen.
 - usw.
@@ -72,7 +73,7 @@ sudo apt install python3 python3-pyside6.qtwidgets python3-pyside6.qtwebenginewi
 ## Installation
 
 ```bash
-sudo apt install ./lunasurfer_0.3.59_all.deb
+sudo apt install ./lunasurfer_0.3.60_all.deb
 ```
 
 ## Start aus dem Quellcode

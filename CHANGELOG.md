@@ -1,5 +1,25 @@
 # LunaSurfer – Changelog
 
+## 0.3.60
+
+# Phishing- und Malware-Webseitenschutz
+- Neuer eigener Bereich „Webseitenschutz“ im bestehenden Schild-Dialog „Schutz & Privatsphäre“.
+- Phishing-Schutz mit Phishing-Army-Domainliste; bekannte gemeldete Phishing-Hosts werden unabhängig vom Werbeblocker blockiert.
+- Malware-Webschutz über URLhaus: aktive, gemeldete Malware-Verteilungs-URLs werden exakt abgeglichen, statt pauschal die gesamte Domain zu sperren.
+- URLhaus benötigt einen kostenlosen persönlichen Auth-Key. LunaSurfer speichert ihn separat in einer nur für den Benutzer lesbaren Datei (`~/.config/lunasurfer/urlhaus_auth_key`, Berechtigung 0600), nicht in der allgemeinen Einstellungsdatei.
+- Beide Listen besitzen eigene manuelle Aktualisierungsschaltflächen, getrennte Zeitstempel, Eintragszahlen und Fehleranzeigen.
+- Automatische Aktualisierung ist separat schaltbar; Standardintervall 3 Stunden, wählbar sind 3, 6, 12 oder 24 Stunden.
+- Eigene Domain-Ausnahmen für den neuen Webseitenschutz; bestehende Adblock-, EasyList-/EasyPrivacy- und Fingerprint-Einstellungen bleiben getrennt und unverändert.
+- Neue Feeds werden vor dem Ersetzen der lokalen Cache-Datei validiert; bei Download- oder Validierungsfehlern bleibt die letzte funktionierende Liste erhalten.
+# Schutz- & Privatsphäre-Dialog: Übersetzungen vervollständigt
+- Die vier Registerkarten „Werbeblocker“, „Fingerprint-Schutz“, „Filterlisten“ und „Webseitenschutz“ sowie sämtliche zugehörigen Beschriftungen, Hinweise und Aktionen sind jetzt in allen 12 unterstützten Sprachen hinterlegt.
+- Die Übersetzungsauflösung prüft diese Dialogübersetzungen vor den älteren Sprach-Fallbacks. Dadurch bleiben insbesondere „Filter lists“ und „Website protection“ nicht mehr versehentlich Englisch.
+# Rechtsklick-Menüs im Schild-Dialog korrigiert
+- Die Eingabefelder im Schild-Dialog verwenden jetzt ein eigenes, vollständig sichtbares Kontextmenü mit Undo, Redo, Ausschneiden, Kopieren, Einfügen, Löschen und Alles auswählen.
+- Das Popup-Menü erhält einen expliziten kontrastreichen Graphit-Blau-Stil; die Einträge bleiben dadurch auch unter Linux/Qt-Plattformdesigns lesbar.
+- Alle 12 unterstützten Oberflächensprachen sind für die Kontextmenüeinträge hinterlegt: Deutsch, Englisch, Französisch, Italienisch, Niederländisch, Spanisch, Portugiesisch, Polnisch, Russisch, Türkisch, Japanisch und Chinesisch.
+- Die Funktionen sind kontextabhängig aktiviert (z. B. Kopieren nur bei markiertem Text, Einfügen nur bei editierbarem Feld).
+
 ## 0.3.59
 
 # EasyList und EasyPrivacy hinzugefügt
