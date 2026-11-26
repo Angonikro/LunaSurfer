@@ -1,5 +1,34 @@
 # LunaSurfer – Changelog
 
+## 0.3.61
+
+# Integrierter VPNBook-OpenVPN-Manager im Schild-Menü
+- Neuer Reiter „IP- und VPN-Schutz“ direkt im bestehenden Schild-Dialog.
+- OpenVPN wird als Debian-Systemabhängigkeit installiert; keine zusätzliche Python-Abhängigkeit und kein separater VPN-Client.
+- VPNBook ohne Benutzerkonto: offizielle Konfigurationsseite öffnen, ein `.ovpn`-Profil oder das VPNBook-ZIP importieren; die jeweils aktuellen gemeinsamen Zugangsdaten werden beim Import von der offiziellen VPNBook-Seite abgerufen und mit Benutzerrechten 0600 gespeichert.
+- Serverauswahl für die von VPNBook ausgewiesenen OpenVPN-Server in Deutschland, Frankreich, Großbritannien, den USA und Kanada.
+- Verbindung und Trennung über einen eng begrenzten, root-eigenen Hilfsdienst mit Administratorfreigabe. Der Tunnel läuft als temporäre systemd-Unit und wird nicht automatisch beim Systemstart aktiviert.
+- Importierte OpenVPN-Profile werden vor der Installation geprüft. Gefährliche Hooks und ausführbare Konfigurationsdirektiven (z. B. `up`, `down`, `plugin`, `management`, `script-security`) werden abgewiesen; Zertifikatsdateien müssen aus dem Profilordner stammen.
+- Automatische Anzeige des VPN-Dienststatus, Prüfung der öffentlichen IP sowie externe IP-/WebRTC-, DNS- und IPv6-Testseiten.
+- VPN-Bereich und zugehörige Schaltflächen sind in allen 12 unterstützten Sprachen übersetzt: Deutsch, Englisch, Französisch, Italienisch, Niederländisch, Spanisch, Portugiesisch, Polnisch, Türkisch, Russisch, Japanisch und Chinesisch (vereinfacht).
+- Systemweiter nftables-Kill-Switch ergänzt: Vor dem OpenVPN-Start wird eine fail-closed-Ausgangsregel aktiviert. Erlaubt bleiben Loopback, das VPN-Tunnelinterface und die konfigurierte VPNBook-Endpunktadresse samt Port/Protokoll; IPv4- und IPv6-Verkehr außerhalb des Tunnels wird blockiert.
+- Die VPN-Endpunktadresse wird vor Aktivierung der Sperre aufgelöst und für den OpenVPN-Lauf als numerische Adresse verwendet. Dadurch benötigt der Tunnelaufbau keine DNS-Freigabe über die ungeschützte Netzwerkschnittstelle.
+- DNS-Schutz: Wenn systemd-resolved verfügbar ist, werden VPNBook-kompatible öffentliche Resolver am Tunnel mit Routing-Domain `~.` gesetzt. Bei regulärer, nicht symlinkverwalteter `/etc/resolv.conf` werden die bisherigen Inhalte gesichert und während des VPN-Betriebs temporär 1.1.1.1/8.8.8.8 verwendet. Bei symlinkverwalteten Resolverdateien wird nichts überschrieben; die Firewall blockiert DNS-Ausgabe außerhalb des Tunnels.
+- Fail-Closed bei Absturz: Wenn OpenVPN unerwartet endet, bleibt die nftables-Sperre bestehen. Erst die bewusste Aktion „Trennen“ beendet den Dienst, stellt gespeicherte DNS-Einstellungen wieder her und entfernt danach die Firewall-Regeln.
+- Statusanzeige prüft nun Dienst, Tunnelinterface, IPv4-Route und aktive Kill-Switch-Regel; ein laufender OpenVPN-Prozess allein wird nicht mehr als geschützte Verbindung ausgegeben.
+- Die Windows-spezifische gepushte OpenVPN-Option `block-outside-dns` wird unter Linux explizit ignoriert.
+- Debian-Abhängigkeiten um `nftables` und `iproute2` ergänzt. Versionsnummer bleibt gemäß Vorgabe bei 0.3.61.
+- Widevine/DRM, Pluto-TV-Verhalten, Adblocker und bestehende Browserfunktionen wurden nicht absichtlich geändert.
+# Debian-DNS-Statuskorrektur
+- VPN-Statusprüfung benötigt `resolvectl`/`systemd-resolved` nicht mehr und unterstützt die vorhandene `/etc/resolv.conf`-Verwaltung mit `openresolv`.
+- Der privilegierte VPN-Helfer veröffentlicht einen root-erzeugten, nur lesbaren Status-Schnappschuss zur Firewall-/Tunnelzuordnung; die GUI muss nftables nicht mehr unprivilegiert abfragen.
+- Statusprüfung kontrolliert den aktiven VPN-Dienst, das konfigurierte Tunnelinterface, die IPv4-Standardroute sowie die Route jedes eingetragenen DNS-Resolvers.
+- DNS wird nur als bestätigt angezeigt, wenn mindestens ein gültiger Nameserver eingetragen ist und seine Route über das VPN-Tunnelinterface führt.
+- Keine Installation oder Entfernung von `systemd-resolved`/`openresolv` erforderlich.
+# Fenster „Schutz & Privatsphäre“ verbreitert
+- Breite des Fensters von 700 auf 890 Pixel erhöht (rund 5 cm bei 96 DPI); Höhe bleibt unverändert.
+- Keine Änderungen an VPN, DNS, Kill-Switch, Webseitenschutz oder Browserfunktionen.
+
 ## 0.3.60
 
 # Phishing- und Malware-Webseitenschutz
@@ -641,3 +670,12 @@ Changelog
 
 - DEB-Fix: Der Starter `/usr/bin/lunasurfer` wird mit ausführbarem Dateirecht (0755) installiert.
 - Druckdialog-Aktionen (Drucken, Abbrechen, Hilfe, Eigenschaften und Durchsuchen) werden passend zur gewählten LunaSurfer-Sprache in allen 12 unterstützten Sprachen beschriftet. CUPS-Druckertreibertexte bleiben vom installierten Treiber abhängig.
+
+## 0.3.61 – VPN-Statusfarben
+- VPN-Statusanzeige optisch vereinheitlicht: „Nicht verbunden“ wird rot angezeigt, eine bestätigte VPN-Verbindung grün.
+- Start-/Prüfzustände bleiben neutral; ein unerwarteter Verbindungsabbruch bei aktivem Kill-Switch wird gelb hervorgehoben.
+- Keine Änderungen an VPN-Tunnel, Firewall-Regeln oder DNS-Verwaltung.
+
+### 0.3.61 – VPN-Statusfarben in allen 12 Sprachen
+- Die Statusfarben „Nicht verbunden“ (Rot) und „Verbunden“ (Grün) werden jetzt auch für Französisch, Italienisch, Niederländisch, Spanisch, Portugiesisch, Polnisch, Russisch, Türkisch, Japanisch und Chinesisch korrekt erkannt.
+- Der Status „VPN abgebrochen – Kill-Switch aktiv“ bleibt in allen unterstützten Sprachen gelb; Verbindungsaufbau und unvollständiger Schutz bleiben neutral.

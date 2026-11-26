@@ -1,4 +1,4 @@
-# LunaSurfer 0.3.60
+# LunaSurfer 0.3.61
 
 Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 
@@ -9,6 +9,7 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 ## Funktionen
 
 - Webseitenschutz im Schild-Dialog:** Phishing-Army-Domainliste und URLhaus-Malware-URL-Liste mit getrennten manuellen und automatischen Updates, Status, Zeitstempel, Eintragszahlen und Domain-Ausnahmen. URLhaus benötigt einen kostenlosen persönlichen Auth-Key.
+- Neuer VPNBook-OpenVPN-Manager im Schild-Menü „Schutz & Privatsphäre“: kostenloser VPNBook-Zugang ohne Konto, Serverauswahl, `.ovpn`-/ZIP-Profilimport, automatische Aktualisierung der gemeinsamen VPNBook-Zugangsdaten, Verbinden/Trennen über eine privilegierte Systemkomponente und Anzeige der öffentlichen IP. Der Tunnel betrifft den gesamten Systemverkehr, nicht nur LunaSurfer. Kein separater VPN-Client. Der systemweite nftables-Kill-Switch blockiert Verkehr außerhalb des VPN-Tunnels einschließlich IPv6 und bleibt bei einem unerwarteten OpenVPN-Abbruch aktiv.
 - Integrierter Adblocker mit sechs Stufen: Standard, Stark, Sehr stark, Super stark und Mega stark Ultra stark; inklusive eigener Blockiermuster und Whitelist
 - Passwortmanager mit Argon2id-Schlüsselableitung, 128 MiB Speicherbedarf und automatischer Migration vorhandener PBKDF2-Tresore
 - User-Agent-Verwaltung: Datenschutz-Standard, nativer QtWebEngine-User-Agent oder eigener User-Agent; Änderungen werden ohne Browserneustart übernommen
@@ -53,6 +54,18 @@ Qt 6 / QtWebEngine Desktop-Browser für Debian und Raspberry PI OS.
 - Unter **Menü → Lesezeichen verwalten** kannst du gespeicherte Lesezeichen öffnen, bearbeiten und löschen. Der Manager bietet eine aufklappbare Ordnerstruktur, Suche nach Namen und Adressen sowie Import und Export.
 - Lesezeichen können jetzt auch mit Drag and Drop verschoben werden.
 
+## VPNBook / OpenVPN
+
+1. Öffne im Schild-Menü **Schutz & Privatsphäre → IP- und VPN-Schutz**.
+2. Klicke auf **VPNBook-Konfigurationsseite öffnen**. VPNBook verlangt kein Benutzerkonto.
+3. Lade dort ein OpenVPN-Konfigurationsarchiv (ZIP) oder eine `.ovpn`-Datei für einen OpenVPN-Server herunter.
+4. Wähle in LunaSurfer den gewünschten VPNBook-Server und importiere das heruntergeladene Profil. LunaSurfer ruft beim Import die aktuellen gemeinsamen Zugangsdaten von der offiziellen VPNBook-Seite ab; VPNBook ändert das Passwort üblicherweise alle ein bis zwei Wochen.
+5. **Verbinden** startet den OpenVPN-Tunnel nach Administratorfreigabe. **Trennen** beendet nur die von LunaSurfer gestartete VPN-Unit.
+
+Die OpenVPN-Profile werden vor der Installation auf erlaubte Server und nicht ausführbare Direktiven geprüft. Der privilegierte Hilfsdienst akzeptiert ausschließlich Aktionen für diese eine LunaSurfer-Verbindung. Die VPN-Verbindung routet den Systemverkehr, nicht nur Browserdaten. Vor dem Start von OpenVPN aktiviert LunaSurfer eine nftables-Ausgangsregel mit „deny by default“: Erlaubt sind Loopback, das VPN-Tunnelinterface und ausschließlich die konfigurierte VPNBook-Serveradresse mit dem Profil-Port. Dadurch werden IPv4- und IPv6-Verkehr sowie DNS-Anfragen außerhalb des Tunnels blockiert. Bei einem unerwarteten OpenVPN-Abbruch bleibt die Firewall-Sperre aktiv (Fail-Closed); erst **Trennen** stoppt OpenVPN, stellt zuvor gespeicherte DNS-Einstellungen wieder her und entfernt anschließend die Sperre. Wenn systemd-resolved verfügbar ist, werden 1.1.1.1 und 8.8.8.8 als DNS-Server am Tunnel mit Routing-Domain „~.“ gesetzt; bei einer regulären, nicht verlinkten `/etc/resolv.conf` wird diese während der Verbindung gesichert und vorübergehend auf diese Resolver gesetzt. Bei symlinkverwalteter resolv.conf wird sie nicht überschrieben; die Firewall verhindert weiterhin DNS-Verkehr außerhalb des Tunnels. Die Statusanzeige meldet „Verbunden“ nur, wenn systemd-Dienst, Tunnelroute und Kill-Switch erkannt werden. Die IP-/WebRTC-, DNS- und IPv6-Schaltflächen öffnen externe Prüfdienste; die Tests bleiben wichtig, weil sie die tatsächliche öffentliche Verbindung kontrollieren.
+
+Die Debian-Abhängigkeiten `openvpn`, `pkexec`, `nftables` und `iproute2` werden durch das DEB-Paket installiert. Es werden keine zusätzlichen Python-Pakete benötigt.
+
 ## Speicherorte
 
 - Einstellungen: `~/.config/lunasurfer/`
@@ -67,13 +80,13 @@ Zusätzlich zu `python3-cryptography` wird `python3-argon2` für Argon2id benöt
 
 ```bash
 sudo apt update
-sudo apt install python3 python3-pyside6.qtwidgets python3-pyside6.qtwebenginewidgets python3-pyside6.qtwebchannel python3-cryptography python3-argon2 xdg-utils
+sudo apt install python3 python3-pyside6.qtwidgets python3-pyside6.qtwebenginewidgets python3-pyside6.qtwebchannel python3-cryptography python3-argon2 xdg-utils openvpn pkexec nftables iproute2
 ```
 
 ## Installation
 
 ```bash
-sudo apt install ./lunasurfer_0.3.60_all.deb
+sudo apt install ./lunasurfer_0.3.61_all.deb
 ```
 
 ## Start aus dem Quellcode

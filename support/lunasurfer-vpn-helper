@@ -1,0 +1,448 @@
+#!/usr/bin/python3
+"""Narrow privileged helper for LunaSurfer's VPNBook OpenVPN profile.
+
+Only manages one fixed OpenVPN client instance. It never accepts arbitrary
+commands, service names, destination paths or executable hooks from profiles.
+"""
+import os
+import ipaddress
+import json
+import pwd
+import re
+import shutil
+import subprocess
+import sys
+import socket
+import time
+import base64
+from pathlib import Path
+
+BASE = Path('/etc/lunasurfer/vpn')
+PROFILE = BASE / 'lunasurfer.conf'
+AUTH = BASE / 'lunasurfer.auth'
+ASSET_DIR = BASE / 'assets'
+SERVICE = 'lunasurfer-vpn.service'
+NFT = '/usr/sbin/nft'
+DNS_STATE = Path('/run/lunasurfer-vpn-dns-state.json')
+STATUS_STATE = Path('/run/lunasurfer-vpn-status.json')
+RUNTIME_PROFILE = Path('/run/lunasurfer-vpn.conf')
+REMOTE_RE = re.compile(r'^[a-z0-9.-]+\.vpnbook\.com$', re.I)
+ALLOWED_DIRECTIVES = {
+    'client', 'dev', 'proto', 'remote', 'resolv-retry', 'nobind',
+    'persist-key', 'persist-tun', 'remote-cert-tls', 'auth', 'cipher',
+    'data-ciphers', 'data-ciphers-fallback', 'verb', 'mute-replay-warnings',
+    'auth-nocache', 'key-direction', 'tls-version-min', 'explicit-exit-notify',
+    'connect-retry', 'connect-retry-max', 'server-poll-timeout', 'hand-window',
+    'tran-window', 'reneg-sec', 'tun-mtu', 'mssfix', 'pull', 'route-nopull',
+    'redirect-gateway', 'dhcp-option', 'remote-random',
+    'float', 'comp-lzo', 'compress', 'allow-compression', 'auth-retry', 'pull-filter',
+    'tls-cipher', 'verify-x509-name', 'remote-random-hostname',
+}
+FILE_DIRECTIVES = {'ca', 'cert', 'key', 'tls-auth', 'tls-crypt', 'crl-verify', 'pkcs12', 'extra-certs'}
+INLINE_TAGS = {'ca', 'cert', 'key', 'tls-auth', 'tls-crypt', 'crl-verify', 'pkcs12', 'extra-certs'}
+
+
+def fail(message, code=1):
+    print(message, file=sys.stderr)
+    raise SystemExit(code)
+
+
+def invoking_home():
+    uid = os.environ.get('PKEXEC_UID')
+    if not uid or not uid.isdigit():
+        fail('pkexec user identity is missing')
+    return Path(pwd.getpwuid(int(uid)).pw_dir).resolve()
+
+
+def safe_user_file(raw, home):
+    p = Path(raw)
+    try:
+        resolved = p.resolve(strict=True)
+    except Exception:
+        fail('Selected file does not exist')
+    if not resolved.is_file() or not resolved.is_relative_to(home):
+        fail('Selected file must be a regular file inside your home directory')
+    if p.is_symlink():
+        fail('Symbolic links are not accepted')
+    return resolved
+
+
+def parse_profile(src, auth_src, selected_server):
+    home = invoking_home()
+    src = safe_user_file(src, home)
+    auth_src = safe_user_file(auth_src, home)
+    auth_lines = auth_src.read_text(encoding='utf-8').splitlines()
+    if len(auth_lines) < 2 or auth_lines[0].strip() != 'vpnbook' or not re.fullmatch(r'[A-Za-z0-9]{5,32}', auth_lines[1].strip()):
+        fail('VPNBook credentials file is invalid')
+    if not REMOTE_RE.fullmatch(selected_server):
+        fail('Unsupported VPNBook server')
+
+    raw_lines = src.read_text(encoding='utf-8', errors='strict').splitlines()
+    output = []
+    assets = {}
+    inline = False
+    saw_client = False
+    saw_ca = False
+    saw_redirect = False
+    remote_count = 0
+    for raw in raw_lines:
+        stripped = raw.strip()
+        if not stripped or stripped.startswith(('#', ';')):
+            output.append(raw)
+            continue
+        if stripped.startswith('<') and stripped.endswith('>'):
+            tag = stripped[1:-1].strip().lower().lstrip('/')
+            if tag not in INLINE_TAGS:
+                fail('Unsupported inline block in VPN profile: ' + tag)
+            inline = not stripped.startswith('</')
+            if tag == 'ca' and inline:
+                saw_ca = True
+            output.append(raw)
+            continue
+        if inline:
+            output.append(raw)
+            continue
+        parts = stripped.split()
+        key = parts[0].lower()
+        if key in {'up', 'down', 'plugin', 'management', 'config', 'include', 'cd', 'ipchange', 'route-up', 'route-pre-down', 'client-connect', 'client-disconnect', 'learn-address', 'script-security', 'setenv', 'daemon', 'writepid', 'log', 'log-append', 'status', 'user', 'group', 'chroot'}:
+            fail('Unsafe or unsupported OpenVPN directive: ' + key)
+        if key == 'client':
+            saw_client = True
+        if key == 'remote':
+            # VPNBook's official .ovpn downloads use numeric server IPs
+            # (for example 5.196.64.231), not *.vpnbook.com hostnames.
+            # Accept either a VPNBook hostname or a literal IP here; the
+            # configured, allow-listed VPNBook hostname always replaces it.
+            if len(parts) < 2:
+                fail('The selected profile has no VPN server')
+            remote_value = parts[1].strip('[]')
+            is_vpnbook_host = bool(REMOTE_RE.fullmatch(remote_value))
+            try:
+                ipaddress.ip_address(remote_value)
+                is_ip_address = True
+            except ValueError:
+                is_ip_address = False
+            if not (is_vpnbook_host or is_ip_address):
+                fail('The selected profile is not a supported VPNBook profile')
+            remote_count += 1
+            port = parts[2] if len(parts) > 2 and parts[2].isdigit() else '1194'
+            if not 1 <= int(port) <= 65535:
+                fail('Invalid VPN server port')
+            output.append(f'remote {selected_server} {port}')
+            continue
+        if key == 'redirect-gateway':
+            if not saw_redirect:
+                output.append('redirect-gateway def1')
+                saw_redirect = True
+            continue
+        if key == 'auth-user-pass':
+            continue
+        if key in FILE_DIRECTIVES:
+            if len(parts) < 2:
+                fail('Missing file path for OpenVPN directive: ' + key)
+            ref = parts[1]
+            if ref.startswith('/'):
+                fail('Absolute certificate paths are not accepted')
+            candidate = src.parent / ref
+            if candidate.is_symlink():
+                fail('Symbolic links in VPN profile assets are not accepted')
+            asset = candidate.resolve(strict=True)
+            if not asset.is_file() or not asset.is_relative_to(src.parent.resolve()):
+                fail('Certificate/key file must be next to the imported profile')
+            dest = ASSET_DIR / asset.name
+            assets[asset] = dest
+            output.append(f'{key} {dest}' + ((' ' + ' '.join(parts[2:])) if len(parts) > 2 else ''))
+            if key == 'ca':
+                saw_ca = True
+            continue
+        if key not in ALLOWED_DIRECTIVES:
+            # Unknown directives are deliberately dropped, never passed to root OpenVPN.
+            continue
+        output.append(raw)
+    if not saw_client or remote_count == 0 or not saw_ca:
+        fail('Profile is incomplete: client, VPNBook remote and CA certificate are required')
+    if not any(line.strip().startswith('remote-cert-tls') for line in output):
+        output.append('remote-cert-tls server')
+    if not saw_redirect:
+        output.append('redirect-gateway def1')
+    output.append(f'auth-user-pass {AUTH}')
+    output.append('auth-nocache')
+    # block-outside-dns is a Windows-only pushed option; ignore it on Linux.
+    output.append('pull-filter ignore \"block-outside-dns\"')
+    # The local def1 route is authoritative; ignore the duplicate server push.
+    output.append('pull-filter ignore \"redirect-gateway\"')
+    return '\n'.join(output) + '\n', src, assets
+
+
+def install_profile(src, auth_src, server):
+    config, source, assets = parse_profile(src, auth_src, server)
+    home = invoking_home()
+    auth_source = safe_user_file(auth_src, home)
+    BASE.mkdir(parents=True, exist_ok=True)
+    if ASSET_DIR.exists():
+        shutil.rmtree(ASSET_DIR)
+    ASSET_DIR.mkdir(mode=0o700)
+    # Copy only referenced local assets after validating all paths above.
+    for source_asset, destination_asset in assets.items():
+        shutil.copyfile(source_asset, destination_asset)
+        os.chmod(destination_asset, 0o600)
+    tmp = PROFILE.with_suffix('.conf.tmp')
+    tmp.write_text(config, encoding='utf-8')
+    os.chmod(tmp, 0o600)
+    tmp.replace(PROFILE)
+    auth_tmp = AUTH.with_suffix('.auth.tmp')
+    auth_tmp.write_text(auth_source.read_text(encoding='utf-8'), encoding='utf-8')
+    os.chmod(auth_tmp, 0o600)
+    auth_tmp.replace(AUTH)
+    print('VPNBook profile installed')
+
+
+def run_checked(args, **kwargs):
+    return subprocess.run(args, check=True, **kwargs)
+
+
+def active_tun_interface():
+    result = subprocess.run(['/usr/sbin/ip', '-o', 'link', 'show'], capture_output=True, text=True)
+    if result.returncode != 0:
+        result = subprocess.run(['/sbin/ip', '-o', 'link', 'show'], capture_output=True, text=True)
+    match = re.search(r'^\d+:\s+(tun\d+):', result.stdout or '', re.M)
+    return match.group(1) if match else None
+
+
+def endpoint_from_profile():
+    lines = PROFILE.read_text(encoding='utf-8').splitlines()
+    proto = 'tcp'
+    remotes = []
+    for raw in lines:
+        parts = raw.strip().split()
+        if not parts:
+            continue
+        if parts[0].lower() == 'proto' and len(parts) > 1:
+            proto = 'udp' if parts[1].lower().startswith('udp') else 'tcp'
+        elif parts[0].lower() == 'remote' and len(parts) > 1:
+            host = parts[1].strip('[]')
+            port = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 1194
+            try:
+                ip = str(ipaddress.ip_address(host))
+            except ValueError:
+                try:
+                    ip = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+                except Exception as exc:
+                    fail('Could not resolve the selected VPNBook server: ' + str(exc))
+            remotes.append((ip, port, proto))
+    if not remotes:
+        fail('The installed VPN profile has no usable VPN server')
+    # VPNBook profiles in this build select one server. Use its first IPv4 address.
+    return remotes[0]
+
+
+def tunnel_device_from_profile():
+    for raw in PROFILE.read_text(encoding='utf-8').splitlines():
+        parts = raw.strip().split()
+        if parts and parts[0].lower() == 'dev' and len(parts) > 1:
+            device = parts[1]
+            if device == 'tun':
+                return 'tun0'
+            if re.fullmatch(r'tun[0-9]+', device):
+                return device
+            fail('Only a dedicated tun interface is supported for the VPN kill switch')
+    fail('The VPN profile does not define a tun interface')
+
+
+def install_kill_switch(endpoint):
+    if not os.path.exists(NFT):
+        fail('nftables is required for the VPN kill switch. Install the nftables package.')
+    ip, port, proto = endpoint
+    tunnel_device = tunnel_device_from_profile()
+    # Output is fail-closed: only loopback, the VPN tunnel, and the VPN endpoint
+    # on the physical interface are permitted. This also blocks IPv6 outside tun.
+    script = f'''table inet lunasurfer_vpn {{
+ chain output {{
+  type filter hook output priority -150; policy drop;
+  oifname "lo" accept
+  oifname "{tunnel_device}" accept
+  ip daddr {ip} {proto} dport {port} accept
+ }}
+}}\n'''
+    existing = subprocess.run([NFT, 'list', 'table', 'inet', 'lunasurfer_vpn'], capture_output=True)
+    if existing.returncode == 0:
+        script = 'delete table inet lunasurfer_vpn\n' + script
+    # nft applies the replacement as one transaction; there is no interval
+    # in which an old kill switch is removed before the new one exists.
+    run_checked([NFT, '-f', '-'], input=script, text=True)
+    # Publish a read-only status snapshot for the unprivileged GUI. This avoids
+    # requiring systemd-resolved or granting the browser direct nftables access.
+    STATUS_STATE.write_text(json.dumps({
+        'firewall_installed': True,
+        'tunnel_interface': tunnel_device,
+        'endpoint_ip': ip,
+        'endpoint_port': port,
+        'endpoint_protocol': proto,
+    }), encoding='utf-8')
+    os.chmod(STATUS_STATE, 0o644)
+
+
+def kill_switch_active():
+    if not os.path.exists(NFT):
+        return False
+    result = subprocess.run([NFT, 'list', 'table', 'inet', 'lunasurfer_vpn'], capture_output=True)
+    return result.returncode == 0
+
+
+def configure_dns(interface):
+    # Prefer per-link systemd-resolved DNS. The firewall independently prevents
+    # DNS packets from escaping outside the VPN even if this service is absent.
+    resolvectl = shutil.which('resolvectl')
+    if resolvectl:
+        dns = subprocess.run([resolvectl, 'dns', interface, '1.1.1.1', '8.8.8.8'], capture_output=True)
+        domain = subprocess.run([resolvectl, 'domain', interface, '~.'], capture_output=True) if dns.returncode == 0 else dns
+        if dns.returncode == 0 and domain.returncode == 0:
+            try:
+                DNS_STATE.write_text(json.dumps({'method': 'resolved', 'interface': interface}), encoding='utf-8')
+                os.chmod(DNS_STATE, 0o600)
+                return True
+            except Exception:
+                subprocess.run([resolvectl, 'revert', interface], check=False, capture_output=True)
+    # Plain resolv.conf fallback. Never replace a symlink (systemd-resolved or
+    # resolvconf owns it); in that case the output firewall still blocks leaks.
+    resolv = Path('/etc/resolv.conf')
+    if resolv.exists() and not resolv.is_symlink():
+        try:
+            original = resolv.read_bytes()
+            state = {'method': 'file', 'content': base64.b64encode(original).decode('ascii')}
+            DNS_STATE.write_text(json.dumps(state), encoding='utf-8')
+            os.chmod(DNS_STATE, 0o600)
+            tmp = resolv.with_name('resolv.conf.lunasurfer-tmp')
+            tmp.write_text('# Managed temporarily by LunaSurfer VPN\nnameserver 1.1.1.1\nnameserver 8.8.8.8\n', encoding='ascii')
+            os.chmod(tmp, 0o644)
+            os.replace(tmp, resolv)
+            return True
+        except Exception:
+            pass
+    return False
+
+
+def restore_dns():
+    if not DNS_STATE.is_file():
+        return
+    try:
+        state = json.loads(DNS_STATE.read_text(encoding='utf-8'))
+        if state.get('method') == 'resolved':
+            resolvectl = shutil.which('resolvectl')
+            if resolvectl:
+                subprocess.run([resolvectl, 'revert', state.get('interface', '')], check=False, capture_output=True)
+        elif state.get('method') == 'file':
+            resolv = Path('/etc/resolv.conf')
+            if resolv.exists() and not resolv.is_symlink():
+                data = base64.b64decode(state.get('content', ''), validate=True)
+                tmp = resolv.with_name('resolv.conf.lunasurfer-restore')
+                tmp.write_bytes(data)
+                os.chmod(tmp, 0o644)
+                os.replace(tmp, resolv)
+    except Exception as exc:
+        fail('Could not restore the previous DNS settings: ' + str(exc))
+    try:
+        DNS_STATE.unlink()
+    except FileNotFoundError:
+        pass
+
+
+def start_vpn():
+    if not PROFILE.is_file() or not AUTH.is_file():
+        fail('No VPNBook profile is installed')
+    endpoint = endpoint_from_profile()
+    # Establish the firewall before starting OpenVPN: no unprotected window.
+    install_kill_switch(endpoint)
+    active = subprocess.run(['/usr/bin/systemctl', 'is-active', '--quiet', SERVICE]).returncode == 0
+    if active:
+        print('VPN connection is already active; kill switch is enforced')
+        return
+    # Recover DNS state left behind by a previous crashed VPN session before
+    # saving a fresh backup for this connection. The firewall remains active.
+    restore_dns()
+    subprocess.run(['/usr/bin/systemctl', 'reset-failed', SERVICE], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # Use the already-resolved numeric endpoint so DNS is not needed outside
+    # the tunnel during reconnects. CA validation remains enabled.
+    ip, port, proto = endpoint
+    lines = PROFILE.read_text(encoding='utf-8').splitlines()
+    rewritten = []
+    replaced = False
+    for raw in lines:
+        parts = raw.strip().split()
+        if parts and parts[0].lower() == 'remote':
+            suffix = ' '.join(parts[3:]) if len(parts) > 3 else ''
+            rewritten.append(f'remote {ip} {port}' + ((' ' + suffix) if suffix else ''))
+            replaced = True
+        else:
+            rewritten.append(raw)
+    if not replaced:
+        fail('Could not prepare the VPN server endpoint')
+    RUNTIME_PROFILE.write_text('\n'.join(rewritten) + '\n', encoding='utf-8')
+    os.chmod(RUNTIME_PROFILE, 0o600)
+    try:
+        run_checked(['/usr/bin/systemd-run', '--quiet', '--collect', '--unit=lunasurfer-vpn', '--property=Type=exec', '--property=Restart=no', '/usr/sbin/openvpn', '--config', str(RUNTIME_PROFILE)])
+    except Exception:
+        # Leave firewall active if startup failed: fail closed until explicit stop.
+        raise
+    # Wait briefly for the tunnel, then apply per-link DNS if available.
+    deadline = time.time() + 20
+    interface = None
+    while time.time() < deadline:
+        interface = active_tun_interface()
+        if interface:
+            break
+        time.sleep(0.5)
+    dns_configured = bool(interface and configure_dns(interface))
+    try:
+        snapshot = json.loads(STATUS_STATE.read_text(encoding='utf-8')) if STATUS_STATE.is_file() else {}
+        snapshot.update({
+            'firewall_installed': kill_switch_active(),
+            'tunnel_interface': interface or snapshot.get('tunnel_interface'),
+            'dns_configure_attempted': bool(interface),
+            'dns_configure_succeeded': dns_configured,
+        })
+        STATUS_STATE.write_text(json.dumps(snapshot), encoding='utf-8')
+        os.chmod(STATUS_STATE, 0o644)
+    except Exception:
+        pass
+    print('VPN start requested; kill switch is active; IPv6 outside VPN is blocked')
+
+
+def stop_vpn():
+    subprocess.run(['/usr/bin/systemctl', 'stop', SERVICE], capture_output=True, text=True)
+    still_active = subprocess.run(['/usr/bin/systemctl', 'is-active', '--quiet', SERVICE]).returncode == 0
+    if still_active:
+        fail('OpenVPN could not be stopped; kill switch remains active')
+    subprocess.run(['/usr/bin/systemctl', 'reset-failed', SERVICE], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    restore_dns()
+    if kill_switch_active():
+        run_checked([NFT, 'delete', 'table', 'inet', 'lunasurfer_vpn'])
+    try:
+        STATUS_STATE.unlink()
+    except FileNotFoundError:
+        pass
+    try:
+        RUNTIME_PROFILE.unlink()
+    except FileNotFoundError:
+        pass
+    print('VPN disconnected; firewall and DNS settings restored')
+
+
+def main():
+    if os.geteuid() != 0:
+        fail('This helper must be run through pkexec')
+    if len(sys.argv) < 2:
+        fail('Missing action')
+    action = sys.argv[1]
+    if action == 'install-profile' and len(sys.argv) == 5:
+        install_profile(sys.argv[2], sys.argv[3], sys.argv[4])
+    elif action == 'start' and len(sys.argv) == 2:
+        start_vpn()
+    elif action == 'stop' and len(sys.argv) == 2:
+        stop_vpn()
+    else:
+        fail('Invalid helper action or arguments')
+
+
+if __name__ == '__main__':
+    main()

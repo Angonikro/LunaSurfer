@@ -4,3 +4,4 @@ VERSION usr/share/lunasurfer/
 README.md usr/share/doc/lunasurfer/
 CHANGELOG.md usr/share/doc/lunasurfer/
 debian/lunasurfer.desktop usr/share/applications/
+support/lunasurfer-vpn-helper usr/lib/lunasurfer/

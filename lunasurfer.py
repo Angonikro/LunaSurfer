@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""LunaSurfer 0.3.60 - Qt 6 / QtWebEngine browser."""
+"""LunaSurfer 0.3.61 - Qt 6 / QtWebEngine browser."""
+import ipaddress
 import json
 import csv
 import io
@@ -17,6 +18,8 @@ import base64
 import secrets
 import string
 import re
+import zipfile
+import html as html_module
 from html.parser import HTMLParser
 from html import escape
 
@@ -49,9 +52,9 @@ from cryptography.fernet import Fernet, InvalidToken
 APP_NAME = "LunaSurfer"
 _VERSION_FILE = pathlib.Path(__file__).resolve().with_name("VERSION")
 try:
-    APP_VERSION = _VERSION_FILE.read_text(encoding="utf-8").strip() or "0.3.60"
+    APP_VERSION = _VERSION_FILE.read_text(encoding="utf-8").strip() or "0.3.61"
 except OSError:
-    APP_VERSION = "0.3.60"
+    APP_VERSION = "0.3.61"
 CONFIG_DIR = pathlib.Path.home() / ".config" / "lunasurfer"
 DATA_DIR = pathlib.Path.home() / ".local" / "share" / "lunasurfer"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
@@ -355,7 +358,7 @@ class FilterListDownloadWorker(QThread):
                 request = urllib.request.Request(
                     url,
                     headers={
-                        "User-Agent": "LunaSurfer/0.3.60 filter-list updater",
+                        "User-Agent": "LunaSurfer/0.3.61 filter-list updater",
                         "Accept": "text/plain,*/*;q=0.8",
                     },
                 )
@@ -3795,7 +3798,10 @@ class LunaSurfer(QMainWindow):
             "web_threat_last_error": {},
             "web_threat_exceptions": [],
             "user_agent_mode": "privacy",
-            "user_agent_custom": ""
+            "user_agent_custom": "",
+            "vpnbook_profile_imported": False,
+            "vpnbook_server": "de20.vpnbook.com",
+            "vpnbook_profile_name": ""
         })
         self.settings_data.setdefault("translation_provider", "google")
         if self.private_mode:
@@ -5556,6 +5562,530 @@ class LunaSurfer(QMainWindow):
                    'Mega strong': '极强',
                    'Ultra strong': '极致',
                    'Maximum': '最高'}}
+        vpn_ui_labels = {
+            'de': {
+                'IP and VPN protection': 'IP- und VPN-Schutz',
+                'VPNBook – free OpenVPN, no account required': 'VPNBook – kostenloses OpenVPN, kein Konto erforderlich',
+                'VPN status:': 'VPN-Status:',
+                'Disconnected': 'Nicht verbunden',
+                'Connected': 'Verbunden',
+                'Starting / connecting': 'Startet / verbindet',
+                'Open VPNBook configuration page': 'VPNBook-Konfigurationsseite öffnen',
+                'Import OpenVPN profile (.ovpn or .zip)…': 'OpenVPN-Profil importieren (.ovpn oder .zip)…',
+                'Connect': 'Verbinden',
+                'Disconnect': 'Trennen',
+                'Check public IP': 'Öffentliche IP prüfen',
+                'Selected server:': 'Ausgewählter Server:',
+                'Profile:': 'Profil:',
+                'No profile imported': 'Kein Profil importiert',
+                'A VPNBook profile must be downloaded from the official page and imported. The current shared password is fetched automatically.': 'Ein VPNBook-Profil muss von der offiziellen Seite heruntergeladen und importiert werden. Das aktuelle gemeinsame Passwort wird automatisch abgerufen.',
+                'VPNBook changes its shared password every one to two weeks. Import the profile again if authentication fails.': 'VPNBook ändert das gemeinsame Passwort alle ein bis zwei Wochen. Bei fehlgeschlagener Anmeldung das Profil erneut importieren.',
+                'VPN requires administrator approval. The kill switch blocks all traffic outside the VPN tunnel, including IPv6, and normal networking is restored when you disconnect.': 'Für VPN ist eine Administratorfreigabe erforderlich. Der Kill-Switch blockiert sämtlichen Verkehr außerhalb des VPN-Tunnels einschließlich IPv6. Beim bewussten Trennen wird die normale Netzwerkverbindung wiederhergestellt.',
+                'VPN profile imported. You can connect now.': 'VPN-Profil importiert. Du kannst dich jetzt verbinden.',
+                'Could not retrieve the current VPNBook credentials. Check your internet connection and try again.': 'Die aktuellen VPNBook-Zugangsdaten konnten nicht abgerufen werden. Prüfe die Internetverbindung und versuche es erneut.',
+                'OpenVPN is not installed. Install the openvpn package and reopen LunaSurfer.': 'OpenVPN ist nicht installiert. Installiere das Paket openvpn und starte LunaSurfer erneut.',
+                'The pkexec authorization tool is missing. Install the pkexec package.': 'Das Autorisierungsprogramm pkexec fehlt. Installiere das Paket pkexec.',
+                'VPN profile import failed: ': 'VPN-Profil konnte nicht importiert werden: ',
+                'VPN connection could not be started: ': 'VPN-Verbindung konnte nicht gestartet werden: ',
+                'VPN disconnect failed: ': 'VPN-Trennung fehlgeschlagen: ',
+                'Public IP: ': 'Öffentliche IP: ',
+                'Could not determine the public IP address.': 'Die öffentliche IP-Adresse konnte nicht ermittelt werden.',
+                'Choose VPNBook profile': 'VPNBook-Profil auswählen',
+                'Select an OpenVPN profile': 'OpenVPN-Profil auswählen',
+                'VPN profile archive contains no .ovpn file.': 'Das VPN-Profilarchiv enthält keine .ovpn-Datei.',
+                'VPN profile archive is invalid or unsafe.': 'Das VPN-Profilarchiv ist ungültig oder unsicher.',
+                'Profile imported for ': 'Profil importiert für ',
+                'Open IP / DNS leak test': 'IP-/DNS-Leak-Test öffnen',
+                'No active VPN connection detected': 'Keine aktive VPN-Verbindung erkannt',
+            },
+            'en': {
+                'IP and VPN protection': 'IP and VPN protection',
+                'VPNBook – free OpenVPN, no account required': 'VPNBook – free OpenVPN, no account required',
+                'VPN status:': 'VPN status:',
+                'Disconnected': 'Disconnected',
+                'Connected': 'Connected',
+                'Starting / connecting': 'Starting / connecting',
+                'Open VPNBook configuration page': 'Open VPNBook configuration page',
+                'Import OpenVPN profile (.ovpn or .zip)…': 'Import OpenVPN profile (.ovpn or .zip)…',
+                'Connect': 'Connect',
+                'Disconnect': 'Disconnect',
+                'Check public IP': 'Check public IP',
+                'Selected server:': 'Selected server:',
+                'Profile:': 'Profile:',
+                'No profile imported': 'No profile imported',
+                'A VPNBook profile must be downloaded from the official page and imported. The current shared password is fetched automatically.': 'Download a VPNBook profile from the official page and import it. The current shared password is fetched automatically.',
+                'VPNBook changes its shared password every one to two weeks. Import the profile again if authentication fails.': 'VPNBook changes its shared password every one to two weeks. Import the profile again if authentication fails.',
+                'VPN requires administrator approval. The kill switch blocks all traffic outside the VPN tunnel, including IPv6, and normal networking is restored when you disconnect.': 'VPN requires administrator approval. The kill switch blocks all traffic outside the VPN tunnel, including IPv6, and normal networking is restored when you disconnect.',
+                'VPN profile imported. You can connect now.': 'VPN profile imported. You can connect now.',
+                'Could not retrieve the current VPNBook credentials. Check your internet connection and try again.': 'Could not retrieve the current VPNBook credentials. Check your internet connection and try again.',
+                'OpenVPN is not installed. Install the openvpn package and reopen LunaSurfer.': 'OpenVPN is not installed. Install the openvpn package and reopen LunaSurfer.',
+                'The pkexec authorization tool is missing. Install the pkexec package.': 'The pkexec authorization tool is missing. Install the pkexec package.',
+                'VPN profile import failed: ': 'VPN profile import failed: ',
+                'VPN connection could not be started: ': 'VPN connection could not be started: ',
+                'VPN disconnect failed: ': 'VPN disconnect failed: ',
+                'Public IP: ': 'Public IP: ',
+                'Could not determine the public IP address.': 'Could not determine the public IP address.',
+                'Choose VPNBook profile': 'Choose VPNBook profile',
+                'Select an OpenVPN profile': 'Select an OpenVPN profile',
+                'VPN profile archive contains no .ovpn file.': 'VPN profile archive contains no .ovpn file.',
+                'VPN profile archive is invalid or unsafe.': 'VPN profile archive is invalid or unsafe.',
+                'Profile imported for ': 'Profile imported for ',
+                'Open IP / DNS leak test': 'Open IP / DNS leak test',
+                'No active VPN connection detected': 'No active VPN connection detected',
+            },
+            'fr': {
+                'VPN stopped unexpectedly – kill switch active': 'VPN interrompu inopinément – coupe-circuit actif',
+                'Connected – VPN and kill switch active': 'Connecté – VPN et coupe-circuit actifs',
+                'Tunnel active – protection incomplete': 'Tunnel actif – protection incomplète',
+                'VPN status could not be verified safely': 'Impossible de vérifier l’état du VPN en toute sécurité',
+                'IP and VPN protection': 'Protection IP et VPN',
+                'VPNBook – free OpenVPN, no account required': 'VPNBook – OpenVPN gratuit, sans compte',
+                'VPN status:': 'État du VPN :',
+                'Disconnected': 'Déconnecté',
+                'Connected': 'Connecté',
+                'Starting / connecting': 'Démarrage / connexion',
+                'Open VPNBook configuration page': 'Ouvrir la page de configuration VPNBook',
+                'Import OpenVPN profile (.ovpn or .zip)…': 'Importer un profil OpenVPN (.ovpn ou .zip)…',
+                'Connect': 'Connecter',
+                'Disconnect': 'Déconnecter',
+                'Check public IP': 'Vérifier l’adresse IP publique',
+                'Selected server:': 'Serveur sélectionné :',
+                'Profile:': 'Profil :',
+                'No profile imported': 'Aucun profil importé',
+                'A VPNBook profile must be downloaded from the official page and imported. The current shared password is fetched automatically.': 'Téléchargez un profil VPNBook depuis le site officiel et importez-le. Le mot de passe partagé actuel est récupéré automatiquement.',
+                'VPNBook changes its shared password every one to two weeks. Import the profile again if authentication fails.': 'VPNBook change son mot de passe partagé toutes les une à deux semaines. Réimportez le profil si l’authentification échoue.',
+                'VPN requires administrator approval. The kill switch blocks all traffic outside the VPN tunnel, including IPv6, and normal networking is restored when you disconnect.': 'Le VPN nécessite une autorisation administrateur. Le coupe-circuit bloque tout trafic hors du tunnel VPN, y compris IPv6, et la connexion normale est rétablie à la déconnexion.',
+                'VPN profile imported. You can connect now.': 'Profil VPN importé. Vous pouvez vous connecter.',
+                'Could not retrieve the current VPNBook credentials. Check your internet connection and try again.': 'Impossible de récupérer les identifiants VPNBook actuels. Vérifiez la connexion Internet.',
+                'OpenVPN is not installed. Install the openvpn package and reopen LunaSurfer.': 'OpenVPN n’est pas installé. Installez le paquet openvpn puis relancez LunaSurfer.',
+                'The pkexec authorization tool is missing. Install the pkexec package.': 'L’outil d’autorisation pkexec est absent. Installez le paquet pkexec.',
+                'VPN profile import failed: ': 'Échec de l’importation du profil VPN : ',
+                'VPN connection could not be started: ': 'Impossible de démarrer la connexion VPN : ',
+                'VPN disconnect failed: ': 'Échec de la déconnexion VPN : ',
+                'Public IP: ': 'IP publique : ',
+                'Could not determine the public IP address.': 'Impossible de déterminer l’adresse IP publique.',
+                'Choose VPNBook profile': 'Choisir un profil VPNBook',
+                'Select an OpenVPN profile': 'Sélectionner un profil OpenVPN',
+                'VPN profile archive contains no .ovpn file.': 'L’archive ne contient aucun fichier .ovpn.',
+                'VPN profile archive is invalid or unsafe.': 'L’archive du profil VPN est invalide ou dangereuse.',
+                'Profile imported for ': 'Profil importé pour ',
+                'Open IP / DNS leak test': 'Ouvrir le test de fuite IP / DNS',
+                'No active VPN connection detected': 'Aucune connexion VPN active détectée',
+            },
+            'it': {
+                'VPN stopped unexpectedly – kill switch active': 'VPN interrotta inaspettatamente – kill switch attivo',
+                'Connected – VPN and kill switch active': 'Connesso – VPN e kill switch attivi',
+                'Tunnel active – protection incomplete': 'Tunnel attivo – protezione incompleta',
+                'VPN status could not be verified safely': 'Impossibile verificare lo stato VPN in sicurezza',
+                'IP and VPN protection': 'Protezione IP e VPN',
+                'VPNBook – free OpenVPN, no account required': 'VPNBook – OpenVPN gratuito, senza account',
+                'VPN status:': 'Stato VPN:',
+                'Disconnected': 'Disconnesso',
+                'Connected': 'Connesso',
+                'Starting / connecting': 'Avvio / connessione',
+                'Open VPNBook configuration page': 'Apri la pagina di configurazione VPNBook',
+                'Import OpenVPN profile (.ovpn or .zip)…': 'Importa profilo OpenVPN (.ovpn o .zip)…',
+                'Connect': 'Connetti',
+                'Disconnect': 'Disconnetti',
+                'Check public IP': 'Controlla IP pubblico',
+                'Selected server:': 'Server selezionato:',
+                'Profile:': 'Profilo:',
+                'No profile imported': 'Nessun profilo importato',
+                'A VPNBook profile must be downloaded from the official page and imported. The current shared password is fetched automatically.': 'Scarica e importa un profilo dal sito ufficiale VPNBook. La password condivisa corrente viene recuperata automaticamente.',
+                'VPNBook changes its shared password every one to two weeks. Import the profile again if authentication fails.': 'VPNBook cambia la password condivisa ogni una o due settimane. Reimporta il profilo se l’autenticazione non riesce.',
+                'VPN requires administrator approval. The kill switch blocks all traffic outside the VPN tunnel, including IPv6, and normal networking is restored when you disconnect.': 'La VPN richiede l’autorizzazione di amministratore. Il kill switch blocca tutto il traffico fuori dal tunnel VPN, incluso IPv6, e ripristina la rete normale alla disconnessione.',
+                'VPN profile imported. You can connect now.': 'Profilo VPN importato. Ora puoi connetterti.',
+                'Could not retrieve the current VPNBook credentials. Check your internet connection and try again.': 'Impossibile recuperare le credenziali VPNBook. Controlla la connessione Internet.',
+                'OpenVPN is not installed. Install the openvpn package and reopen LunaSurfer.': 'OpenVPN non è installato. Installa il pacchetto openvpn e riavvia LunaSurfer.',
+                'The pkexec authorization tool is missing. Install the pkexec package.': 'Manca pkexec. Installa il pacchetto pkexec.',
+                'VPN profile import failed: ': 'Importazione del profilo VPN non riuscita: ',
+                'VPN connection could not be started: ': 'Impossibile avviare la connessione VPN: ',
+                'VPN disconnect failed: ': 'Disconnessione VPN non riuscita: ',
+                'Public IP: ': 'IP pubblico: ',
+                'Could not determine the public IP address.': 'Impossibile determinare l’IP pubblico.',
+                'Choose VPNBook profile': 'Scegli profilo VPNBook',
+                'Select an OpenVPN profile': 'Seleziona un profilo OpenVPN',
+                'VPN profile archive contains no .ovpn file.': 'L’archivio non contiene file .ovpn.',
+                'VPN profile archive is invalid or unsafe.': 'L’archivio del profilo VPN non è valido o è pericoloso.',
+                'Profile imported for ': 'Profilo importato per ',
+                'Open IP / DNS leak test': 'Apri test perdite IP / DNS',
+                'No active VPN connection detected': 'Nessuna connessione VPN attiva rilevata',
+            },
+            'nl': {
+                'VPN stopped unexpectedly – kill switch active': 'VPN onverwacht gestopt – kill switch actief',
+                'Connected – VPN and kill switch active': 'Verbonden – VPN en kill switch actief',
+                'Tunnel active – protection incomplete': 'Tunnel actief – bescherming onvolledig',
+                'VPN status could not be verified safely': 'VPN-status kon niet veilig worden gecontroleerd',
+                'IP and VPN protection': 'IP- en VPN-bescherming',
+                'VPNBook – free OpenVPN, no account required': 'VPNBook – gratis OpenVPN, geen account nodig',
+                'VPN status:': 'VPN-status:',
+                'Disconnected': 'Niet verbonden',
+                'Connected': 'Verbonden',
+                'Starting / connecting': 'Starten / verbinden',
+                'Open VPNBook configuration page': 'VPNBook-configuratiepagina openen',
+                'Import OpenVPN profile (.ovpn or .zip)…': 'OpenVPN-profiel importeren (.ovpn of .zip)…',
+                'Connect': 'Verbinden',
+                'Disconnect': 'Verbinding verbreken',
+                'Check public IP': 'Openbaar IP controleren',
+                'Selected server:': 'Geselecteerde server:',
+                'Profile:': 'Profiel:',
+                'No profile imported': 'Geen profiel geïmporteerd',
+                'A VPNBook profile must be downloaded from the official page and imported. The current shared password is fetched automatically.': 'Download een VPNBook-profiel van de officiële website en importeer het. Het huidige gedeelde wachtwoord wordt automatisch opgehaald.',
+                'VPNBook changes its shared password every one to two weeks. Import the profile again if authentication fails.': 'VPNBook wijzigt het gedeelde wachtwoord elke één à twee weken. Importeer het profiel opnieuw als aanmelden mislukt.',
+                'VPN requires administrator approval. The kill switch blocks all traffic outside the VPN tunnel, including IPv6, and normal networking is restored when you disconnect.': 'VPN vereist beheerdersgoedkeuring. De kill switch blokkeert al het verkeer buiten de VPN-tunnel, inclusief IPv6, en herstelt het normale netwerk bij verbreken.',
+                'VPN profile imported. You can connect now.': 'VPN-profiel geïmporteerd. Je kunt nu verbinden.',
+                'Could not retrieve the current VPNBook credentials. Check your internet connection and try again.': 'De actuele VPNBook-inloggegevens konden niet worden opgehaald. Controleer je internetverbinding.',
+                'OpenVPN is not installed. Install the openvpn package and reopen LunaSurfer.': 'OpenVPN is niet geïnstalleerd. Installeer het pakket openvpn en start LunaSurfer opnieuw.',
+                'The pkexec authorization tool is missing. Install the pkexec package.': 'Het autorisatieprogramma pkexec ontbreekt. Installeer het pakket pkexec.',
+                'VPN profile import failed: ': 'VPN-profiel importeren mislukt: ',
+                'VPN connection could not be started: ': 'VPN-verbinding kon niet worden gestart: ',
+                'VPN disconnect failed: ': 'VPN verbreken mislukt: ',
+                'Public IP: ': 'Openbaar IP: ',
+                'Could not determine the public IP address.': 'Het openbare IP-adres kon niet worden bepaald.',
+                'Choose VPNBook profile': 'VPNBook-profiel kiezen',
+                'Select an OpenVPN profile': 'Een OpenVPN-profiel selecteren',
+                'VPN profile archive contains no .ovpn file.': 'Het VPN-profielarchief bevat geen .ovpn-bestand.',
+                'VPN profile archive is invalid or unsafe.': 'Het VPN-profielarchief is ongeldig of onveilig.',
+                'Profile imported for ': 'Profiel geïmporteerd voor ',
+                'Open IP / DNS leak test': 'IP-/DNS-lektest openen',
+                'No active VPN connection detected': 'Geen actieve VPN-verbinding gevonden',
+            },
+            'es': {
+                'VPN stopped unexpectedly – kill switch active': 'VPN detenida inesperadamente – interruptor de corte activo',
+                'Connected – VPN and kill switch active': 'Conectado – VPN e interruptor de corte activos',
+                'Tunnel active – protection incomplete': 'Túnel activo – protección incompleta',
+                'VPN status could not be verified safely': 'No se pudo verificar el estado de la VPN de forma segura',
+                'IP and VPN protection': 'Protección de IP y VPN',
+                'VPNBook – free OpenVPN, no account required': 'VPNBook – OpenVPN gratis, sin cuenta',
+                'VPN status:': 'Estado de VPN:',
+                'Disconnected': 'Desconectado',
+                'Connected': 'Conectado',
+                'Starting / connecting': 'Iniciando / conectando',
+                'Open VPNBook configuration page': 'Abrir página de configuración de VPNBook',
+                'Import OpenVPN profile (.ovpn or .zip)…': 'Importar perfil OpenVPN (.ovpn o .zip)…',
+                'Connect': 'Conectar',
+                'Disconnect': 'Desconectar',
+                'Check public IP': 'Comprobar IP pública',
+                'Selected server:': 'Servidor seleccionado:',
+                'Profile:': 'Perfil:',
+                'No profile imported': 'No hay perfil importado',
+                'A VPNBook profile must be downloaded from the official page and imported. The current shared password is fetched automatically.': 'Descarga e importa un perfil desde la página oficial de VPNBook. La contraseña compartida actual se obtiene automáticamente.',
+                'VPNBook changes its shared password every one to two weeks. Import the profile again if authentication fails.': 'VPNBook cambia la contraseña compartida cada una o dos semanas. Vuelve a importar el perfil si falla la autenticación.',
+                'VPN requires administrator approval. The kill switch blocks all traffic outside the VPN tunnel, including IPv6, and normal networking is restored when you disconnect.': 'La VPN requiere autorización de administrador. El interruptor de corte bloquea todo el tráfico fuera del túnel VPN, incluido IPv6, y restaura la red normal al desconectar.',
+                'VPN profile imported. You can connect now.': 'Perfil VPN importado. Ya puedes conectarte.',
+                'Could not retrieve the current VPNBook credentials. Check your internet connection and try again.': 'No se pudieron obtener las credenciales actuales de VPNBook. Comprueba la conexión a Internet.',
+                'OpenVPN is not installed. Install the openvpn package and reopen LunaSurfer.': 'OpenVPN no está instalado. Instala el paquete openvpn y reinicia LunaSurfer.',
+                'The pkexec authorization tool is missing. Install the pkexec package.': 'Falta la herramienta de autorización pkexec. Instala el paquete pkexec.',
+                'VPN profile import failed: ': 'Error al importar el perfil VPN: ',
+                'VPN connection could not be started: ': 'No se pudo iniciar la conexión VPN: ',
+                'VPN disconnect failed: ': 'Error al desconectar la VPN: ',
+                'Public IP: ': 'IP pública: ',
+                'Could not determine the public IP address.': 'No se pudo determinar la dirección IP pública.',
+                'Choose VPNBook profile': 'Elegir perfil de VPNBook',
+                'Select an OpenVPN profile': 'Seleccionar un perfil OpenVPN',
+                'VPN profile archive contains no .ovpn file.': 'El archivo no contiene ningún fichero .ovpn.',
+                'VPN profile archive is invalid or unsafe.': 'El archivo del perfil VPN no es válido o no es seguro.',
+                'Profile imported for ': 'Perfil importado para ',
+                'Open IP / DNS leak test': 'Abrir prueba de fugas IP / DNS',
+                'No active VPN connection detected': 'No se detectó ninguna conexión VPN activa',
+            },
+            'pt': {
+                'VPN stopped unexpectedly – kill switch active': 'VPN parada inesperadamente – kill switch ativo',
+                'Connected – VPN and kill switch active': 'Ligado – VPN e kill switch ativos',
+                'Tunnel active – protection incomplete': 'Túnel ativo – proteção incompleta',
+                'VPN status could not be verified safely': 'Não foi possível verificar o estado da VPN em segurança',
+                'IP and VPN protection': 'Proteção de IP e VPN',
+                'VPNBook – free OpenVPN, no account required': 'VPNBook – OpenVPN gratuito, sem conta',
+                'VPN status:': 'Estado da VPN:',
+                'Disconnected': 'Desligado',
+                'Connected': 'Ligado',
+                'Starting / connecting': 'A iniciar / a ligar',
+                'Open VPNBook configuration page': 'Abrir página de configuração VPNBook',
+                'Import OpenVPN profile (.ovpn or .zip)…': 'Importar perfil OpenVPN (.ovpn ou .zip)…',
+                'Connect': 'Ligar',
+                'Disconnect': 'Desligar',
+                'Check public IP': 'Verificar IP público',
+                'Selected server:': 'Servidor selecionado:',
+                'Profile:': 'Perfil:',
+                'No profile imported': 'Nenhum perfil importado',
+                'A VPNBook profile must be downloaded from the official page and imported. The current shared password is fetched automatically.': 'Descarregue e importe um perfil do site oficial VPNBook. A palavra-passe partilhada atual é obtida automaticamente.',
+                'VPNBook changes its shared password every one to two weeks. Import the profile again if authentication fails.': 'A VPNBook altera a palavra-passe partilhada a cada uma ou duas semanas. Importe novamente o perfil se a autenticação falhar.',
+                'VPN requires administrator approval. The kill switch blocks all traffic outside the VPN tunnel, including IPv6, and normal networking is restored when you disconnect.': 'A VPN requer autorização de administrador. O kill switch bloqueia todo o tráfego fora do túnel VPN, incluindo IPv6, e restaura a rede normal ao desligar.',
+                'VPN profile imported. You can connect now.': 'Perfil VPN importado. Já pode ligar-se.',
+                'Could not retrieve the current VPNBook credentials. Check your internet connection and try again.': 'Não foi possível obter as credenciais atuais da VPNBook. Verifique a ligação à Internet.',
+                'OpenVPN is not installed. Install the openvpn package and reopen LunaSurfer.': 'O OpenVPN não está instalado. Instale o pacote openvpn e reinicie o LunaSurfer.',
+                'The pkexec authorization tool is missing. Install the pkexec package.': 'A ferramenta pkexec está em falta. Instale o pacote pkexec.',
+                'VPN profile import failed: ': 'Falha ao importar o perfil VPN: ',
+                'VPN connection could not be started: ': 'Não foi possível iniciar a ligação VPN: ',
+                'VPN disconnect failed: ': 'Falha ao desligar a VPN: ',
+                'Public IP: ': 'IP público: ',
+                'Could not determine the public IP address.': 'Não foi possível determinar o IP público.',
+                'Choose VPNBook profile': 'Escolher perfil VPNBook',
+                'Select an OpenVPN profile': 'Selecionar um perfil OpenVPN',
+                'VPN profile archive contains no .ovpn file.': 'O arquivo não contém nenhum ficheiro .ovpn.',
+                'VPN profile archive is invalid or unsafe.': 'O arquivo do perfil VPN é inválido ou inseguro.',
+                'Profile imported for ': 'Perfil importado para ',
+                'Open IP / DNS leak test': 'Abrir teste de fugas IP / DNS',
+                'No active VPN connection detected': 'Não foi detetada uma ligação VPN ativa',
+            },
+            'pl': {
+                'VPN stopped unexpectedly – kill switch active': 'VPN nieoczekiwanie zatrzymany – wyłącznik awaryjny aktywny',
+                'Connected – VPN and kill switch active': 'Połączono – VPN i wyłącznik awaryjny aktywne',
+                'Tunnel active – protection incomplete': 'Tunel aktywny – ochrona niepełna',
+                'VPN status could not be verified safely': 'Nie można bezpiecznie zweryfikować stanu VPN',
+                'IP and VPN protection': 'Ochrona IP i VPN',
+                'VPNBook – free OpenVPN, no account required': 'VPNBook – darmowy OpenVPN, bez konta',
+                'VPN status:': 'Stan VPN:',
+                'Disconnected': 'Rozłączono',
+                'Connected': 'Połączono',
+                'Starting / connecting': 'Uruchamianie / łączenie',
+                'Open VPNBook configuration page': 'Otwórz stronę konfiguracji VPNBook',
+                'Import OpenVPN profile (.ovpn or .zip)…': 'Importuj profil OpenVPN (.ovpn lub .zip)…',
+                'Connect': 'Połącz',
+                'Disconnect': 'Rozłącz',
+                'Check public IP': 'Sprawdź publiczny adres IP',
+                'Selected server:': 'Wybrany serwer:',
+                'Profile:': 'Profil:',
+                'No profile imported': 'Nie zaimportowano profilu',
+                'A VPNBook profile must be downloaded from the official page and imported. The current shared password is fetched automatically.': 'Pobierz i zaimportuj profil z oficjalnej strony VPNBook. Aktualne wspólne hasło jest pobierane automatycznie.',
+                'VPNBook changes its shared password every one to two weeks. Import the profile again if authentication fails.': 'VPNBook zmienia wspólne hasło co jeden lub dwa tygodnie. W razie błędu uwierzytelniania zaimportuj profil ponownie.',
+                'VPN requires administrator approval. The kill switch blocks all traffic outside the VPN tunnel, including IPv6, and normal networking is restored when you disconnect.': 'VPN wymaga zgody administratora. Wyłącznik awaryjny blokuje cały ruch poza tunelem VPN, w tym IPv6, i przywraca normalną sieć po rozłączeniu.',
+                'VPN profile imported. You can connect now.': 'Profil VPN zaimportowano. Możesz się teraz połączyć.',
+                'Could not retrieve the current VPNBook credentials. Check your internet connection and try again.': 'Nie można pobrać aktualnych danych VPNBook. Sprawdź połączenie internetowe.',
+                'OpenVPN is not installed. Install the openvpn package and reopen LunaSurfer.': 'OpenVPN nie jest zainstalowany. Zainstaluj pakiet openvpn i uruchom ponownie LunaSurfer.',
+                'The pkexec authorization tool is missing. Install the pkexec package.': 'Brakuje narzędzia pkexec. Zainstaluj pakiet pkexec.',
+                'VPN profile import failed: ': 'Nie udało się zaimportować profilu VPN: ',
+                'VPN connection could not be started: ': 'Nie udało się uruchomić połączenia VPN: ',
+                'VPN disconnect failed: ': 'Nie udało się rozłączyć VPN: ',
+                'Public IP: ': 'Publiczny adres IP: ',
+                'Could not determine the public IP address.': 'Nie można ustalić publicznego adresu IP.',
+                'Choose VPNBook profile': 'Wybierz profil VPNBook',
+                'Select an OpenVPN profile': 'Wybierz profil OpenVPN',
+                'VPN profile archive contains no .ovpn file.': 'Archiwum nie zawiera pliku .ovpn.',
+                'VPN profile archive is invalid or unsafe.': 'Archiwum profilu VPN jest nieprawidłowe lub niebezpieczne.',
+                'Profile imported for ': 'Profil zaimportowano dla ',
+                'Open IP / DNS leak test': 'Otwórz test wycieku IP / DNS',
+                'No active VPN connection detected': 'Nie wykryto aktywnego połączenia VPN',
+            },
+            'ru': {
+                'VPN stopped unexpectedly – kill switch active': 'VPN неожиданно остановлен — аварийная блокировка активна',
+                'Connected – VPN and kill switch active': 'Подключено — VPN и аварийная блокировка активны',
+                'Tunnel active – protection incomplete': 'Туннель активен — защита неполная',
+                'VPN status could not be verified safely': 'Не удалось безопасно проверить состояние VPN',
+                'IP and VPN protection': 'Защита IP и VPN',
+                'VPNBook – free OpenVPN, no account required': 'VPNBook — бесплатный OpenVPN, без учётной записи',
+                'VPN status:': 'Состояние VPN:',
+                'Disconnected': 'Отключено',
+                'Connected': 'Подключено',
+                'Starting / connecting': 'Запуск / подключение',
+                'Open VPNBook configuration page': 'Открыть страницу конфигурации VPNBook',
+                'Import OpenVPN profile (.ovpn or .zip)…': 'Импортировать профиль OpenVPN (.ovpn или .zip)…',
+                'Connect': 'Подключить',
+                'Disconnect': 'Отключить',
+                'Check public IP': 'Проверить публичный IP',
+                'Selected server:': 'Выбранный сервер:',
+                'Profile:': 'Профиль:',
+                'No profile imported': 'Профиль не импортирован',
+                'A VPNBook profile must be downloaded from the official page and imported. The current shared password is fetched automatically.': 'Загрузите и импортируйте профиль с официального сайта VPNBook. Текущий общий пароль загружается автоматически.',
+                'VPNBook changes its shared password every one to two weeks. Import the profile again if authentication fails.': 'VPNBook меняет общий пароль каждые одну-две недели. Если вход не удался, импортируйте профиль заново.',
+                'VPN requires administrator approval. The kill switch blocks all traffic outside the VPN tunnel, including IPv6, and normal networking is restored when you disconnect.': 'Для VPN требуется разрешение администратора. Аварийная блокировка запрещает весь трафик вне VPN-туннеля, включая IPv6, и восстанавливает обычную сеть после отключения.',
+                'VPN profile imported. You can connect now.': 'Профиль VPN импортирован. Теперь можно подключиться.',
+                'Could not retrieve the current VPNBook credentials. Check your internet connection and try again.': 'Не удалось получить текущие данные VPNBook. Проверьте подключение к Интернету.',
+                'OpenVPN is not installed. Install the openvpn package and reopen LunaSurfer.': 'OpenVPN не установлен. Установите пакет openvpn и перезапустите LunaSurfer.',
+                'The pkexec authorization tool is missing. Install the pkexec package.': 'Отсутствует pkexec. Установите пакет pkexec.',
+                'VPN profile import failed: ': 'Не удалось импортировать профиль VPN: ',
+                'VPN connection could not be started: ': 'Не удалось запустить VPN-подключение: ',
+                'VPN disconnect failed: ': 'Не удалось отключить VPN: ',
+                'Public IP: ': 'Публичный IP: ',
+                'Could not determine the public IP address.': 'Не удалось определить публичный IP-адрес.',
+                'Choose VPNBook profile': 'Выбрать профиль VPNBook',
+                'Select an OpenVPN profile': 'Выбрать профиль OpenVPN',
+                'VPN profile archive contains no .ovpn file.': 'В архиве нет файла .ovpn.',
+                'VPN profile archive is invalid or unsafe.': 'Архив профиля VPN повреждён или небезопасен.',
+                'Profile imported for ': 'Профиль импортирован для ',
+                'Open IP / DNS leak test': 'Открыть тест утечки IP / DNS',
+                'No active VPN connection detected': 'Активное VPN-подключение не обнаружено',
+            },
+            'tr': {
+                'VPN stopped unexpectedly – kill switch active': 'VPN beklenmedik şekilde durdu – kill switch etkin',
+                'Connected – VPN and kill switch active': 'Bağlandı – VPN ve kill switch etkin',
+                'Tunnel active – protection incomplete': 'Tünel etkin – koruma eksik',
+                'VPN status could not be verified safely': 'VPN durumu güvenli şekilde doğrulanamadı',
+                'IP and VPN protection': 'IP ve VPN koruması',
+                'VPNBook – free OpenVPN, no account required': 'VPNBook – ücretsiz OpenVPN, hesap gerekmez',
+                'VPN status:': 'VPN durumu:',
+                'Disconnected': 'Bağlı değil',
+                'Connected': 'Bağlandı',
+                'Starting / connecting': 'Başlatılıyor / bağlanıyor',
+                'Open VPNBook configuration page': 'VPNBook yapılandırma sayfasını aç',
+                'Import OpenVPN profile (.ovpn or .zip)…': 'OpenVPN profili içe aktar (.ovpn veya .zip)…',
+                'Connect': 'Bağlan',
+                'Disconnect': 'Bağlantıyı kes',
+                'Check public IP': 'Genel IP adresini denetle',
+                'Selected server:': 'Seçili sunucu:',
+                'Profile:': 'Profil:',
+                'No profile imported': 'Profil içe aktarılmadı',
+                'A VPNBook profile must be downloaded from the official page and imported. The current shared password is fetched automatically.': 'Resmî VPNBook sayfasından bir profil indirip içe aktarın. Güncel ortak parola otomatik alınır.',
+                'VPNBook changes its shared password every one to two weeks. Import the profile again if authentication fails.': 'VPNBook ortak parolasını bir veya iki haftada bir değiştirir. Kimlik doğrulama başarısız olursa profili yeniden içe aktarın.',
+                'VPN requires administrator approval. The kill switch blocks all traffic outside the VPN tunnel, including IPv6, and normal networking is restored when you disconnect.': 'VPN yönetici onayı gerektirir. Kill switch, IPv6 dahil VPN tüneli dışındaki tüm trafiği engeller ve bağlantıyı kestiğinizde normal ağı geri yükler.',
+                'VPN profile imported. You can connect now.': 'VPN profili içe aktarıldı. Şimdi bağlanabilirsiniz.',
+                'Could not retrieve the current VPNBook credentials. Check your internet connection and try again.': 'Güncel VPNBook kimlik bilgileri alınamadı. İnternet bağlantınızı kontrol edin.',
+                'OpenVPN is not installed. Install the openvpn package and reopen LunaSurfer.': 'OpenVPN yüklü değil. openvpn paketini yükleyip LunaSurfer’ı yeniden başlatın.',
+                'The pkexec authorization tool is missing. Install the pkexec package.': 'pkexec yetkilendirme aracı eksik. pkexec paketini yükleyin.',
+                'VPN profile import failed: ': 'VPN profili içe aktarılamadı: ',
+                'VPN connection could not be started: ': 'VPN bağlantısı başlatılamadı: ',
+                'VPN disconnect failed: ': 'VPN bağlantısı kesilemedi: ',
+                'Public IP: ': 'Genel IP: ',
+                'Could not determine the public IP address.': 'Genel IP adresi belirlenemedi.',
+                'Choose VPNBook profile': 'VPNBook profilini seç',
+                'Select an OpenVPN profile': 'Bir OpenVPN profili seç',
+                'VPN profile archive contains no .ovpn file.': 'VPN profil arşivinde .ovpn dosyası yok.',
+                'VPN profile archive is invalid or unsafe.': 'VPN profil arşivi geçersiz veya güvenli değil.',
+                'Profile imported for ': 'Şunun için profil içe aktarıldı: ',
+                'Open IP / DNS leak test': 'IP / DNS sızıntı testini aç',
+                'No active VPN connection detected': 'Etkin VPN bağlantısı algılanmadı',
+            },
+            'ja': {
+                'VPN stopped unexpectedly – kill switch active': 'VPNが予期せず停止しました – キルスイッチは有効です',
+                'Connected – VPN and kill switch active': '接続済み – VPNとキルスイッチは有効です',
+                'Tunnel active – protection incomplete': 'トンネルは有効ですが保護は不完全です',
+                'VPN status could not be verified safely': 'VPNの状態を安全に確認できませんでした',
+                'IP and VPN protection': 'IP・VPN保護',
+                'VPNBook – free OpenVPN, no account required': 'VPNBook – 無料OpenVPN、アカウント不要',
+                'VPN status:': 'VPN状態：',
+                'Disconnected': '未接続',
+                'Connected': '接続済み',
+                'Starting / connecting': '起動中 / 接続中',
+                'Open VPNBook configuration page': 'VPNBook設定ページを開く',
+                'Import OpenVPN profile (.ovpn or .zip)…': 'OpenVPNプロファイルをインポート (.ovpn / .zip)…',
+                'Connect': '接続',
+                'Disconnect': '切断',
+                'Check public IP': 'パブリックIPを確認',
+                'Selected server:': '選択したサーバー：',
+                'Profile:': 'プロファイル：',
+                'No profile imported': 'プロファイル未インポート',
+                'A VPNBook profile must be downloaded from the official page and imported. The current shared password is fetched automatically.': 'VPNBook公式ページからプロファイルをダウンロードしてインポートしてください。現在の共有パスワードは自動取得されます。',
+                'VPNBook changes its shared password every one to two weeks. Import the profile again if authentication fails.': 'VPNBookは共有パスワードを1～2週間ごとに変更します。認証に失敗した場合はプロファイルを再インポートしてください。',
+                'VPN requires administrator approval. The kill switch blocks all traffic outside the VPN tunnel, including IPv6, and normal networking is restored when you disconnect.': 'VPNには管理者の許可が必要です。キルスイッチはIPv6を含むVPNトンネル外の通信をすべて遮断し、切断時に通常のネットワークを復元します。',
+                'VPN profile imported. You can connect now.': 'VPNプロファイルをインポートしました。接続できます。',
+                'Could not retrieve the current VPNBook credentials. Check your internet connection and try again.': 'VPNBookの最新認証情報を取得できません。インターネット接続を確認してください。',
+                'OpenVPN is not installed. Install the openvpn package and reopen LunaSurfer.': 'OpenVPNがインストールされていません。openvpnパッケージをインストールしてLunaSurferを再起動してください。',
+                'The pkexec authorization tool is missing. Install the pkexec package.': '認証ツールpkexecがありません。pkexecパッケージをインストールしてください。',
+                'VPN profile import failed: ': 'VPNプロファイルのインポートに失敗しました：',
+                'VPN connection could not be started: ': 'VPN接続を開始できませんでした：',
+                'VPN disconnect failed: ': 'VPN切断に失敗しました：',
+                'Public IP: ': 'パブリックIP：',
+                'Could not determine the public IP address.': 'パブリックIPアドレスを確認できませんでした。',
+                'Choose VPNBook profile': 'VPNBookプロファイルを選択',
+                'Select an OpenVPN profile': 'OpenVPNプロファイルを選択',
+                'VPN profile archive contains no .ovpn file.': 'VPNプロファイルアーカイブに.ovpnファイルがありません。',
+                'VPN profile archive is invalid or unsafe.': 'VPNプロファイルアーカイブが無効または安全ではありません。',
+                'Profile imported for ': 'プロファイルをインポートしました：',
+                'Open IP / DNS leak test': 'IP / DNS漏えいテストを開く',
+                'No active VPN connection detected': '有効なVPN接続が検出されません',
+            },
+            'zh-CN': {
+                'IP and VPN protection': 'IP 和 VPN 保护',
+                'VPNBook – free OpenVPN, no account required': 'VPNBook – 免费 OpenVPN，无需账户',
+                'VPN status:': 'VPN 状态：',
+                'Disconnected': '未连接',
+                'Connected': '已连接',
+                'Starting / connecting': '正在启动 / 连接',
+                'Open VPNBook configuration page': '打开 VPNBook 配置页面',
+                'Import OpenVPN profile (.ovpn or .zip)…': '导入 OpenVPN 配置文件（.ovpn 或 .zip）…',
+                'Connect': '连接',
+                'Disconnect': '断开',
+                'Check public IP': '检查公网 IP',
+                'Selected server:': '所选服务器：',
+                'Profile:': '配置文件：',
+                'No profile imported': '尚未导入配置文件',
+                'A VPNBook profile must be downloaded from the official page and imported. The current shared password is fetched automatically.': '请从 VPNBook 官方页面下载并导入配置文件。系统会自动获取当前共享密码。',
+                'VPNBook changes its shared password every one to two weeks. Import the profile again if authentication fails.': 'VPNBook 每一到两周更改一次共享密码。如果身份验证失败，请重新导入配置文件。',
+                'VPN requires administrator approval. The kill switch blocks all traffic outside the VPN tunnel, including IPv6, and normal networking is restored when you disconnect.': 'VPN 需要管理员授权。终止开关会阻止所有未经过 VPN 隧道的流量（包括 IPv6）；主动断开时会恢复正常网络。',
+                'VPN profile imported. You can connect now.': 'VPN 配置文件已导入。现在可以连接。',
+                'Could not retrieve the current VPNBook credentials. Check your internet connection and try again.': '无法获取当前 VPNBook 凭据。请检查网络连接后重试。',
+                'OpenVPN is not installed. Install the openvpn package and reopen LunaSurfer.': '未安装 OpenVPN。请安装 openvpn 软件包并重新启动 LunaSurfer。',
+                'The pkexec authorization tool is missing. Install the pkexec package.': '缺少 pkexec 授权工具。请安装 pkexec 软件包。',
+                'VPN profile import failed: ': 'VPN 配置文件导入失败：',
+                'VPN connection could not be started: ': '无法启动 VPN 连接：',
+                'VPN disconnect failed: ': 'VPN 断开失败：',
+                'Public IP: ': '公网 IP：',
+                'Could not determine the public IP address.': '无法确定公网 IP 地址。',
+                'Choose VPNBook profile': '选择 VPNBook 配置文件',
+                'Select an OpenVPN profile': '选择 OpenVPN 配置文件',
+                'VPN profile archive contains no .ovpn file.': 'VPN 配置压缩包中没有 .ovpn 文件。',
+                'VPN profile archive is invalid or unsafe.': 'VPN 配置压缩包无效或不安全。',
+                'Profile imported for ': '已导入配置文件：',
+                'Open IP / DNS leak test': '打开 IP / DNS 泄漏测试',
+                'No active VPN connection detected': '未检测到活动的 VPN 连接',
+            },
+        }
+        vpn_extra_labels = {
+            'de': {'OpenVPN not installed': 'OpenVPN nicht installiert', 'Please import a VPNBook OpenVPN profile first.': 'Bitte zuerst ein VPNBook-OpenVPN-Profil importieren.', 'VPN profile archive is too large.': 'Das VPN-Profilarchiv ist zu groß.', 'Checking public IP …': 'Öffentliche IP wird geprüft …', 'Note: the leak test opens an external test page in the browser.': 'Hinweis: Der Leak-Test öffnet eine externe Prüfseite im Browser.', 'Germany – de20': 'Deutschland – de20', 'Germany – de220': 'Deutschland – de220', 'France – fr200': 'Frankreich – fr200', 'France – fr231': 'Frankreich – fr231', 'United Kingdom – uk205': 'Großbritannien – uk205', 'United Kingdom – uk68': 'Großbritannien – uk68', 'United States – us16': 'USA – us16', 'United States – us178': 'USA – us178', 'Canada – ca149': 'Kanada – ca149', 'Canada – ca196': 'Kanada – ca196'},
+            'en': {'OpenVPN not installed': 'OpenVPN not installed', 'Please import a VPNBook OpenVPN profile first.': 'Please import a VPNBook OpenVPN profile first.', 'VPN profile archive is too large.': 'VPN profile archive is too large.', 'Checking public IP …': 'Checking public IP …', 'Note: the leak test opens an external test page in the browser.': 'Note: the leak test opens an external test page in the browser.', 'Germany – de20': 'Germany – de20', 'Germany – de220': 'Germany – de220', 'France – fr200': 'France – fr200', 'France – fr231': 'France – fr231', 'United Kingdom – uk205': 'United Kingdom – uk205', 'United Kingdom – uk68': 'United Kingdom – uk68', 'United States – us16': 'United States – us16', 'United States – us178': 'United States – us178', 'Canada – ca149': 'Canada – ca149', 'Canada – ca196': 'Canada – ca196'},
+            'fr': {'OpenVPN not installed': 'OpenVPN non installé', 'Please import a VPNBook OpenVPN profile first.': 'Veuillez d’abord importer un profil OpenVPN VPNBook.', 'VPN profile archive is too large.': 'L’archive du profil VPN est trop volumineuse.', 'Checking public IP …': 'Vérification de l’IP publique…', 'Note: the leak test opens an external test page in the browser.': 'Remarque : le test de fuite ouvre une page externe dans le navigateur.', 'Germany – de20': 'Allemagne – de20', 'Germany – de220': 'Allemagne – de220', 'France – fr200': 'France – fr200', 'France – fr231': 'France – fr231', 'United Kingdom – uk205': 'Royaume-Uni – uk205', 'United Kingdom – uk68': 'Royaume-Uni – uk68', 'United States – us16': 'États-Unis – us16', 'United States – us178': 'États-Unis – us178', 'Canada – ca149': 'Canada – ca149', 'Canada – ca196': 'Canada – ca196'},
+            'it': {'OpenVPN not installed': 'OpenVPN non installato', 'Please import a VPNBook OpenVPN profile first.': 'Importa prima un profilo OpenVPN VPNBook.', 'VPN profile archive is too large.': 'L’archivio del profilo VPN è troppo grande.', 'Checking public IP …': 'Verifica dell’IP pubblico…', 'Note: the leak test opens an external test page in the browser.': 'Nota: il test delle perdite apre una pagina esterna nel browser.', 'Germany – de20': 'Germania – de20', 'Germany – de220': 'Germania – de220', 'France – fr200': 'Francia – fr200', 'France – fr231': 'Francia – fr231', 'United Kingdom – uk205': 'Regno Unito – uk205', 'United Kingdom – uk68': 'Regno Unito – uk68', 'United States – us16': 'Stati Uniti – us16', 'United States – us178': 'Stati Uniti – us178', 'Canada – ca149': 'Canada – ca149', 'Canada – ca196': 'Canada – ca196'},
+            'nl': {'OpenVPN not installed': 'OpenVPN niet geïnstalleerd', 'Please import a VPNBook OpenVPN profile first.': 'Importeer eerst een VPNBook-OpenVPN-profiel.', 'VPN profile archive is too large.': 'Het VPN-profielarchief is te groot.', 'Checking public IP …': 'Openbaar IP wordt gecontroleerd…', 'Note: the leak test opens an external test page in the browser.': 'Let op: de lektest opent een externe testpagina in de browser.', 'Germany – de20': 'Duitsland – de20', 'Germany – de220': 'Duitsland – de220', 'France – fr200': 'Frankrijk – fr200', 'France – fr231': 'Frankrijk – fr231', 'United Kingdom – uk205': 'Verenigd Koninkrijk – uk205', 'United Kingdom – uk68': 'Verenigd Koninkrijk – uk68', 'United States – us16': 'Verenigde Staten – us16', 'United States – us178': 'Verenigde Staten – us178', 'Canada – ca149': 'Canada – ca149', 'Canada – ca196': 'Canada – ca196'},
+            'es': {'OpenVPN not installed': 'OpenVPN no está instalado', 'Please import a VPNBook OpenVPN profile first.': 'Primero importa un perfil OpenVPN de VPNBook.', 'VPN profile archive is too large.': 'El archivo del perfil VPN es demasiado grande.', 'Checking public IP …': 'Comprobando IP pública…', 'Note: the leak test opens an external test page in the browser.': 'Nota: la prueba de fugas abre una página externa en el navegador.', 'Germany – de20': 'Alemania – de20', 'Germany – de220': 'Alemania – de220', 'France – fr200': 'Francia – fr200', 'France – fr231': 'Francia – fr231', 'United Kingdom – uk205': 'Reino Unido – uk205', 'United Kingdom – uk68': 'Reino Unido – uk68', 'United States – us16': 'Estados Unidos – us16', 'United States – us178': 'Estados Unidos – us178', 'Canada – ca149': 'Canadá – ca149', 'Canada – ca196': 'Canadá – ca196'},
+            'pt': {'OpenVPN not installed': 'OpenVPN não está instalado', 'Please import a VPNBook OpenVPN profile first.': 'Importe primeiro um perfil OpenVPN da VPNBook.', 'VPN profile archive is too large.': 'O arquivo do perfil VPN é demasiado grande.', 'Checking public IP …': 'A verificar o IP público…', 'Note: the leak test opens an external test page in the browser.': 'Nota: o teste de fugas abre uma página externa no navegador.', 'Germany – de20': 'Alemanha – de20', 'Germany – de220': 'Alemanha – de220', 'France – fr200': 'França – fr200', 'France – fr231': 'França – fr231', 'United Kingdom – uk205': 'Reino Unido – uk205', 'United Kingdom – uk68': 'Reino Unido – uk68', 'United States – us16': 'Estados Unidos – us16', 'United States – us178': 'Estados Unidos – us178', 'Canada – ca149': 'Canadá – ca149', 'Canada – ca196': 'Canadá – ca196'},
+            'pl': {'OpenVPN not installed': 'OpenVPN nie jest zainstalowany', 'Please import a VPNBook OpenVPN profile first.': 'Najpierw zaimportuj profil OpenVPN VPNBook.', 'VPN profile archive is too large.': 'Archiwum profilu VPN jest zbyt duże.', 'Checking public IP …': 'Sprawdzanie publicznego adresu IP…', 'Note: the leak test opens an external test page in the browser.': 'Uwaga: test wycieku otwiera zewnętrzną stronę testową w przeglądarce.', 'Germany – de20': 'Niemcy – de20', 'Germany – de220': 'Niemcy – de220', 'France – fr200': 'Francja – fr200', 'France – fr231': 'Francja – fr231', 'United Kingdom – uk205': 'Wielka Brytania – uk205', 'United Kingdom – uk68': 'Wielka Brytania – uk68', 'United States – us16': 'USA – us16', 'United States – us178': 'USA – us178', 'Canada – ca149': 'Kanada – ca149', 'Canada – ca196': 'Kanada – ca196'},
+            'ru': {'OpenVPN not installed': 'OpenVPN не установлен', 'Please import a VPNBook OpenVPN profile first.': 'Сначала импортируйте профиль OpenVPN VPNBook.', 'VPN profile archive is too large.': 'Архив профиля VPN слишком велик.', 'Checking public IP …': 'Проверка публичного IP…', 'Note: the leak test opens an external test page in the browser.': 'Примечание: тест утечки откроет внешнюю страницу в браузере.', 'Germany – de20': 'Германия – de20', 'Germany – de220': 'Германия – de220', 'France – fr200': 'Франция – fr200', 'France – fr231': 'Франция – fr231', 'United Kingdom – uk205': 'Великобритания – uk205', 'United Kingdom – uk68': 'Великобритания – uk68', 'United States – us16': 'США – us16', 'United States – us178': 'США – us178', 'Canada – ca149': 'Канада – ca149', 'Canada – ca196': 'Канада – ca196'},
+            'tr': {'OpenVPN not installed': 'OpenVPN yüklü değil', 'Please import a VPNBook OpenVPN profile first.': 'Önce bir VPNBook OpenVPN profili içe aktarın.', 'VPN profile archive is too large.': 'VPN profil arşivi çok büyük.', 'Checking public IP …': 'Genel IP denetleniyor…', 'Note: the leak test opens an external test page in the browser.': 'Not: sızıntı testi tarayıcıda harici bir test sayfası açar.', 'Germany – de20': 'Almanya – de20', 'Germany – de220': 'Almanya – de220', 'France – fr200': 'Fransa – fr200', 'France – fr231': 'Fransa – fr231', 'United Kingdom – uk205': 'Birleşik Krallık – uk205', 'United Kingdom – uk68': 'Birleşik Krallık – uk68', 'United States – us16': 'ABD – us16', 'United States – us178': 'ABD – us178', 'Canada – ca149': 'Kanada – ca149', 'Canada – ca196': 'Kanada – ca196'},
+            'ja': {'OpenVPN not installed': 'OpenVPNがインストールされていません', 'Please import a VPNBook OpenVPN profile first.': '先にVPNBookのOpenVPNプロファイルをインポートしてください。', 'VPN profile archive is too large.': 'VPNプロファイルアーカイブが大きすぎます。', 'Checking public IP …': 'パブリックIPを確認中…', 'Note: the leak test opens an external test page in the browser.': '注：漏えいテストはブラウザーで外部ページを開きます。', 'Germany – de20': 'ドイツ – de20', 'Germany – de220': 'ドイツ – de220', 'France – fr200': 'フランス – fr200', 'France – fr231': 'フランス – fr231', 'United Kingdom – uk205': '英国 – uk205', 'United Kingdom – uk68': '英国 – uk68', 'United States – us16': '米国 – us16', 'United States – us178': '米国 – us178', 'Canada – ca149': 'カナダ – ca149', 'Canada – ca196': 'カナダ – ca196'},
+            'zh-CN': {'OpenVPN not installed': '未安装 OpenVPN', 'Please import a VPNBook OpenVPN profile first.': '请先导入 VPNBook OpenVPN 配置文件。', 'VPN profile archive is too large.': 'VPN 配置压缩包过大。', 'Checking public IP …': '正在检查公网 IP…', 'Note: the leak test opens an external test page in the browser.': '注意：泄漏测试会在浏览器中打开外部测试页面。', 'Germany – de20': '德国 – de20', 'Germany – de220': '德国 – de220', 'France – fr200': '法国 – fr200', 'France – fr231': '法国 – fr231', 'United Kingdom – uk205': '英国 – uk205', 'United Kingdom – uk68': '英国 – uk68', 'United States – us16': '美国 – us16', 'United States – us178': '美国 – us178', 'Canada – ca149': '加拿大 – ca149', 'Canada – ca196': '加拿大 – ca196'},
+        }
+        vpn_status_labels = {
+            'de': {'VPN stopped unexpectedly – kill switch active': 'VPN abgebrochen – Kill-Switch aktiv', 'Connected – VPN and kill switch active': 'Verbunden – VPN und Kill-Switch aktiv', 'Tunnel active – protection incomplete': 'Tunnel aktiv – Schutz unvollständig', 'VPN status could not be verified safely': 'VPN-Status kann nicht sicher geprüft werden', 'Connected – VPN, kill switch and DNS protection active': 'Verbunden – VPN, Kill-Switch und DNS-Schutz aktiv', 'Tunnel active – DNS protection not verified': 'Tunnel aktiv – DNS-Schutz nicht bestätigt'},
+            'en': {'VPN stopped unexpectedly – kill switch active': 'VPN stopped unexpectedly – kill switch active', 'Connected – VPN and kill switch active': 'Connected – VPN and kill switch active', 'Tunnel active – protection incomplete': 'Tunnel active – protection incomplete', 'VPN status could not be verified safely': 'VPN status could not be verified safely', 'Connected – VPN, kill switch and DNS protection active': 'Connected – VPN, kill switch and DNS protection active', 'Tunnel active – DNS protection not verified': 'Tunnel active – DNS protection not verified'},
+            'fr': {'VPN stopped unexpectedly – kill switch active': 'VPN interrompu inopinément – coupe-circuit actif', 'Connected – VPN and kill switch active': 'Connecté – VPN et coupe-circuit actifs', 'Tunnel active – protection incomplete': 'Tunnel actif – protection incomplète', 'VPN status could not be verified safely': 'Impossible de vérifier l’état du VPN en toute sécurité', 'Connected – VPN, kill switch and DNS protection active': 'Connecté – VPN, coupe-circuit et protection DNS actifs', 'Tunnel active – DNS protection not verified': 'Tunnel actif – protection DNS non vérifiée'},
+            'it': {'VPN stopped unexpectedly – kill switch active': 'VPN interrotta inaspettatamente – kill switch attivo', 'Connected – VPN and kill switch active': 'Connesso – VPN e kill switch attivi', 'Tunnel active – protection incomplete': 'Tunnel attivo – protezione incompleta', 'VPN status could not be verified safely': 'Impossibile verificare lo stato VPN in sicurezza', 'Connected – VPN, kill switch and DNS protection active': 'Connesso – VPN, kill switch e protezione DNS attivi', 'Tunnel active – DNS protection not verified': 'Tunnel attivo – protezione DNS non verificata'},
+            'nl': {'VPN stopped unexpectedly – kill switch active': 'VPN onverwacht gestopt – kill switch actief', 'Connected – VPN and kill switch active': 'Verbonden – VPN en kill switch actief', 'Tunnel active – protection incomplete': 'Tunnel actief – bescherming onvolledig', 'VPN status could not be verified safely': 'VPN-status kon niet veilig worden gecontroleerd', 'Connected – VPN, kill switch and DNS protection active': 'Verbonden – VPN, kill switch en DNS-bescherming actief', 'Tunnel active – DNS protection not verified': 'Tunnel actief – DNS-bescherming niet bevestigd'},
+            'es': {'VPN stopped unexpectedly – kill switch active': 'VPN detenida inesperadamente – interruptor de corte activo', 'Connected – VPN and kill switch active': 'Conectado – VPN e interruptor de corte activos', 'Tunnel active – protection incomplete': 'Túnel activo – protección incompleta', 'VPN status could not be verified safely': 'No se pudo verificar el estado de la VPN de forma segura', 'Connected – VPN, kill switch and DNS protection active': 'Conectado – VPN, interruptor de corte y protección DNS activos', 'Tunnel active – DNS protection not verified': 'Túnel activo – protección DNS no verificada'},
+            'pt': {'VPN stopped unexpectedly – kill switch active': 'VPN parada inesperadamente – kill switch ativo', 'Connected – VPN and kill switch active': 'Ligado – VPN e kill switch ativos', 'Tunnel active – protection incomplete': 'Túnel ativo – proteção incompleta', 'VPN status could not be verified safely': 'Não foi possível verificar o estado da VPN em segurança', 'Connected – VPN, kill switch and DNS protection active': 'Ligado – VPN, kill switch e proteção DNS ativos', 'Tunnel active – DNS protection not verified': 'Túnel ativo – proteção DNS não confirmada'},
+            'pl': {'VPN stopped unexpectedly – kill switch active': 'VPN nieoczekiwanie zatrzymany – wyłącznik awaryjny aktywny', 'Connected – VPN and kill switch active': 'Połączono – VPN i wyłącznik awaryjny aktywne', 'Tunnel active – protection incomplete': 'Tunel aktywny – ochrona niepełna', 'VPN status could not be verified safely': 'Nie można bezpiecznie zweryfikować stanu VPN', 'Connected – VPN, kill switch and DNS protection active': 'Połączono – VPN, wyłącznik awaryjny i ochrona DNS aktywne', 'Tunnel active – DNS protection not verified': 'Tunel aktywny – ochrona DNS niepotwierdzona'},
+            'ru': {'VPN stopped unexpectedly – kill switch active': 'VPN неожиданно остановлен — аварийная блокировка активна', 'Connected – VPN and kill switch active': 'Подключено — VPN и аварийная блокировка активны', 'Tunnel active – protection incomplete': 'Туннель активен — защита неполная', 'VPN status could not be verified safely': 'Не удалось безопасно проверить состояние VPN', 'Connected – VPN, kill switch and DNS protection active': 'Подключено — VPN, аварийная блокировка и защита DNS активны', 'Tunnel active – DNS protection not verified': 'Туннель активен — защита DNS не подтверждена'},
+            'tr': {'VPN stopped unexpectedly – kill switch active': 'VPN beklenmedik şekilde durdu – kill switch etkin', 'Connected – VPN and kill switch active': 'Bağlandı – VPN ve kill switch etkin', 'Tunnel active – protection incomplete': 'Tünel etkin – koruma eksik', 'VPN status could not be verified safely': 'VPN durumu güvenli şekilde doğrulanamadı', 'Connected – VPN, kill switch and DNS protection active': 'Bağlandı – VPN, kill switch ve DNS koruması etkin', 'Tunnel active – DNS protection not verified': 'Tünel etkin – DNS koruması doğrulanmadı'},
+            'ja': {'VPN stopped unexpectedly – kill switch active': 'VPNが予期せず停止しました – キルスイッチは有効です', 'Connected – VPN and kill switch active': '接続済み – VPNとキルスイッチは有効です', 'Tunnel active – protection incomplete': 'トンネルは有効ですが保護は不完全です', 'VPN status could not be verified safely': 'VPNの状態を安全に確認できませんでした', 'Connected – VPN, kill switch and DNS protection active': '接続済み – VPN、キルスイッチ、DNS保護が有効', 'Tunnel active – DNS protection not verified': 'トンネルは有効ですがDNS保護を確認できません'},
+            'zh-CN': {'VPN stopped unexpectedly – kill switch active': 'VPN意外停止 — 网络终止开关已启用', 'Connected – VPN and kill switch active': '已连接 — VPN和网络终止开关均已启用', 'Tunnel active – protection incomplete': '隧道已启用 — 保护不完整', 'VPN status could not be verified safely': '无法安全验证VPN状态', 'Connected – VPN, kill switch and DNS protection active': '已连接 — VPN、终止开关和 DNS 保护均已启用', 'Tunnel active – DNS protection not verified': '隧道已启用 — 尚未确认 DNS 保护'},
+        }
+        for _lang, _labels in vpn_status_labels.items():
+            vpn_ui_labels[_lang].update(_labels)
+        for _lang, _labels in vpn_extra_labels.items():
+            vpn_ui_labels[_lang].update(_labels)
+        vpn_test_labels = {
+            'de': {'IP / WebRTC test': 'IP-/WebRTC-Test', 'DNS leak test': 'DNS-Leak-Test', 'IPv6 test': 'IPv6-Test', 'Note: leak tests open external test pages in the browser.': 'Hinweis: Die Lecktests öffnen externe Prüfseiten im Browser.'},
+            'en': {'IP / WebRTC test': 'IP / WebRTC test', 'DNS leak test': 'DNS leak test', 'IPv6 test': 'IPv6 test', 'Note: leak tests open external test pages in the browser.': 'Note: leak tests open external test pages in the browser.'},
+            'fr': {'IP / WebRTC test': 'Test IP / WebRTC', 'DNS leak test': 'Test de fuite DNS', 'IPv6 test': 'Test IPv6', 'Note: leak tests open external test pages in the browser.': 'Remarque : les tests de fuite ouvrent des pages externes dans le navigateur.'},
+            'it': {'IP / WebRTC test': 'Test IP / WebRTC', 'DNS leak test': 'Test perdite DNS', 'IPv6 test': 'Test IPv6', 'Note: leak tests open external test pages in the browser.': 'Nota: i test delle perdite aprono pagine esterne nel browser.'},
+            'nl': {'IP / WebRTC test': 'IP-/WebRTC-test', 'DNS leak test': 'DNS-lektest', 'IPv6 test': 'IPv6-test', 'Note: leak tests open external test pages in the browser.': 'Let op: de lektests openen externe testpagina’s in de browser.'},
+            'es': {'IP / WebRTC test': 'Prueba IP / WebRTC', 'DNS leak test': 'Prueba de fuga DNS', 'IPv6 test': 'Prueba IPv6', 'Note: leak tests open external test pages in the browser.': 'Nota: las pruebas de fugas abren páginas externas en el navegador.'},
+            'pt': {'IP / WebRTC test': 'Teste IP / WebRTC', 'DNS leak test': 'Teste de fuga DNS', 'IPv6 test': 'Teste IPv6', 'Note: leak tests open external test pages in the browser.': 'Nota: os testes de fugas abrem páginas externas no navegador.'},
+            'pl': {'IP / WebRTC test': 'Test IP / WebRTC', 'DNS leak test': 'Test wycieku DNS', 'IPv6 test': 'Test IPv6', 'Note: leak tests open external test pages in the browser.': 'Uwaga: testy wycieku otwierają zewnętrzne strony w przeglądarce.'},
+            'ru': {'IP / WebRTC test': 'Тест IP / WebRTC', 'DNS leak test': 'Тест утечки DNS', 'IPv6 test': 'Тест IPv6', 'Note: leak tests open external test pages in the browser.': 'Примечание: тесты утечки открывают внешние страницы в браузере.'},
+            'tr': {'IP / WebRTC test': 'IP / WebRTC testi', 'DNS leak test': 'DNS sızıntı testi', 'IPv6 test': 'IPv6 testi', 'Note: leak tests open external test pages in the browser.': 'Not: sızıntı testleri tarayıcıda harici test sayfaları açar.'},
+            'ja': {'IP / WebRTC test': 'IP / WebRTCテスト', 'DNS leak test': 'DNS漏えいテスト', 'IPv6 test': 'IPv6テスト', 'Note: leak tests open external test pages in the browser.': '注：漏えいテストはブラウザーで外部ページを開きます。'},
+            'zh-CN': {'IP / WebRTC test': 'IP / WebRTC 测试', 'DNS leak test': 'DNS 泄漏测试', 'IPv6 test': 'IPv6 测试', 'Note: leak tests open external test pages in the browser.': '注意：泄漏测试会在浏览器中打开外部测试页面。'},
+        }
+        for _lang, _labels in vpn_test_labels.items():
+            vpn_ui_labels[_lang].update(_labels)
+        vpn_server_change_labels = {
+            'de': 'Nach einem Serverwechsel bitte das Profil erneut importieren.',
+            'en': 'Re-import the profile after changing the server.',
+            'fr': 'Réimportez le profil après avoir changé de serveur.',
+            'it': 'Reimporta il profilo dopo aver cambiato server.',
+            'nl': 'Importeer het profiel opnieuw nadat u de server hebt gewijzigd.',
+            'es': 'Vuelve a importar el perfil después de cambiar de servidor.',
+            'pt': 'Volte a importar o perfil depois de mudar de servidor.',
+            'pl': 'Zaimportuj profil ponownie po zmianie serwera.',
+            'ru': 'После смены сервера импортируйте профиль повторно.',
+            'tr': 'Sunucuyu değiştirdikten sonra profili yeniden içe aktarın.',
+            'ja': 'サーバーを変更した後、プロファイルを再インポートしてください。',
+            'zh-CN': '更改服务器后，请重新导入配置文件。',
+        }
+        for _lang, _text in vpn_server_change_labels.items():
+            vpn_ui_labels[_lang]["Re-import the profile after changing the server."] = _text
+        if en in vpn_ui_labels.get(language, {}):
+            return vpn_ui_labels[language][en]
         protection_extra_labels = {
             "de": {"Update now": "Jetzt aktualisieren", "e.g. example-ads.com": "z. B. example-ads.com", "e.g. example.com; trusted.example": "z. B. example.com; trusted.example"},
             "en": {"Update now": "Update now", "e.g. example-ads.com": "e.g. example-ads.com", "e.g. example.com; trusted.example": "e.g. example.com; trusted.example"},
@@ -8477,7 +9007,7 @@ class LunaSurfer(QMainWindow):
         """Open the combined ad-blocker, filter-list and fingerprint panel."""
         dialog = QDialog(self)
         dialog.setWindowTitle(self.tr("Schutz & Privatsphäre", "Protection & privacy"))
-        dialog.resize(700, 610)
+        dialog.resize(890, 610)  # ca. 5 cm breiter bei 96 DPI
         # Explicit high-contrast styling: the application theme previously
         # left QLabel/QCheckBox text to the desktop palette, which could make
         # dark text appear on the dark privacy-panel background.
@@ -8748,6 +9278,94 @@ class LunaSurfer(QMainWindow):
         }
         tabs.addTab(threat_tab, self.tr("Webseitenschutz", "Website protection"))
 
+        # VPNBook OpenVPN integration. The actual tunnel is managed by the
+        # Debian openvpn-client@ systemd unit through a narrowly-scoped helper.
+        vpn_tab = QWidget(dialog)
+        vpn_layout = QVBoxLayout(vpn_tab)
+        vpn_layout.addWidget(QLabel(self.tr("VPNBook – kostenloses OpenVPN, kein Konto erforderlich", "VPNBook – free OpenVPN, no account required")))
+        vpn_status_row = QHBoxLayout()
+        vpn_status_row.addWidget(QLabel(self.tr("VPN-Status:", "VPN status:")))
+        vpn_status_label = QLabel()
+        self._vpnbook_set_status_label(vpn_status_label, self._vpn_connection_state_text())
+        vpn_status_row.addWidget(vpn_status_label, 1)
+        vpn_layout.addLayout(vpn_status_row)
+        vpn_layout.addWidget(QLabel(self.tr("Ausgewählter Server:", "Selected server:")))
+        vpn_server = QComboBox()
+        vpn_servers = [
+            (self.tr("Deutschland – de20", "Germany – de20"), "de20.vpnbook.com"),
+            (self.tr("Deutschland – de220", "Germany – de220"), "de220.vpnbook.com"),
+            (self.tr("Frankreich – fr200", "France – fr200"), "fr200.vpnbook.com"),
+            (self.tr("Frankreich – fr231", "France – fr231"), "fr231.vpnbook.com"),
+            (self.tr("Großbritannien – uk205", "United Kingdom – uk205"), "uk205.vpnbook.com"),
+            (self.tr("Großbritannien – uk68", "United Kingdom – uk68"), "uk68.vpnbook.com"),
+            (self.tr("USA – us16", "United States – us16"), "us16.vpnbook.com"),
+            (self.tr("USA – us178", "United States – us178"), "us178.vpnbook.com"),
+            (self.tr("Kanada – ca149", "Canada – ca149"), "ca149.vpnbook.com"),
+            (self.tr("Kanada – ca196", "Canada – ca196"), "ca196.vpnbook.com"),
+        ]
+        for label, host in vpn_servers:
+            vpn_server.addItem(label, host)
+        saved_server = self.settings_data.get("vpnbook_server", "de20.vpnbook.com")
+        vpn_server.setCurrentIndex(max(0, vpn_server.findData(saved_server)))
+        vpn_layout.addWidget(vpn_server)
+        vpn_profile_label = QLabel(self.settings_data.get("vpnbook_profile_name", self.tr("Kein Profil importiert", "No profile imported")))
+        vpn_profile_label.setWordWrap(True)
+        vpn_layout.addWidget(QLabel(self.tr("Profil:", "Profile:")))
+        vpn_layout.addWidget(vpn_profile_label)
+        vpn_info = QLabel(self.tr(
+            "Ein VPNBook-Profil muss von der offiziellen Seite heruntergeladen und importiert werden. Das aktuelle gemeinsame Passwort wird automatisch abgerufen.",
+            "A VPNBook profile must be downloaded from the official page and imported. The current shared password is fetched automatically."))
+        vpn_info.setWordWrap(True)
+        vpn_layout.addWidget(vpn_info)
+        vpn_warning = QLabel(self.tr(
+            "VPNBook ändert das gemeinsame Passwort alle ein bis zwei Wochen. Bei fehlgeschlagener Anmeldung das Profil erneut importieren.",
+            "VPNBook changes its shared password every one to two weeks. Import the profile again if authentication fails."))
+        vpn_warning.setWordWrap(True)
+        vpn_layout.addWidget(vpn_warning)
+        vpn_limits = QLabel(self.tr(
+            "Für VPN ist eine Administratorfreigabe erforderlich. Der Kill-Switch blockiert sämtlichen Verkehr außerhalb des VPN-Tunnels einschließlich IPv6. Beim bewussten Trennen wird die normale Netzwerkverbindung wiederhergestellt.",
+            "VPN requires administrator approval. The kill switch blocks all traffic outside the VPN tunnel, including IPv6, and normal networking is restored when you disconnect."))
+        vpn_limits.setWordWrap(True)
+        vpn_limits.setStyleSheet("color: #fbbf24;")
+        vpn_layout.addWidget(vpn_limits)
+        vpn_buttons_1 = QHBoxLayout()
+        vpn_open_page = QPushButton(self.tr("VPNBook-Konfigurationsseite öffnen", "Open VPNBook configuration page"))
+        vpn_import = QPushButton(self.tr("OpenVPN-Profil importieren (.ovpn oder .zip)…", "Import OpenVPN profile (.ovpn or .zip)…"))
+        vpn_buttons_1.addWidget(vpn_open_page)
+        vpn_buttons_1.addWidget(vpn_import)
+        vpn_layout.addLayout(vpn_buttons_1)
+        vpn_buttons_2 = QHBoxLayout()
+        vpn_connect = QPushButton(self.tr("Verbinden", "Connect"))
+        vpn_disconnect = QPushButton(self.tr("Trennen", "Disconnect"))
+        vpn_check_ip = QPushButton(self.tr("Öffentliche IP prüfen", "Check public IP"))
+        vpn_buttons_2.addWidget(vpn_connect)
+        vpn_buttons_2.addWidget(vpn_disconnect)
+        vpn_buttons_2.addWidget(vpn_check_ip)
+        vpn_layout.addLayout(vpn_buttons_2)
+        vpn_ip_label = QLabel("")
+        vpn_ip_label.setWordWrap(True)
+        vpn_layout.addWidget(vpn_ip_label)
+        vpn_test_row = QHBoxLayout()
+        vpn_ip_test = QPushButton(self.tr("IP-/WebRTC-Test", "IP / WebRTC test"))
+        vpn_dns_test = QPushButton(self.tr("DNS-Leak-Test", "DNS leak test"))
+        vpn_ipv6_test = QPushButton(self.tr("IPv6-Test", "IPv6 test"))
+        vpn_test_row.addWidget(vpn_ip_test)
+        vpn_test_row.addWidget(vpn_dns_test)
+        vpn_test_row.addWidget(vpn_ipv6_test)
+        vpn_layout.addLayout(vpn_test_row)
+        vpn_layout.addStretch(1)
+        vpn_open_page.clicked.connect(lambda: self.add_tab("https://www.vpnbook.com/freevpn/openvpn"))
+        vpn_import.clicked.connect(lambda: self._vpnbook_import_profile(vpn_server, vpn_profile_label, vpn_status_label))
+        vpn_connect.clicked.connect(lambda: self._vpnbook_connect(vpn_status_label, vpn_server))
+        vpn_disconnect.clicked.connect(lambda: self._vpnbook_disconnect(vpn_status_label))
+        vpn_check_ip.clicked.connect(lambda: self._vpnbook_check_public_ip(vpn_ip_label))
+        vpn_ip_test.clicked.connect(lambda: self.add_tab("https://browserleaks.com/webrtc"))
+        vpn_dns_test.clicked.connect(lambda: self.add_tab("https://dnsleaktest.com/"))
+        vpn_ipv6_test.clicked.connect(lambda: self.add_tab("https://test-ipv6.com/"))
+        self._vpn_dialog_labels = {"status": vpn_status_label, "profile": vpn_profile_label, "ip": vpn_ip_label}
+        vpn_layout.addWidget(QLabel(self.tr("Hinweis: Der Leak-Test öffnet eine externe Prüfseite im Browser.", "Note: leak tests open external test pages in the browser.")))
+        tabs.addTab(vpn_tab, self.tr("IP- und VPN-Schutz", "IP and VPN protection"))
+
         outer.addWidget(tabs)
         buttons = QHBoxLayout()
         buttons.addStretch(1)
@@ -8791,6 +9409,231 @@ class LunaSurfer(QMainWindow):
         cancel.clicked.connect(dialog.reject)
         dialog.exec()
         self._filter_update_dialog_labels = None
+
+    def _vpnbook_helper_path(self):
+        installed = pathlib.Path("/usr/lib/lunasurfer/lunasurfer-vpn-helper")
+        local = pathlib.Path(__file__).resolve().parent / "support" / "lunasurfer-vpn-helper"
+        return installed if installed.is_file() else local
+
+    def _vpnbook_credentials(self):
+        request = urllib.request.Request(
+            "https://www.vpnbook.com/freevpn/openvpn",
+            headers={"User-Agent": "LunaSurfer/0.3.61 VPNBook profile manager"})
+        with urllib.request.urlopen(request, timeout=20) as response:
+            page = response.read(2 * 1024 * 1024).decode("utf-8", "replace")
+        plain = re.sub(r"<[^>]+>", " ", page)
+        plain = re.sub(r"\s+", " ", html_module.unescape(plain))
+        match = re.search(r"Username\s+([A-Za-z0-9_]+).*?Password\s+([A-Za-z0-9]{5,32})", plain, re.I)
+        if not match or match.group(1).lower() != "vpnbook":
+            raise RuntimeError("VPNBook credentials were not found on the official page")
+        return match.group(1), match.group(2)
+
+    def _vpnbook_run_helper(self, *args):
+        helper = self._vpnbook_helper_path()
+        pkexec = shutil.which("pkexec")
+        if not pkexec:
+            raise RuntimeError(self.tr("Das Autorisierungsprogramm pkexec fehlt. Installiere das Paket pkexec.", "The pkexec authorization tool is missing. Install the pkexec package."))
+        if not helper.is_file():
+            raise RuntimeError("VPN helper is missing: " + str(helper))
+        result = subprocess.run([pkexec, str(helper), *map(str, args)], capture_output=True, text=True, timeout=90)
+        if result.returncode != 0:
+            message = (result.stderr or result.stdout or "Authorization cancelled or helper failed").strip()
+            raise RuntimeError(message[-1200:])
+        return result.stdout.strip()
+
+    def _vpn_connection_state_text(self):
+        if not shutil.which("openvpn"):
+            return self.tr("OpenVPN nicht installiert", "OpenVPN not installed")
+        try:
+            service = subprocess.run(["systemctl", "is-active", "--quiet", "lunasurfer-vpn.service"], timeout=4)
+            status_path = pathlib.Path("/run/lunasurfer-vpn-status.json")
+            snapshot = json.loads(status_path.read_text(encoding="utf-8")) if status_path.is_file() else {}
+            firewall = bool(snapshot.get("firewall_installed"))
+            tunnel = str(snapshot.get("tunnel_interface") or "")
+            if not re.fullmatch(r"tun[0-9]+", tunnel):
+                tunnel = ""
+            if service.returncode != 0:
+                if firewall:
+                    return self.tr("VPN abgebrochen – Kill-Switch aktiv", "VPN stopped unexpectedly – kill switch active")
+                return self.tr("Nicht verbunden", "Disconnected")
+
+            if not tunnel:
+                links = subprocess.run(["ip", "-o", "link", "show"], capture_output=True, text=True, timeout=4)
+                match = re.search(r"^\d+:\s+(tun\d+):", links.stdout or "", re.M)
+                tunnel = match.group(1) if match else ""
+            if not tunnel or not firewall:
+                return self.tr("Tunnel aktiv – Schutz unvollständig", "Tunnel active – protection incomplete")
+
+            # Verify the IPv4 default route and every configured DNS resolver
+            # without depending on resolvectl/systemd-resolved. Debian systems
+            # using openresolv are supported through their effective resolv.conf.
+            route = subprocess.run(["ip", "-4", "route", "get", "1.1.1.1"], capture_output=True, text=True, timeout=4)
+            if not re.search(r"\bdev\s+" + re.escape(tunnel) + r"\b", route.stdout or ""):
+                return self.tr("Tunnel aktiv – Schutz unvollständig", "Tunnel active – protection incomplete")
+
+            resolv_conf = pathlib.Path("/etc/resolv.conf")
+            dns_servers = []
+            try:
+                for line in resolv_conf.read_text(encoding="utf-8", errors="replace").splitlines():
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[0].lower() == "nameserver":
+                        try:
+                            ipaddress.ip_address(parts[1])
+                            dns_servers.append(parts[1])
+                        except ValueError:
+                            continue
+            except OSError:
+                dns_servers = []
+            if not dns_servers:
+                return self.tr("Tunnel aktiv – DNS-Schutz nicht bestätigt", "Tunnel active – DNS protection not verified")
+            for dns_server in dns_servers:
+                family = "-6" if ":" in dns_server else "-4"
+                dns_route = subprocess.run(["ip", family, "route", "get", dns_server], capture_output=True, text=True, timeout=4)
+                if dns_route.returncode != 0 or not re.search(r"\bdev\s+" + re.escape(tunnel) + r"\b", dns_route.stdout or ""):
+                    return self.tr("Tunnel aktiv – DNS-Schutz nicht bestätigt", "Tunnel active – DNS protection not verified")
+
+            return self.tr("Verbunden – VPN, Kill-Switch und DNS-Schutz aktiv", "Connected – VPN, kill switch and DNS protection active")
+        except Exception:
+            return self.tr("VPN-Status kann nicht sicher geprüft werden", "VPN status could not be verified safely")
+
+    def _vpnbook_set_status_label(self, label, text):
+        """Render VPN connection states with clear semantic colors."""
+        label.setText(text)
+        normalized = str(text).strip().casefold()
+        # Match localized status labels in all 12 supported UI languages.
+        disconnected_prefixes = (
+            "nicht verbunden", "disconnected", "déconnecté", "disconnesso",
+            "niet verbonden", "desconectado", "desligado", "rozłączono",
+            "отключено", "bağlı değil", "未接続", "未连接",
+            "openvpn nicht installiert", "openvpn not installed",
+        )
+        connected_prefixes = (
+            "verbunden", "connected", "connecté", "connesso", "verbonden",
+            "conectado", "ligado", "połączono", "подключено", "bağlandı",
+            "接続済み", "已连接",
+        )
+        if normalized.startswith(("vpn abgebrochen", "vpn stopped unexpectedly", "vpn interrompu", "vpn interrotta", "vpn onverwacht", "vpn detenida", "vpn parada", "vpn nieoczekiwanie", "vpn неожиданно", "vpn beklenmedik", "vpnが予期せず", "vpn意外停止")):
+            color = "#f59e0b"  # amber: tunnel down, kill switch remains active
+        elif normalized.startswith(disconnected_prefixes):
+            color = "#ef4444"  # red: disconnected
+        elif normalized.startswith(connected_prefixes):
+            color = "#22c55e"  # green: connected and protection verified
+        else:
+            color = "#c4b5fd"  # neutral: starting or protection state needs attention
+        label.setStyleSheet(f"font-weight: 700; color: {color};")
+
+    def _vpnbook_update_status(self, label=None):
+        target = label or (self._vpn_dialog_labels or {}).get("status")
+        if target is not None:
+            self._vpnbook_set_status_label(target, self._vpn_connection_state_text())
+
+    def _vpnbook_import_profile(self, server_combo, profile_label, status_label):
+        if not shutil.which("openvpn"):
+            QMessageBox.warning(self, self.tr("Fehler", "Error"), self.tr("OpenVPN ist nicht installiert. Installiere das Paket openvpn und starte LunaSurfer erneut.", "OpenVPN is not installed. Install the openvpn package and reopen LunaSurfer."))
+            return
+        selected, _ = QFileDialog.getOpenFileName(
+            self, self.tr("OpenVPN-Profil auswählen", "Select an OpenVPN profile"),
+            str(pathlib.Path.home() / "Downloads"),
+            "VPNBook profiles (*.ovpn *.zip);;OpenVPN profiles (*.ovpn);;ZIP archives (*.zip)")
+        if not selected:
+            return
+        source = pathlib.Path(selected)
+        try:
+            if source.suffix.lower() == ".zip":
+                target_dir = CONFIG_DIR / "vpnbook" / "profiles"
+                if target_dir.exists():
+                    shutil.rmtree(target_dir)
+                target_dir.mkdir(parents=True, exist_ok=True)
+                safe_root = target_dir.resolve()
+                with zipfile.ZipFile(source, "r") as archive:
+                    entries = archive.infolist()
+                    if len(entries) > 80 or sum(x.file_size for x in entries) > 8 * 1024 * 1024:
+                        raise RuntimeError(self.tr("VPN-Profilarchiv ist zu groß.", "VPN profile archive is too large."))
+                    for item in entries:
+                        name = pathlib.PurePosixPath(item.filename)
+                        if name.is_absolute() or ".." in name.parts or not name.parts:
+                            raise RuntimeError(self.tr("Das VPN-Profilarchiv ist ungültig oder unsicher.", "VPN profile archive is invalid or unsafe."))
+                        mode = (item.external_attr >> 16) & 0o170000
+                        if mode == 0o120000:
+                            raise RuntimeError(self.tr("Das VPN-Profilarchiv ist ungültig oder unsicher.", "VPN profile archive is invalid or unsafe."))
+                        destination = (target_dir / pathlib.Path(*name.parts)).resolve()
+                        if not destination.is_relative_to(safe_root):
+                            raise RuntimeError(self.tr("Das VPN-Profilarchiv ist ungültig oder unsicher.", "VPN profile archive is invalid or unsafe."))
+                        if item.is_dir():
+                            destination.mkdir(parents=True, exist_ok=True)
+                        else:
+                            destination.parent.mkdir(parents=True, exist_ok=True)
+                            with archive.open(item) as inp, open(destination, "wb") as out:
+                                shutil.copyfileobj(inp, out)
+                profiles = sorted(target_dir.rglob("*.ovpn"))
+                if not profiles:
+                    raise RuntimeError(self.tr("Das VPN-Profilarchiv enthält keine .ovpn-Datei.", "VPN profile archive contains no .ovpn file."))
+                if len(profiles) == 1:
+                    profile = profiles[0]
+                else:
+                    choices = [str(x.relative_to(target_dir)) for x in profiles]
+                    chosen, ok = QInputDialog.getItem(self, self.tr("VPNBook-Profil auswählen", "Choose VPNBook profile"), self.tr("OpenVPN-Profil auswählen", "Select an OpenVPN profile"), choices, 0, False)
+                    if not ok:
+                        return
+                    profile = target_dir / chosen
+            else:
+                profile = source
+            username, password = self._vpnbook_credentials()
+            vpn_dir = CONFIG_DIR / "vpnbook"
+            vpn_dir.mkdir(parents=True, exist_ok=True)
+            auth_file = vpn_dir / "vpnbook.auth"
+            auth_file.write_text(username + "\n" + password + "\n", encoding="utf-8")
+            os.chmod(auth_file, 0o600)
+            server = str(server_combo.currentData())
+            self._vpnbook_run_helper("install-profile", str(profile), str(auth_file), server)
+            self.settings_data["vpnbook_profile_imported"] = True
+            self.settings_data["vpnbook_server"] = server
+            self.settings_data["vpnbook_profile_name"] = profile.name
+            write_json(CONFIG_FILE, self.settings_data)
+            profile_label.setText(profile.name + " — " + server)
+            self._vpnbook_set_status_label(status_label, self._vpn_connection_state_text())
+            QMessageBox.information(self, self.tr("VPNBook", "VPNBook"), self.tr("VPN-Profil importiert. Du kannst dich jetzt verbinden.", "VPN profile imported. You can connect now."))
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Fehler", "Error"), self.tr("VPN-Profil konnte nicht importiert werden: ", "VPN profile import failed: ") + str(exc))
+
+    def _vpnbook_connect(self, status_label, server_combo):
+        if not shutil.which("openvpn"):
+            QMessageBox.warning(self, self.tr("Fehler", "Error"), self.tr("OpenVPN ist nicht installiert. Installiere das Paket openvpn und starte LunaSurfer erneut.", "OpenVPN is not installed. Install the openvpn package and reopen LunaSurfer."))
+            return
+        if not self.settings_data.get("vpnbook_profile_imported"):
+            QMessageBox.information(self, "VPNBook", self.tr("Bitte zuerst ein VPNBook-OpenVPN-Profil importieren.", "Please import a VPNBook OpenVPN profile first."))
+            return
+        if str(server_combo.currentData()) != str(self.settings_data.get("vpnbook_server", "de20.vpnbook.com")):
+            QMessageBox.information(self, "VPNBook", self.tr("Nach einem Serverwechsel bitte das Profil erneut importieren.", "Re-import the profile after changing the server."))
+            return
+        self._vpnbook_set_status_label(status_label, self.tr("Startet / verbindet", "Starting / connecting"))
+        QApplication.processEvents()
+        try:
+            self._vpnbook_run_helper("start")
+            self._vpnbook_update_status(status_label)
+        except Exception as exc:
+            self._vpnbook_set_status_label(status_label, self.tr("Nicht verbunden", "Disconnected"))
+            QMessageBox.warning(self, self.tr("Fehler", "Error"), self.tr("VPN-Verbindung konnte nicht gestartet werden: ", "VPN connection could not be started: ") + str(exc))
+
+    def _vpnbook_disconnect(self, status_label):
+        try:
+            self._vpnbook_run_helper("stop")
+            self._vpnbook_update_status(status_label)
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Fehler", "Error"), self.tr("VPN-Trennung fehlgeschlagen: ", "VPN disconnect failed: ") + str(exc))
+
+    def _vpnbook_check_public_ip(self, label):
+        label.setText(self.tr("Öffentliche IP wird geprüft …", "Checking public IP …"))
+        QApplication.processEvents()
+        try:
+            request = urllib.request.Request("https://api.ipify.org", headers={"User-Agent": "LunaSurfer/0.3.61"})
+            with urllib.request.urlopen(request, timeout=12) as response:
+                address = response.read(128).decode("ascii", "replace").strip()
+            if not re.fullmatch(r"[0-9a-fA-F:.]+", address):
+                raise RuntimeError("Unexpected IP response")
+            label.setText(self.tr("Öffentliche IP: ", "Public IP: ") + address)
+        except Exception:
+            label.setText(self.tr("Die öffentliche IP-Adresse konnte nicht ermittelt werden.", "Could not determine the public IP address."))
 
     def _restore_download_history_records(self, records):
         """Restore persistent download records on the GUI thread."""
@@ -11063,7 +11906,7 @@ class LunaSurfer(QMainWindow):
 <tr><td><b>F12</b></td><td>Shows or hides the Developer Tools panel. It is intended for diagnostics and advanced website inspection. The panel may contain technical information about the current page, requests and scripts.</td></tr></table>
 <p><b>Usage notes:</b> The LunaSurfer window must be active. Shortcuts are context-sensitive: while typing in a website field, the website or field may consume a key combination. Press F12 again to hide Developer Tools. Developer Tools are intended for advanced users; changing page code or storage can affect the current website session.</p>
 <h2>10. Troubleshooting and safety</h2><ul><li>If a website breaks, test whether JavaScript, cookies, pop-up blocking, ad blocking or fingerprint protection is responsible. Change one setting at a time.</li><li>If autofill does not appear, unlock the vault and check that an entry exists for the exact website.</li><li>If media does not play, check system codecs and browser compatibility. Protected streaming may require supported DRM components.</li><li>Check the domain before entering credentials. Keep LunaSurfer and Debian updated from trusted sources.</li></ul>
-<p class='tip'><b>Privacy note:</b> privacy controls reduce selected browser signals and requests; they do not make a user anonymous. Websites, network providers and the operating system may still process activity data.</p><p><i>Goldisoft · LunaSurfer 0.3.60</i></p>"""
+<p class='tip'><b>Privacy note:</b> privacy controls reduce selected browser signals and requests; they do not make a user anonymous. Websites, network providers and the operating system may still process activity data.</p><p><i>Goldisoft · LunaSurfer 0.3.61</i></p>"""
         elif self.settings_data.get("language", "de") == "fr":
             content = """<h1>LunaSurfer – Guide complet</h1>
 <p>Ce guide décrit le navigateur, les options de la page Paramètres et le panneau séparé Protection et confidentialité. Les noms correspondent à l’interface française.</p>
@@ -11693,7 +12536,7 @@ class LunaSurfer(QMainWindow):
 <tr><td><b>F12</b></td><td>Blendet das Fenster der Entwicklerwerkzeuge ein oder aus. Es dient zur Fehlersuche und zur erweiterten Untersuchung von Webseiten. Dort können technische Informationen zur aktuellen Seite, zu Netzwerkanfragen und Skripten angezeigt werden.</td></tr></table>
 <p><b>Hinweise zur Verwendung:</b> Das LunaSurfer-Fenster muss aktiv sein. Tastenkürzel hängen vom aktuellen Kontext ab: Beim Schreiben in einem Webseitenfeld kann die Website oder das Eingabefeld eine Tastenkombination selbst verarbeiten. Mit erneutem Drücken von F12 blendest du die Entwicklerwerkzeuge wieder aus. Die Entwicklerwerkzeuge richten sich an erfahrene Nutzer; Änderungen an Seitencode oder Speicher können die aktuelle Sitzung der Website beeinflussen.</p>
 <h2>10. Fehlerbehebung und Sicherheit</h2><ul><li>Wenn eine Website nicht funktioniert, prüfe JavaScript, Cookies, Pop-up-Blockierung, Werbeblocker und Fingerprint-Schutz. Ändere immer nur eine Einstellung auf einmal.</li><li>Wenn automatisches Ausfüllen nicht erscheint, entsperre den Tresor und prüfe, ob ein Eintrag für genau diese Website vorhanden ist.</li><li>Wenn Medien nicht abgespielt werden, prüfe System-Codecs und Browserkompatibilität. Geschützte Streams benötigen möglicherweise unterstützte DRM-Komponenten.</li><li>Prüfe die Domain, bevor du Zugangsdaten eingibst. Halte LunaSurfer und Debian über vertrauenswürdige Quellen aktuell.</li></ul>
-<p class='tip'><b>Hinweis zum Datenschutz:</b> Datenschutzfunktionen reduzieren ausgewählte Browser-Signale und Anfragen. Sie machen dich nicht anonym. Websites, Netzwerkanbieter und das Betriebssystem können weiterhin Nutzungsdaten verarbeiten.</p><p><i>Goldisoft · LunaSurfer 0.3.60</i></p>"""
+<p class='tip'><b>Hinweis zum Datenschutz:</b> Datenschutzfunktionen reduzieren ausgewählte Browser-Signale und Anfragen. Sie machen dich nicht anonym. Websites, Netzwerkanbieter und das Betriebssystem können weiterhin Nutzungsdaten verarbeiten.</p><p><i>Goldisoft · LunaSurfer 0.3.61</i></p>"""
         browser.setHtml("<!doctype html><html><head><meta charset='utf-8'>" + style + "</head><body>" + content + "</body></html>")
         layout.addWidget(browser)
         buttons = QHBoxLayout()
